@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../data/models/item_carrito_model.dart';
 import '../../state/providers/carrito_providers.dart';
+import 'cobro_screen.dart';
 
 class TicketScreen extends ConsumerWidget {
   const TicketScreen({super.key});
@@ -162,13 +163,10 @@ class TicketScreen extends ConsumerWidget {
                         elevation: 4,
                       ),
                       onPressed: () {
-                        // Próximo paso: Flujo de Pagos Mixtos y Cashback
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Abriendo módulo de Cobro y Pagos...',
-                              style: TextStyle(fontSize: 18),
-                            ),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CobroScreen(totalAPagar: totalMonto),
                           ),
                         );
                       },

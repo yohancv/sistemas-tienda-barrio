@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../punto_de_venta/state/providers/carrito_providers.dart';
 import '../../../punto_de_venta/ui/screens/ticket_screen.dart';
+import '../../../cierre_caja/ui/screens/cierre_caja_screen.dart';
 import '../../data/models/producto_model.dart';
 import '../../state/providers/inventario_providers.dart';
 
@@ -47,6 +48,20 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
         backgroundColor: AppColors.primary,
         elevation: 0,
         centerTitle: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.point_of_sale, size: 28, color: Colors.white),
+            tooltip: 'Cierre de Caja',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CierreCajaScreen(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(

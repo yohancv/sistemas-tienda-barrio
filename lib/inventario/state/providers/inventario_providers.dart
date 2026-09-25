@@ -15,8 +15,8 @@ final searchQueryProvider = StateProvider<String>((ref) => '');
 final productosListProvider = FutureProvider<List<Producto>>((ref) async {
   final repository = ref.watch(inventarioRepositoryProvider);
   final query = ref.watch(searchQueryProvider);
-  const tenantId = 'tenant-demo'; // Tenant temporal de trabajo Fase 1
-
+  //const tenantId = 'tenant-demo'; // Tenant temporal de trabajo Fase 1
+  const tenantId = SupabaseConfig.defaultTenantId;
   if (query.trim().isEmpty) {
     return repository.obtenerProductosActivos(tenantId);
   } else {
