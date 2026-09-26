@@ -52,8 +52,10 @@ Sistema integral de Punto de Venta (POS) y gestión operativa (ERP ligero) dise�
 ## 📦 5. Módulos y Funcionalidades Principales
 1. **Gestión de Inventario y Catálogo Mixto**:
    - Familias y categorías (licores, abarrotes, limpieza).
-   - **Desempaque Mayorista Automático**: Conversión de cajas/packs a unidades sueltas sin descuadre.
-   - Venta a granel / fraccionada (kilos, gramos).
+   - **Modelado de Empaques Mayoristas**: Cajas, paquetes six-pack, fardos/jabas, tiras, bolsas y kilos.
+   - **Venta Dual al Detalle**: Soporte para vender empaques enteros (ej. cajetilla) o unidades sueltas (ej. cigarrillos individuales) con descuento fraccional de inventario.
+   - **Venta a Granel y Balanza**: Modal táctil con recuadro directo de dinero, fracciones rápidas (1/4, 1/2, 3/4, 1 kg) y teclado desplegable para balanza física.
+   - **Lista de Reposición Inteligente**: Cálculo automático de compras sugeridas en empaques cerrados y kilos enteros para granel, con generador de pedidos directos a **WhatsApp**.
    - Alertas preventivas de caducidad y registro de **Bajas por Mermas** (roturas, vencimientos).
    - Búsqueda aproximada (**Fuzzy Search**) y lectura veloz por código de barras.
 2. **Punto de Venta (POS) & Registro Rápido**:
@@ -99,3 +101,4 @@ El contexto y especificaciones completas de este proyecto están sincronizados e
 - `#18 spec/functional-requirements`
 - `#19 architecture/ai-hybrid-specs`
 - `#20 architecture/security-rbac-audit`
+- `#21 docs/contexto_venta_fraccionada_empaques.md` (Venta Fraccionada, Venta Dual y Empaques Mayoristas)

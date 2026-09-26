@@ -13,6 +13,17 @@ class Producto {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  // Campos de empaque mayorista de compra
+  final String tipoEmpaque; // 'UNIDAD','CAJA','PAQUETE','FARDO','BOLSA','TIRA','KILO','LIBRA'
+  final double unidadesPorEmpaque;
+  final double costoPorEmpaque;
+
+  // Campos de venta dual al detalle (cigarrillos sueltos, pastillas, etc.)
+  final bool permiteVentaSuelta;
+  final String nombreUnidadSuelta; // 'cigarrillo','pastilla','rollo'
+  final double unidadesEnEmpaqueVenta; // ej. 20 cigarrillos por cajetilla
+  final double precioVentaSuelta; // ej. Bs. 1.00 por cigarrillo
+
   const Producto({
     required this.id,
     required this.tenantId,
@@ -27,10 +38,74 @@ class Producto {
     this.estadoActivo = true,
     required this.createdAt,
     required this.updatedAt,
+    this.tipoEmpaque = 'UNIDAD',
+    this.unidadesPorEmpaque = 1.0,
+    this.costoPorEmpaque = 0.0,
+    this.permiteVentaSuelta = false,
+    this.nombreUnidadSuelta = 'unidad',
+    this.unidadesEnEmpaqueVenta = 1.0,
+    this.precioVentaSuelta = 0.0,
   });
 
   /// Determina si el producto se vende a granel/fraccionable
   bool get esFraccionable => tipoUnidad == 'FRACCIONABLE';
+
+  /// Determina si el producto ha alcanzado o superado su nivel crítico de reposición
+  bool get esStockBajo => stockActual <= stockMinimo;
+
+  /// Calcula cuántas unidades faltan para alcanzar el stock mínimo configurado
+  double get unidadesFaltantes {
+    final faltante = stockMinimo - stockActual;
+    return faltante > 0 ? faltante : 0.0;
+  }
+
+  /// Indica si el producto se compra al proveedor en empaques cerrados (caja, paquete, fardo, etc.)
+  bool get tieneEmpaqueMayorista => tipoEmpaque != 'UNIDAD' && unidadesPorEmpaque > 1;
+
+  /// Calcula cuántos empaques mayoristas se necesitan para cubrir las unidades faltantes
+  double get empaquesFaltantes {
+    if (!tieneEmpaqueMayorista || unidadesPorEmpaque <= 0) return unidadesFaltantes;
+    return (unidadesFaltantes / unidadesPorEmpaque).ceilToDouble();
+  }
+
+  /// Costo unitario derivado del empaque cerrado (costo_empaque / unidades_por_empaque)
+  double get costoUnitarioDesdeEmpaque {
+    if (unidadesPorEmpaque <= 0) return costoMayorista;
+    return costoPorEmpaque > 0
+        ? costoPorEmpaque / unidadesPorEmpaque
+        : costoMayorista;
+  }
+
+  /// Etiqueta legible del empaque (ej. "Caja de 12", "Paquete de 6")
+  String get etiquetaEmpaque {
+    if (!tieneEmpaqueMayorista) return 'Unidad';
+    final uds = unidadesPorEmpaque.truncateToDouble() == unidadesPorEmpaque
+        ? unidadesPorEmpaque.toInt().toString()
+        : unidadesPorEmpaque.toStringAsFixed(1);
+    return '${_nombreEmpaque(tipoEmpaque)} de $uds';
+  }
+
+  /// Nombre legible del tipo de empaque
+  static String _nombreEmpaque(String tipo) {
+    switch (tipo) {
+      case 'CAJA':
+        return 'Caja';
+      case 'PAQUETE':
+        return 'Paquete';
+      case 'FARDO':
+        return 'Fardo';
+      case 'BOLSA':
+        return 'Bolsa';
+      case 'TIRA':
+        return 'Tira';
+      case 'KILO':
+        return 'Kilo';
+      case 'LIBRA':
+        return 'Libra';
+      default:
+        return 'Unidad';
+    }
+  }
 
   Producto copyWith({
     String? id,
@@ -46,6 +121,13 @@ class Producto {
     bool? estadoActivo,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? tipoEmpaque,
+    double? unidadesPorEmpaque,
+    double? costoPorEmpaque,
+    bool? permiteVentaSuelta,
+    String? nombreUnidadSuelta,
+    double? unidadesEnEmpaqueVenta,
+    double? precioVentaSuelta,
   }) {
     return Producto(
       id: id ?? this.id,
@@ -61,6 +143,13 @@ class Producto {
       estadoActivo: estadoActivo ?? this.estadoActivo,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      tipoEmpaque: tipoEmpaque ?? this.tipoEmpaque,
+      unidadesPorEmpaque: unidadesPorEmpaque ?? this.unidadesPorEmpaque,
+      costoPorEmpaque: costoPorEmpaque ?? this.costoPorEmpaque,
+      permiteVentaSuelta: permiteVentaSuelta ?? this.permiteVentaSuelta,
+      nombreUnidadSuelta: nombreUnidadSuelta ?? this.nombreUnidadSuelta,
+      unidadesEnEmpaqueVenta: unidadesEnEmpaqueVenta ?? this.unidadesEnEmpaqueVenta,
+      precioVentaSuelta: precioVentaSuelta ?? this.precioVentaSuelta,
     );
   }
 
@@ -79,6 +168,13 @@ class Producto {
       'estado_activo': estadoActivo,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'tipo_empaque': tipoEmpaque,
+      'unidades_por_empaque': unidadesPorEmpaque,
+      'costo_por_empaque': costoPorEmpaque,
+      'permite_venta_suelta': permiteVentaSuelta,
+      'nombre_unidad_suelta': nombreUnidadSuelta,
+      'unidades_en_empaque_venta': unidadesEnEmpaqueVenta,
+      'precio_venta_suelta': precioVentaSuelta,
     };
   }
 
@@ -101,6 +197,17 @@ class Producto {
       updatedAt: map['updated_at'] != null
           ? DateTime.parse(map['updated_at'] as String)
           : DateTime.now(),
+      tipoEmpaque: map['tipo_empaque'] as String? ?? 'UNIDAD',
+      unidadesPorEmpaque: map['unidades_por_empaque'] != null
+          ? _toDouble(map['unidades_por_empaque'])
+          : 1.0,
+      costoPorEmpaque: _toDouble(map['costo_por_empaque']),
+      permiteVentaSuelta: map['permite_venta_suelta'] as bool? ?? false,
+      nombreUnidadSuelta: map['nombre_unidad_suelta'] as String? ?? 'unidad',
+      unidadesEnEmpaqueVenta: map['unidades_en_empaque_venta'] != null
+          ? _toDouble(map['unidades_en_empaque_venta'])
+          : 1.0,
+      precioVentaSuelta: _toDouble(map['precio_venta_suelta']),
     );
   }
 

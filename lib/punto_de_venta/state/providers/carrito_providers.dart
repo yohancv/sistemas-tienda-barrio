@@ -9,9 +9,11 @@ class CarritoNotifier extends Notifier<List<ItemCarrito>> {
     return [];
   }
 
-  /// Agrega un producto al ticket o suma a su cantidad si ya existe
+  /// Agrega un producto estándar al ticket o suma a su cantidad si ya existe
   void agregarProducto(Producto producto, [double cantidad = 1.0]) {
-    final index = state.indexWhere((item) => item.producto.id == producto.id);
+    final index = state.indexWhere(
+      (item) => item.producto.id == producto.id && item.modoVenta == ModoVenta.normal,
+    );
 
     if (index >= 0) {
       final itemExistente = state[index];
@@ -25,7 +27,65 @@ class CarritoNotifier extends Notifier<List<ItemCarrito>> {
     } else {
       state = [
         ...state,
-        ItemCarrito(producto: producto, cantidad: cantidad),
+        ItemCarrito(
+          producto: producto,
+          cantidad: cantidad,
+          modoVenta: ModoVenta.normal,
+        ),
+      ];
+    }
+  }
+
+  /// Agrega un producto fraccionable/pesable al ticket.
+  /// Cada venta por peso es una línea independiente en el ticket porque
+  /// cada porción tiene un peso diferente (ej. cada pollo pesa distinto).
+  void agregarFraccionado(Producto producto, double peso, ModoVenta modo) {
+    state = [
+      ...state,
+      ItemCarrito(
+        producto: producto,
+        cantidad: peso,
+        modoVenta: modo,
+      ),
+    ];
+  }
+
+  /// Agrega unidades sueltas al ticket (ej. 3 cigarrillos individuales).
+  /// Si ya hay unidades sueltas del mismo producto, acumula la cantidad.
+  void agregarSuelto(Producto producto, double cantidadSuelta) {
+    final index = state.indexWhere(
+      (item) => item.producto.id == producto.id && item.modoVenta == ModoVenta.suelta,
+    );
+
+    if (index >= 0) {
+      final itemExistente = state[index];
+      final nuevaCantidadSuelta = itemExistente.cantidadSuelta + cantidadSuelta;
+      // Recalcular la cantidad de empaque de venta que se descuenta del inventario
+      final fraccionInventario = producto.unidadesEnEmpaqueVenta > 0
+          ? nuevaCantidadSuelta / producto.unidadesEnEmpaqueVenta
+          : nuevaCantidadSuelta;
+
+      state = [
+        ...state.sublist(0, index),
+        itemExistente.copyWith(
+          cantidad: fraccionInventario,
+          cantidadSuelta: nuevaCantidadSuelta,
+        ),
+        ...state.sublist(index + 1),
+      ];
+    } else {
+      final fraccionInventario = producto.unidadesEnEmpaqueVenta > 0
+          ? cantidadSuelta / producto.unidadesEnEmpaqueVenta
+          : cantidadSuelta;
+
+      state = [
+        ...state,
+        ItemCarrito(
+          producto: producto,
+          cantidad: fraccionInventario,
+          cantidadSuelta: cantidadSuelta,
+          modoVenta: ModoVenta.suelta,
+        ),
       ];
     }
   }
