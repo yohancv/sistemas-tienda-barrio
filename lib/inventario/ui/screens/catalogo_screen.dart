@@ -7,10 +7,14 @@ import '../../../punto_de_venta/state/providers/carrito_providers.dart';
 import '../../../punto_de_venta/ui/screens/ticket_screen.dart';
 import '../../../punto_de_venta/ui/widgets/modal_venta_fraccionada.dart';
 import '../../../punto_de_venta/ui/widgets/modal_venta_dual.dart';
+import '../../../punto_de_venta/ui/widgets/modal_seleccionar_cantidad.dart';
 import '../../../cierre_caja/ui/screens/cierre_caja_screen.dart';
 import '../../data/models/producto_model.dart';
 import '../../state/providers/inventario_providers.dart';
 import 'lista_reposicion_screen.dart';
+import 'movimientos_inventario_screen.dart';
+import '../../../cuentas_por_cobrar/state/providers/clientes_providers.dart';
+import '../../../cuentas_por_cobrar/ui/screens/gestion_fiados_screen.dart';
 
 class CatalogoScreen extends ConsumerStatefulWidget {
   const CatalogoScreen({super.key});
@@ -42,6 +46,7 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
           orElse: () => 0,
         );
     final conteoBajos = ref.watch(conteoStockBajoProvider);
+    final conteoDeudores = ref.watch(conteoDeudoresProvider);
     final soloStockBajo = ref.watch(filtroSoloStockBajoProvider);
     final totalArticulos = ref.watch(totalArticulosProvider);
     final totalMonto = ref.watch(totalCarritoProvider);
@@ -75,13 +80,57 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
               child: const Icon(Icons.assignment_outlined, size: 28, color: Colors.white),
             ),
             tooltip: 'Lista de Reposición / Compras',
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const ListaReposicionScreen(),
                 ),
               );
+              ref.invalidate(productosListProvider);
+            },
+          ),
+
+          // Botón de Movimientos de Inventario (Desempaque y Mermas)
+          IconButton(
+            icon: const Icon(Icons.swap_horiz_rounded, size: 30, color: Colors.white),
+            tooltip: 'Desempaque y Mermas',
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const MovimientosInventarioScreen(),
+                ),
+              );
+              ref.invalidate(productosListProvider);
+            },
+          ),
+
+          // Botón de Cuentas por Cobrar (Fiados y Deudores)
+          IconButton(
+            icon: Badge(
+              isLabelVisible: conteoDeudores > 0,
+              backgroundColor: AppColors.warning,
+              textColor: Colors.black,
+              label: Text(
+                '$conteoDeudores',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              child: const Icon(Icons.people_alt_outlined, size: 28, color: Colors.white),
+            ),
+            tooltip: 'Fiados y Cuentas por Cobrar',
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const GestionFiadosScreen(),
+                ),
+              );
+              ref.invalidate(productosListProvider);
             },
           ),
 
@@ -89,13 +138,14 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
           IconButton(
             icon: const Icon(Icons.point_of_sale, size: 28, color: Colors.white),
             tooltip: 'Cierre de Caja',
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const CierreCajaScreen(),
                 ),
               );
+              ref.invalidate(productosListProvider);
             },
           ),
         ],
@@ -343,14 +393,21 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                     );
                   }
 
-                  return ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 90), // Espacio para el FAB
-                    itemCount: productos.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final producto = productos[index];
-                      return _ProductoCard(producto: producto);
+                  return RefreshIndicator(
+                    color: AppColors.primary,
+                    onRefresh: () async {
+                      ref.invalidate(productosListProvider);
                     },
+                    child: ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 90), // Espacio para el FAB
+                      itemCount: productos.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final producto = productos[index];
+                        return _ProductoCard(producto: producto);
+                      },
+                    ),
                   );
                 },
               ),
@@ -367,13 +424,14 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
               child: FloatingActionButton.extended(
                 backgroundColor: AppColors.success,
                 elevation: 6,
-                onPressed: () {
-                  Navigator.push(
+                onPressed: () async {
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const TicketScreen(),
                     ),
                   );
+                  ref.invalidate(productosListProvider);
                 },
                 icon: const Icon(Icons.shopping_cart_checkout, color: Colors.white, size: 30),
                 label: Text(
@@ -401,6 +459,13 @@ class _ProductoCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bool stockBajo = producto.esStockBajo;
+    final unidadesEnCajasMap = ref.watch(unidadesEnEmpaquesPadreProvider);
+    final double unidadesEnCajas = unidadesEnCajasMap[producto.id] ?? 0.0;
+    final bool tieneCajasEnAlmacen = unidadesEnCajas > 0;
+    // Solo es alerta crítica si no hay cajas en bodega o el total sumando cajas sigue bajo
+    final bool alertaCompraDistribuidor =
+        stockBajo && (!tieneCajasEnAlmacen || (producto.stockActual + unidadesEnCajas <= producto.stockMinimo));
+
     final String unidadTexto = producto.esFraccionable ? 'kg/g' : 'uds';
 
     return Container(
@@ -409,8 +474,10 @@ class _ProductoCard extends ConsumerWidget {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: stockBajo ? AppColors.danger : AppColors.border,
-          width: stockBajo ? 2.0 : 1.2,
+          color: alertaCompraDistribuidor
+              ? AppColors.danger
+              : (tieneCajasEnAlmacen && stockBajo ? AppColors.secondary : AppColors.border),
+          width: (alertaCompraDistribuidor || (tieneCajasEnAlmacen && stockBajo)) ? 2.0 : 1.2,
         ),
       ),
       child: Material(
@@ -461,10 +528,27 @@ class _ProductoCard extends ConsumerWidget {
                 ),
               );
             } else {
-              // Producto estándar (botella, paquete cerrado)
-              // → Agregar directamente al ticket
-              ref.read(carritoProvider.notifier).agregarProducto(producto);
-              _mostrarSnackAgregado(context, producto.nombre);
+              // Producto estándar (botella, paquete cerrado, lata, etc.)
+              // → Abrir modal para elegir exactamente cuántas unidades vender con atajos y validación de stock
+              final itemsCarrito = ref.read(carritoProvider);
+              final itemExistente =
+                  itemsCarrito.where((i) => i.producto.id == producto.id).firstOrNull;
+              final inicial = itemExistente != null ? itemExistente.cantidad : 1.0;
+
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => ModalSeleccionarCantidad(
+                  producto: producto,
+                  unidadesEnCajas: unidadesEnCajas,
+                  cantidadInicialEnCarrito: inicial,
+                  onConfirmar: (cantidad) {
+                    ref.read(carritoProvider.notifier).establecerCantidad(producto, cantidad);
+                    _mostrarSnackAgregado(context, '${cantidad.toInt()} uds de ${producto.nombre}');
+                  },
+                ),
+              );
             }
           },
           child: Padding(
@@ -477,15 +561,21 @@ class _ProductoCard extends ConsumerWidget {
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    color: stockBajo
+                    color: alertaCompraDistribuidor
                         ? AppColors.danger.withAlpha(25)
-                        : AppColors.primary.withAlpha(20),
+                        : (tieneCajasEnAlmacen && stockBajo
+                            ? AppColors.secondary.withAlpha(20)
+                            : AppColors.primary.withAlpha(20)),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
-                    producto.esFraccionable ? Icons.scale : Icons.local_drink,
+                    tieneCajasEnAlmacen && stockBajo
+                        ? Icons.inventory_2_outlined
+                        : (producto.esFraccionable ? Icons.scale : Icons.local_drink),
                     size: 30,
-                    color: stockBajo ? AppColors.danger : AppColors.primary,
+                    color: alertaCompraDistribuidor
+                        ? AppColors.danger
+                        : (tieneCajasEnAlmacen && stockBajo ? AppColors.secondary : AppColors.primary),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -509,7 +599,7 @@ class _ProductoCard extends ConsumerWidget {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          if (stockBajo)
+                          if (alertaCompraDistribuidor)
                             const Padding(
                               padding: EdgeInsets.only(right: 4.0),
                               child: Icon(Icons.warning_amber_rounded, size: 18, color: AppColors.danger),
@@ -518,8 +608,8 @@ class _ProductoCard extends ConsumerWidget {
                             'Stock: ${producto.stockActual.toStringAsFixed(producto.esFraccionable ? 2 : 0)} $unidadTexto',
                             style: TextStyle(
                               fontSize: 16,
-                              fontWeight: stockBajo ? FontWeight.w800 : FontWeight.w500,
-                              color: stockBajo ? AppColors.danger : AppColors.textSecondary,
+                              fontWeight: alertaCompraDistribuidor ? FontWeight.w800 : FontWeight.w500,
+                              color: alertaCompraDistribuidor ? AppColors.danger : AppColors.textSecondary,
                             ),
                           ),
                           if (producto.codigoBarras != null && producto.codigoBarras!.isNotEmpty) ...[
@@ -531,6 +621,23 @@ class _ProductoCard extends ConsumerWidget {
                           ],
                         ],
                       ),
+                      if (tieneCajasEnAlmacen && stockBajo) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.unarchive_outlined, size: 15, color: AppColors.secondary),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Hay ${unidadesEnCajas.toInt()} uds en almacén (Desempaquetar)',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.secondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),

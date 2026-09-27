@@ -102,3 +102,4 @@ El contexto y especificaciones completas de este proyecto están sincronizados e
 - `#19 architecture/ai-hybrid-specs`
 - `#20 architecture/security-rbac-audit`
 - `#21 docs/contexto_venta_fraccionada_empaques.md` (Venta Fraccionada, Venta Dual y Empaques Mayoristas)
+- `#22 docs/contexto_cuentas_por_cobrar_fiados.md` (Cuentas por Cobrar, Deudores y Fiados)

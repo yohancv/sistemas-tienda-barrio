@@ -24,6 +24,9 @@ class Producto {
   final double unidadesEnEmpaqueVenta; // ej. 20 cigarrillos por cajetilla
   final double precioVentaSuelta; // ej. Bs. 1.00 por cigarrillo
 
+  // Enlace a producto hijo para desempaque automático (ej. Caja de Huari -> Botella de Huari)
+  final String? productoHijoId;
+
   const Producto({
     required this.id,
     required this.tenantId,
@@ -45,6 +48,7 @@ class Producto {
     this.nombreUnidadSuelta = 'unidad',
     this.unidadesEnEmpaqueVenta = 1.0,
     this.precioVentaSuelta = 0.0,
+    this.productoHijoId,
   });
 
   /// Determina si el producto se vende a granel/fraccionable
@@ -128,6 +132,7 @@ class Producto {
     String? nombreUnidadSuelta,
     double? unidadesEnEmpaqueVenta,
     double? precioVentaSuelta,
+    String? productoHijoId,
   }) {
     return Producto(
       id: id ?? this.id,
@@ -150,6 +155,7 @@ class Producto {
       nombreUnidadSuelta: nombreUnidadSuelta ?? this.nombreUnidadSuelta,
       unidadesEnEmpaqueVenta: unidadesEnEmpaqueVenta ?? this.unidadesEnEmpaqueVenta,
       precioVentaSuelta: precioVentaSuelta ?? this.precioVentaSuelta,
+      productoHijoId: productoHijoId ?? this.productoHijoId,
     );
   }
 
@@ -175,6 +181,7 @@ class Producto {
       'nombre_unidad_suelta': nombreUnidadSuelta,
       'unidades_en_empaque_venta': unidadesEnEmpaqueVenta,
       'precio_venta_suelta': precioVentaSuelta,
+      'producto_hijo_id': productoHijoId,
     };
   }
 
@@ -208,6 +215,7 @@ class Producto {
           ? _toDouble(map['unidades_en_empaque_venta'])
           : 1.0,
       precioVentaSuelta: _toDouble(map['precio_venta_suelta']),
+      productoHijoId: map['producto_hijo_id'] as String?,
     );
   }
 

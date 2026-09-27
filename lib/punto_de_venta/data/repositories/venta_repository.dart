@@ -48,8 +48,54 @@ class VentaRepository {
           .eq('id', detalle.productoId)
           .single();
 
-      final double stockActual = (prodData['stock_actual'] as num).toDouble();
-      final double nuevoStock = stockActual - detalle.cantidad;
+      double stockActual = (prodData['stock_actual'] as num).toDouble();
+
+      // AUTO-DESEMPAQUE TRANSPARENTE:
+      // Si el stock en mostrador no alcanza para la cantidad vendida (ej. tengo 3 botellas y vendo 4),
+      // verificamos si existen cajas/empaques del producto padre en almacén y abrimos automáticamente las necesarias.
+      if (stockActual < detalle.cantidad) {
+        final List<dynamic> cajasPadre = await _client
+            .from('productos')
+            .select('id, stock_actual, unidades_por_empaque')
+            .eq('producto_hijo_id', detalle.productoId)
+            .eq('tenant_id', venta.tenantId)
+            .gt('stock_actual', 0)
+            .order('stock_actual', ascending: false);
+
+        if (cajasPadre.isNotEmpty) {
+          final caja = cajasPadre.first as Map<String, dynamic>;
+          final double unidadesPorCaja =
+              (caja['unidades_por_empaque'] as num?)?.toDouble() ?? 1.0;
+          final double faltante = detalle.cantidad - stockActual;
+          final double cajasANecesitar = unidadesPorCaja > 0
+              ? (faltante / unidadesPorCaja).ceilToDouble()
+              : 1.0;
+          final double cajasDisponibles = (caja['stock_actual'] as num).toDouble();
+          final double cajasAAbrir =
+              cajasANecesitar <= cajasDisponibles ? cajasANecesitar : cajasDisponibles;
+
+          if (cajasAAbrir > 0) {
+            // Ejecutar desempaque atómico mediante el RPC seguro de PostgreSQL
+            await _client.rpc('desempaquetar_producto', params: {
+              'p_caja_id': caja['id'],
+              'p_unidades_id': detalle.productoId,
+              'p_cantidad_cajas': cajasAAbrir,
+              'p_tenant_id': venta.tenantId,
+              'p_motivo': 'Auto-desempaque por venta en mostrador (Ticket #$ventaId)',
+            });
+
+            // Re-obtener el nuevo stock de botellas tras el desempaque automático
+            final prodDataActualizado = await _client
+                .from('productos')
+                .select('stock_actual')
+                .eq('id', detalle.productoId)
+                .single();
+            stockActual = (prodDataActualizado['stock_actual'] as num).toDouble();
+          }
+        }
+      }
+
+      final double nuevoStock = (stockActual - detalle.cantidad) < 0 ? 0.0 : (stockActual - detalle.cantidad);
 
       await _client
           .from('productos')

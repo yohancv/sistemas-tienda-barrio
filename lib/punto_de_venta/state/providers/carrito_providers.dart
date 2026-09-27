@@ -36,6 +36,37 @@ class CarritoNotifier extends Notifier<List<ItemCarrito>> {
     }
   }
 
+  /// Establece la cantidad exacta de un producto estándar en el ticket.
+  /// Si ya existe en el ticket, actualiza su valor; si no, lo agrega.
+  void establecerCantidad(Producto producto, double cantidad) {
+    if (cantidad <= 0) {
+      ajustarCantidad(producto.id, 0);
+      return;
+    }
+
+    final index = state.indexWhere(
+      (item) => item.producto.id == producto.id && item.modoVenta == ModoVenta.normal,
+    );
+
+    if (index >= 0) {
+      final itemExistente = state[index];
+      state = [
+        ...state.sublist(0, index),
+        itemExistente.copyWith(cantidad: cantidad),
+        ...state.sublist(index + 1),
+      ];
+    } else {
+      state = [
+        ...state,
+        ItemCarrito(
+          producto: producto,
+          cantidad: cantidad,
+          modoVenta: ModoVenta.normal,
+        ),
+      ];
+    }
+  }
+
   /// Agrega un producto fraccionable/pesable al ticket.
   /// Cada venta por peso es una línea independiente en el ticket porque
   /// cada porción tiene un peso diferente (ej. cada pollo pesa distinto).

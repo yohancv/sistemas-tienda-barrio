@@ -93,4 +93,22 @@ ADD COLUMN IF NOT EXISTS precio_venta_suelta NUMERIC(12, 2) NOT NULL DEFAULT 0.0
 | `lib/punto_de_venta/state/providers/carrito_providers.dart` | Métodos `agregarFraccionado` y `agregarSuelto` para cálculo de stock fraccional. |
 | `lib/punto_de_venta/ui/widgets/modal_venta_fraccionada.dart` | Modal de venta por peso: recuadro único de dinero, fracciones 1/4, 1/2, 3/4, 1 kg y balanza desplegable. |
 | `lib/punto_de_venta/ui/widgets/modal_venta_dual.dart` | Modal para selección entre empaque entero y unidades sueltas. |
-| `lib/inventario/ui/screens/catalogo_screen.dart` | Catálogo central con ruteo automático al modal correspondiente al tocar un producto. |
+| `lib/inventario/ui/screens/catalogo_screen.dart` | Catálogo central con ruteo automático al modal correspondiente y acceso a movimientos. |
+| `supabase/migrations/05_movimientos_y_desempaque.sql` | Tabla `movimientos_inventario`, trigger de inmutabilidad y funciones RPC atómicas. |
+| `lib/inventario/data/models/movimiento_inventario_model.dart` | Modelo inmutable para auditoría de movimientos de inventario. |
+| `lib/inventario/data/repositories/movimientos_repository.dart` | Repositorio con llamadas atómicas a RPCs de PostgreSQL en Supabase. |
+| `lib/inventario/state/providers/movimientos_providers.dart` | StateNotifier y providers de Riverpod para control de transacciones de desempaque y merma. |
+| `lib/inventario/ui/screens/movimientos_inventario_screen.dart` | Pantalla accesible con selector masivo (Desempaque / Mermas), previsualización de cambio de stock e historial. |
+
+---
+
+## 🔄 6. Módulo de Desempaque Mayorista y Mermas
+
+### 6.1. Atomicidad Transaccional (PostgreSQL RPC)
+* El desempaque de cajas a unidades sueltas se procesa mediante la función RPC `desempaquetar_producto(p_caja_id, p_unidades_id, p_cantidad_cajas, p_tenant_id)`.
+* Bloquea las filas con `FOR UPDATE`, descuenta cajas, suma botellas y genera dos registros inmutables vinculados (`referencia_id`) en una sola transacción ACID.
+
+### 6.2. Mermas con Impacto Financiero
+* El registro de roturas o vencimientos calcula automáticamente el costo de pérdida en Bolivianos (`cantidad * costo_unitario`).
+* Prohíbe borrados o modificaciones mediante el trigger `trg_prohibir_modificacion_movimientos`.
+

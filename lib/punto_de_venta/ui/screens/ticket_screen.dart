@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../data/models/item_carrito_model.dart';
 import '../../state/providers/carrito_providers.dart';
+import '../../../inventario/state/providers/inventario_providers.dart';
 import 'cobro_screen.dart';
 
 class TicketScreen extends ConsumerWidget {
@@ -139,7 +140,7 @@ class TicketScreen extends ConsumerWidget {
                         ),
                       ),
                       Text(
-                        '\$${totalMonto.toStringAsFixed(2)}',
+                        'Bs. ${totalMonto.toStringAsFixed(2)}',
                         style: const TextStyle(
                           fontSize: 34, // Fuente gigante requerida
                           fontWeight: FontWeight.w900,
@@ -231,12 +232,12 @@ class _ItemTicketTile extends ConsumerWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Unitario: \$${item.producto.precioVenta.toStringAsFixed(2)}',
+                  'Unitario: Bs. ${item.producto.precioVenta.toStringAsFixed(2)}',
                   style: const TextStyle(fontSize: 16, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Subtotal: \$${item.subtotal.toStringAsFixed(2)}',
+                  'Subtotal: Bs. ${item.subtotal.toStringAsFixed(2)}',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -304,6 +305,24 @@ class _ItemTicketTile extends ConsumerWidget {
                 icon: const Icon(Icons.add_circle, color: AppColors.success),
                 tooltip: 'Aumentar cantidad',
                 onPressed: () {
+                  final unidadesEnCajasMap = ref.read(unidadesEnEmpaquesPadreProvider);
+                  final double unidadesEnCajas = unidadesEnCajasMap[item.producto.id] ?? 0.0;
+                  final double stockTotalDisponible = item.producto.stockActual + unidadesEnCajas;
+
+                  if (stockTotalDisponible > 0 && (item.cantidad + step) > stockTotalDisponible) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: AppColors.danger,
+                        content: Text(
+                          'Stock máximo alcanzado: Solo hay ${stockTotalDisponible.toInt()} unidades disponibles.',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                    return;
+                  }
+
                   ref.read(carritoProvider.notifier).ajustarCantidad(
                         item.producto.id,
                         item.cantidad + step,

@@ -49,10 +49,18 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
     super.dispose();
   }
 
+  /// Redondeo comercial boliviano: en tiendas de barrio no circulan monedas menores a 50 centavos.
+  /// Se redondea hacia arriba al múltiplo de 0.50 Bs más cercano (ej: 3.33 -> 3.50 Bs, 4.38 -> 4.50 Bs).
+  double _redondearComercial(double valor) {
+    if (valor <= 0) return 0.0;
+    return (valor * 2).ceilToDouble() / 2.0;
+  }
+
   /// Selecciona una fracción rápida de peso (1/4, 1/2, 3/4, 1 kg)
   void _seleccionarFraccion(double fraccion) {
     if (_precioPorUnidad <= 0) return;
-    final total = (fraccion * _precioPorUnidad * 100).round() / 100.0;
+    final rawTotal = fraccion * _precioPorUnidad;
+    final total = _redondearComercial(rawTotal);
     setState(() {
       _fraccionSeleccionada = fraccion;
       _pesoActual = fraccion;
@@ -99,7 +107,8 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
 
       final peso = double.tryParse(_inputPesoBalanza) ?? 0.0;
       _pesoActual = peso;
-      _totalCobrar = (peso * _precioPorUnidad * 100).round() / 100.0;
+      final rawTotal = peso * _precioPorUnidad;
+      _totalCobrar = _redondearComercial(rawTotal);
       _dineroController.text = _totalCobrar.toStringAsFixed(2);
       _fraccionSeleccionada = null;
     });
