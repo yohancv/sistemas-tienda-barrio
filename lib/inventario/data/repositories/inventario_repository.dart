@@ -39,4 +39,49 @@ class InventarioRepository {
         .map((item) => Producto.fromMap(item as Map<String, dynamic>))
         .toList();
   }
+
+  /// Crea un nuevo producto en Supabase (Aislamiento Multi-Tenant)
+  Future<Producto> crearProducto(Producto producto) async {
+    final map = producto.toMap();
+    if (producto.id.isEmpty) {
+      map.remove('id');
+    }
+    map.remove('created_at');
+    map.remove('updated_at');
+
+    final response = await _client
+        .from('productos')
+        .insert(map)
+        .select()
+        .single();
+
+    return Producto.fromMap(response);
+  }
+
+  /// Actualiza los datos y precios de un producto existente
+  Future<Producto> actualizarProducto(Producto producto) async {
+    final map = producto.toMap();
+    map.remove('id');
+    map['updated_at'] = DateTime.now().toIso8601String();
+
+    final response = await _client
+        .from('productos')
+        .update(map)
+        .eq('id', producto.id)
+        .select()
+        .single();
+
+    return Producto.fromMap(response);
+  }
+
+  /// Desactiva lógicamente un producto (Soft Delete para trazabilidad histórica)
+  Future<void> desactivarProducto(String productoId) async {
+    await _client
+        .from('productos')
+        .update({
+          'estado_activo': false,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', productoId);
+  }
 }

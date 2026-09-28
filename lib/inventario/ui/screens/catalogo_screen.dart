@@ -13,6 +13,7 @@ import '../../data/models/producto_model.dart';
 import '../../state/providers/inventario_providers.dart';
 import 'lista_reposicion_screen.dart';
 import 'movimientos_inventario_screen.dart';
+import 'formulario_producto_screen.dart';
 import '../../../cuentas_por_cobrar/state/providers/clientes_providers.dart';
 import '../../../cuentas_por_cobrar/ui/screens/gestion_fiados_screen.dart';
 
@@ -143,6 +144,21 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                 context,
                 MaterialPageRoute(
                   builder: (context) => const CierreCajaScreen(),
+                ),
+              );
+              ref.invalidate(productosListProvider);
+            },
+          ),
+
+          // Botón para Registrar Nuevo Producto
+          IconButton(
+            icon: const Icon(Icons.add_box_outlined, size: 28, color: Colors.white),
+            tooltip: 'Nuevo Producto',
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const FormularioProductoScreen(),
                 ),
               );
               ref.invalidate(productosListProvider);
@@ -386,6 +402,28 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                               'Intenta con otra palabra o verifica si está registrado.',
                               style: AppTypography.bodyMedium,
                               textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                minimumSize: const Size(200, 50),
+                              ),
+                              onPressed: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const FormularioProductoScreen(),
+                                  ),
+                                );
+                                ref.invalidate(productosListProvider);
+                              },
+                              icon: const Icon(Icons.add, color: Colors.white),
+                              label: const Text(
+                                'Registrar nuevo producto',
+                                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
                             ),
                           ],
                         ),
@@ -660,6 +698,40 @@ class _ProductoCard extends ConsumerWidget {
                     const Text(
                       'Precio venta',
                       style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    ),
+                    const SizedBox(height: 6),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(6),
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => FormularioProductoScreen(
+                              productoParaEditar: producto,
+                            ),
+                          ),
+                        );
+                        ref.invalidate(productosListProvider);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.edit_note_rounded, size: 16, color: AppColors.textSecondary),
+                            SizedBox(width: 3),
+                            Text(
+                              'Editar',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),

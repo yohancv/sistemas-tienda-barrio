@@ -93,3 +93,99 @@ final conteoStockBajoProvider = Provider<int>((ref) {
   final productosBajos = ref.watch(productosStockBajoListProvider);
   return productosBajos.length;
 });
+
+/// Estado de la operación de guardado o edición de producto
+class ProductoOperacionState {
+  final bool isLoading;
+  final String? errorMessage;
+  final String? successMessage;
+
+  const ProductoOperacionState({
+    this.isLoading = false,
+    this.errorMessage,
+    this.successMessage,
+  });
+
+  ProductoOperacionState copyWith({
+    bool? isLoading,
+    String? errorMessage,
+    String? successMessage,
+  }) {
+    return ProductoOperacionState(
+      isLoading: isLoading ?? this.isLoading,
+      errorMessage: errorMessage,
+      successMessage: successMessage,
+    );
+  }
+}
+
+/// Notifier que controla la creación, edición y desactivación de productos
+class ProductoOperacionNotifier extends StateNotifier<ProductoOperacionState> {
+  final InventarioRepository _repository;
+  final Ref _ref;
+
+  ProductoOperacionNotifier(this._repository, this._ref)
+      : super(const ProductoOperacionState());
+
+  /// Guarda un producto (Crea si id está vacío, actualiza si ya existe)
+  Future<Producto?> guardarProducto(Producto producto) async {
+    state = state.copyWith(isLoading: true, errorMessage: null, successMessage: null);
+    try {
+      Producto resultado;
+      if (producto.id.isEmpty) {
+        resultado = await _repository.crearProducto(producto);
+        state = state.copyWith(
+          isLoading: false,
+          successMessage: '¡Producto "${resultado.nombre}" registrado con éxito!',
+        );
+      } else {
+        resultado = await _repository.actualizarProducto(producto);
+        state = state.copyWith(
+          isLoading: false,
+          successMessage: '¡Producto "${resultado.nombre}" actualizado correctamente!',
+        );
+      }
+
+      // Invalidar proveedores de inventario para refrescar el catálogo de inmediato
+      _ref.invalidate(productosListProvider);
+      return resultado;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Error al guardar producto: $e',
+      );
+      return null;
+    }
+  }
+
+  /// Desactiva lógicamente un producto (Soft Delete inmutable)
+  Future<bool> desactivarProducto(String productoId, String nombre) async {
+    state = state.copyWith(isLoading: true, errorMessage: null, successMessage: null);
+    try {
+      await _repository.desactivarProducto(productoId);
+      _ref.invalidate(productosListProvider);
+      state = state.copyWith(
+        isLoading: false,
+        successMessage: 'Producto "$nombre" retirado del catálogo.',
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Error al retirar producto: $e',
+      );
+      return false;
+    }
+  }
+
+  void limpiarMensajes() {
+    state = const ProductoOperacionState();
+  }
+}
+
+final productoOperacionProvider =
+    StateNotifierProvider<ProductoOperacionNotifier, ProductoOperacionState>((ref) {
+  final repo = ref.watch(inventarioRepositoryProvider);
+  return ProductoOperacionNotifier(repo, ref);
+});
+
