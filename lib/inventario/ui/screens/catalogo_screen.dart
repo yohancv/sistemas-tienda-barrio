@@ -13,6 +13,7 @@ import '../../data/models/producto_model.dart';
 import '../../state/providers/inventario_providers.dart';
 import 'lista_reposicion_screen.dart';
 import 'kardex_screen.dart';
+import '../../../compras/ui/screens/compras_proveedores_screen.dart';
 import 'formulario_producto_screen.dart';
 import '../../../cuentas_por_cobrar/state/providers/clientes_providers.dart';
 import '../../../cuentas_por_cobrar/ui/screens/gestion_fiados_screen.dart';
@@ -51,6 +52,8 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
     final soloStockBajo = ref.watch(filtroSoloStockBajoProvider);
     final totalArticulos = ref.watch(totalArticulosProvider);
     final totalMonto = ref.watch(totalCarritoProvider);
+    final categoriasConteo = ref.watch(categoriasDisponiblesProvider);
+    final categoriaSeleccionada = ref.watch(filtroCategoriaSeleccionadaProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -86,6 +89,21 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                 context,
                 MaterialPageRoute(
                   builder: (context) => const ListaReposicionScreen(),
+                ),
+              );
+              ref.invalidate(productosListProvider);
+            },
+          ),
+
+          // Botón de Proveedores y Compras de Mercadería
+          IconButton(
+            icon: const Icon(Icons.local_shipping_outlined, size: 28, color: Colors.white),
+            tooltip: 'Proveedores y Compras',
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ComprasProveedoresScreen(),
                 ),
               );
               ref.invalidate(productosListProvider);
@@ -313,6 +331,78 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                 ],
               ),
             ),
+
+            // Carrusel horizontal de Categorías de la Tienda (Fase 4)
+            if (categoriasConteo.isNotEmpty)
+              Container(
+                color: AppColors.surface,
+                padding: const EdgeInsets.only(left: 14.0, right: 14.0, bottom: 8.0),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      // Chip 'Todas las Categorías'
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: FilterChip(
+                          avatar: const Icon(Icons.apps_rounded, size: 16),
+                          label: Text('Todas ($totalProductosBase)'),
+                          selected: categoriaSeleccionada == null,
+                          selectedColor: AppColors.primary.withAlpha(25),
+                          checkmarkColor: AppColors.primary,
+                          labelStyle: TextStyle(
+                            color: categoriaSeleccionada == null ? AppColors.primary : AppColors.textPrimary,
+                            fontWeight: categoriaSeleccionada == null ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 13,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(
+                              color: categoriaSeleccionada == null ? AppColors.primary : AppColors.border,
+                            ),
+                          ),
+                          onSelected: (_) {
+                            ref.read(filtroCategoriaSeleccionadaProvider.notifier).state = null;
+                          },
+                        ),
+                      ),
+                      // Chips por cada categoría registrada
+                      ...categoriasConteo.entries.map((entry) {
+                        final catNombre = entry.key;
+                        final catCantidad = entry.value;
+                        final esSeleccionada = categoriaSeleccionada?.toLowerCase() == catNombre.toLowerCase();
+                        final emoji = Producto.emojiCategoria(catNombre);
+
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: FilterChip(
+                            avatar: Text(emoji, style: const TextStyle(fontSize: 14)),
+                            label: Text('$catNombre ($catCantidad)'),
+                            selected: esSeleccionada,
+                            selectedColor: AppColors.primary.withAlpha(25),
+                            checkmarkColor: AppColors.primary,
+                            labelStyle: TextStyle(
+                              color: esSeleccionada ? AppColors.primary : AppColors.textPrimary,
+                              fontWeight: esSeleccionada ? FontWeight.bold : FontWeight.normal,
+                              fontSize: 13,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              side: BorderSide(
+                                color: esSeleccionada ? AppColors.primary : AppColors.border,
+                              ),
+                            ),
+                            onSelected: (selected) {
+                              ref.read(filtroCategoriaSeleccionadaProvider.notifier).state =
+                                  selected ? catNombre : null;
+                            },
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ),
 
             const Divider(height: 1, thickness: 1, color: AppColors.border),
 
@@ -895,12 +985,29 @@ class _ProductoCard extends ConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
-                      'Bs. ${producto.precioVenta.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.success,
+                    Tooltip(
+                      message: 'Toca para cambiar precio rápido',
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(6),
+                        onTap: () => _mostrarDialogoCambiarPrecio(context, ref, producto),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Bs. ${producto.precioVenta.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.success,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.edit_outlined, size: 15, color: AppColors.success),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                     const Text(
@@ -911,6 +1018,38 @@ class _ProductoCard extends ConsumerWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // Botón Cambiar Precio rápido
+                        Tooltip(
+                          message: 'Cambiar precio rápido',
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(6),
+                            onTap: () => _mostrarDialogoCambiarPrecio(context, ref, producto),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.success.withAlpha(15),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: AppColors.success.withAlpha(50)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.price_change_outlined, size: 14, color: AppColors.success),
+                                  SizedBox(width: 2),
+                                  Text(
+                                    'Precio',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.success,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
                         // Botón Kardex directo
                         Tooltip(
                           message: 'Ver Kardex',
@@ -1029,6 +1168,331 @@ class _ProductoCard extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Diálogo rápido para actualizar precio de venta (y costo si varió) sin abrir el formulario completo
+  void _mostrarDialogoCambiarPrecio(
+    BuildContext context,
+    WidgetRef ref,
+    Producto producto,
+  ) {
+    final precioCtrl = TextEditingController(
+      text: producto.precioVenta.toStringAsFixed(2),
+    );
+    final costoCtrl = TextEditingController(
+      text: producto.costoMayorista.toStringAsFixed(2),
+    );
+    bool actualizarCosto = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setStateDialog) {
+            final nuevoPrecio =
+                double.tryParse(precioCtrl.text.trim().replaceAll(',', '.')) ?? 0.0;
+            final costoAUsar = actualizarCosto
+                ? (double.tryParse(costoCtrl.text.trim().replaceAll(',', '.')) ??
+                    producto.costoMayorista)
+                : producto.costoMayorista;
+            final ganancia = nuevoPrecio - costoAUsar;
+            final margen = nuevoPrecio > 0 ? (ganancia / nuevoPrecio) * 100 : 0.0;
+            final markup = costoAUsar > 0 ? (ganancia / costoAUsar) * 100 : 0.0;
+
+            void ajustarPrecio(double delta) {
+              final actual = double.tryParse(
+                      precioCtrl.text.trim().replaceAll(',', '.')) ??
+                  producto.precioVenta;
+              final nuevo = (actual + delta).clamp(0.0, 99999.0);
+              precioCtrl.text = nuevo.toStringAsFixed(2);
+              setStateDialog(() {});
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withAlpha(20),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.price_change_rounded,
+                        color: AppColors.primary, size: 24),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Cambiar Precio de Venta',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Nombre del producto
+                    Text(
+                      '${Producto.emojiCategoria(producto.categoria)} ${producto.nombre}',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Costo actual: Bs. ${producto.costoMayorista.toStringAsFixed(2)}  •  Precio actual: Bs. ${producto.precioVenta.toStringAsFixed(2)}',
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                    const Divider(height: 20),
+
+                    // Campo de Nuevo Precio de Venta
+                    TextFormField(
+                      controller: precioCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      autofocus: true,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.primary,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Nuevo Precio de Venta (Mostrador)',
+                        prefixText: 'Bs. ',
+                        border:
+                            OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        filled: true,
+                        fillColor: AppColors.surface,
+                      ),
+                      onChanged: (_) => setStateDialog(() {}),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Botones rápidos de ajuste
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        _BotonDeltaPrecio(label: '+0.50', onTap: () => ajustarPrecio(0.50)),
+                        _BotonDeltaPrecio(label: '+1.00', onTap: () => ajustarPrecio(1.00)),
+                        _BotonDeltaPrecio(label: '+2.00', onTap: () => ajustarPrecio(2.00)),
+                        _BotonDeltaPrecio(label: '+5.00', onTap: () => ajustarPrecio(5.00)),
+                        _BotonDeltaPrecio(
+                            label: '-0.50', esResta: true, onTap: () => ajustarPrecio(-0.50)),
+                        _BotonDeltaPrecio(
+                            label: '-1.00', esResta: true, onTap: () => ajustarPrecio(-1.00)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Checkbox para también actualizar costo de compra si varió
+                    InkWell(
+                      onTap: () => setStateDialog(() => actualizarCosto = !actualizarCosto),
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: actualizarCosto,
+                            activeColor: AppColors.primary,
+                            onChanged: (val) =>
+                                setStateDialog(() => actualizarCosto = val ?? false),
+                          ),
+                          const Expanded(
+                            child: Text(
+                              '¿También varió el costo de compra?',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    if (actualizarCosto) ...[
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: costoCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        style:
+                            const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        decoration: InputDecoration(
+                          labelText: 'Nuevo Costo de Compra (Bs.)',
+                          prefixText: 'Bs. ',
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          isDense: true,
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                        ),
+                        onChanged: (_) => setStateDialog(() {}),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+
+                    // Caja de rentabilidad en tiempo real
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: nuevoPrecio < costoAUsar
+                            ? AppColors.danger.withAlpha(20)
+                            : (margen >= 20
+                                ? AppColors.success.withAlpha(20)
+                                : AppColors.warning.withAlpha(20)),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: nuevoPrecio < costoAUsar
+                              ? AppColors.danger
+                              : (margen >= 20
+                                  ? AppColors.success.withAlpha(50)
+                                  : AppColors.warning.withAlpha(50)),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Ganancia neta x unidad:',
+                                  style: TextStyle(fontSize: 12)),
+                              Text(
+                                'Bs. ${ganancia.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: ganancia < 0
+                                      ? AppColors.danger
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Margen s/ venta:',
+                                  style: TextStyle(fontSize: 12)),
+                              Text(
+                                '${margen.toStringAsFixed(1)}% (Markup: ${markup.toStringAsFixed(1)}%)',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: margen < 10
+                                      ? AppColors.danger
+                                      : AppColors.success,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (nuevoPrecio < costoAUsar) ...[
+                            const SizedBox(height: 6),
+                            const Text(
+                              '⚠️ ¡Cuidado! El precio de venta es menor al costo de compra.',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.danger),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: nuevoPrecio <= 0
+                      ? null
+                      : () async {
+                          Navigator.pop(dialogCtx);
+                          final exito = await ref
+                              .read(productoOperacionProvider.notifier)
+                              .actualizarPrecioVenta(
+                                producto,
+                                nuevoPrecio,
+                                nuevoCosto: actualizarCosto ? costoAUsar : null,
+                              );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor:
+                                    exito ? AppColors.success : AppColors.danger,
+                                content: Text(
+                                  exito
+                                      ? '✅ Precio de "${producto.nombre}" actualizado a Bs. ${nuevoPrecio.toStringAsFixed(2)}'
+                                      : 'Error al actualizar precio',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                  icon: const Icon(Icons.save_outlined, color: Colors.white, size: 18),
+                  label: const Text('Guardar Precio',
+                      style:
+                          TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _BotonDeltaPrecio extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final bool esResta;
+
+  const _BotonDeltaPrecio({
+    required this.label,
+    required this.onTap,
+    this.esResta = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: esResta
+              ? AppColors.danger.withAlpha(15)
+              : AppColors.primary.withAlpha(15),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: esResta
+                ? AppColors.danger.withAlpha(40)
+                : AppColors.primary.withAlpha(40),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: esResta ? AppColors.danger : AppColors.primary,
+          ),
         ),
       ),
     );

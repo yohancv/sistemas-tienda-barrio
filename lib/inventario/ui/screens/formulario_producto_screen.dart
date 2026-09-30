@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../compras/data/models/proveedor_model.dart';
+import '../../../compras/state/providers/compras_providers.dart';
+import '../../../compras/ui/widgets/modal_nuevo_proveedor.dart';
 import '../../../core/config/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -33,6 +36,10 @@ class _FormularioProductoScreenState
   late final TextEditingController _stockActualController;
   late final TextEditingController _stockMinimoController;
 
+  // Categoría y Proveedor Habitual (Fase 2)
+  late final TextEditingController _categoriaController;
+  String? _proveedorSeleccionadoId;
+
   // Venta Dual
   late final TextEditingController _nombreUnidadSueltaController;
   late final TextEditingController _unidadesEnEmpaqueVentaController;
@@ -64,6 +71,8 @@ class _FormularioProductoScreenState
   late final String _inicialPrecio;
   late final String _inicialStockActual;
   late final String _inicialStockMinimo;
+  String? _inicialCategoria;
+  String? _inicialProveedor;
 
   bool get _esEdicion => widget.productoParaEditar != null;
 
@@ -149,6 +158,10 @@ class _FormularioProductoScreenState
     _inicialPrecio = _precioVentaController.text;
     _inicialStockActual = _stockActualController.text;
     _inicialStockMinimo = _stockMinimoController.text;
+    _categoriaController = TextEditingController(text: p?.categoria ?? '');
+    _proveedorSeleccionadoId = p?.proveedorId;
+    _inicialCategoria = _categoriaController.text;
+    _inicialProveedor = _proveedorSeleccionadoId;
   }
 
   @override
@@ -165,6 +178,7 @@ class _FormularioProductoScreenState
     _precioVentaSueltaController.dispose();
     _unidadesPorEmpaqueController.dispose();
     _costoPorEmpaqueController.dispose();
+    _categoriaController.dispose();
     _codigoBarrasFocusNode.dispose();
     _nombreFocusNode.dispose();
     super.dispose();
@@ -183,7 +197,9 @@ class _FormularioProductoScreenState
         _costoMayoristaController.text != _inicialCosto ||
         _precioVentaController.text != _inicialPrecio ||
         _stockActualController.text != _inicialStockActual ||
-        _stockMinimoController.text != _inicialStockMinimo;
+        _stockMinimoController.text != _inicialStockMinimo ||
+        _categoriaController.text != _inicialCategoria ||
+        _proveedorSeleccionadoId != _inicialProveedor;
   }
 
   /// Validación de código de barras contra duplicados en la base de datos (Fase 1)
@@ -283,6 +299,10 @@ class _FormularioProductoScreenState
         precioVentaSuelta: _tipoProducto == TipoProductoUi.dual
             ? _parse(_precioVentaSueltaController)
             : 0.0,
+
+        // Proveedor Habitual y Categoría (Fase 2)
+        proveedorId: _proveedorSeleccionadoId,
+        categoria: _categoriaController.text.trim().isEmpty ? null : _categoriaController.text.trim(),
       );
 
       // Fase 5: Pasar stockAnterior para auditoría inmutable
@@ -402,10 +422,26 @@ class _FormularioProductoScreenState
 
   @override
   Widget build(BuildContext context) {
+    final proveedoresAsync = ref.watch(proveedoresListProvider);
     final todosLosProductos = ref.watch(productosListProvider).maybeWhen(
           data: (l) => l.where((item) => item.id != widget.productoParaEditar?.id).toList(),
           orElse: () => <Producto>[],
         );
+
+    // Categorías existentes registradas en la tienda para sugerencias inteligentes
+    final categoriasExistentes = <String>{};
+    for (final prod in todosLosProductos) {
+      final c = prod.categoria?.trim();
+      if (c != null && c.isNotEmpty) {
+        categoriasExistentes.add(c);
+      }
+    }
+    final sugerenciasChips = <String>[
+      ...categoriasExistentes,
+      ...Producto.categoriasSugeridas.where(
+        (s) => !categoriasExistentes.any((e) => e.toLowerCase() == s.toLowerCase()),
+      ),
+    ];
 
     final costo = _parse(_costoMayoristaController);
     final precio = _parse(_precioVentaController);
@@ -585,11 +621,164 @@ class _FormularioProductoScreenState
                           style: const TextStyle(fontSize: 15),
                           maxLines: 2,
                           decoration: const InputDecoration(
-                            labelText: 'Descripción / Categoría (Opcional)',
-                            hintText: 'Ej. Licores, Abarrotes, Limpieza...',
+                            labelText: 'Descripción o Notas (Opcional)',
+                            hintText: 'Ej. Detalles del producto o ubicación en anaquel...',
                             prefixIcon: Icon(Icons.description_outlined, color: AppColors.textSecondary),
                             border: OutlineInputBorder(),
                           ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 2. SECCIÓN: CATEGORÍA Y PROVEEDOR (FASE 2)
+                  _buildCard(
+                    titulo: '🏷️ Categoría y Empresa Proveedora',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Selector y Escritura Libre de Categoría
+                        TextFormField(
+                          controller: _categoriaController,
+                          style: const TextStyle(fontSize: 16),
+                          decoration: InputDecoration(
+                            labelText: 'Categoría del Producto',
+                            hintText: 'Escribe tu categoría (ej. Licores, Golosinas, Lácteos...)',
+                            prefixIcon: const Icon(Icons.category_outlined, color: AppColors.primary),
+                            border: const OutlineInputBorder(),
+                            suffixIcon: _categoriaController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 20, color: AppColors.textSecondary),
+                                    tooltip: 'Borrar categoría',
+                                    onPressed: () => setState(() => _categoriaController.clear()),
+                                  )
+                                : null,
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Sugerencias rápidas en chips (existentes en la tienda + predeterminadas)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '💡 Sugerencias rápidas (toca una para autocompletar):',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: sugerenciasChips.map((cat) {
+                                  final seleccionada =
+                                      _categoriaController.text.trim().toLowerCase() ==
+                                          cat.toLowerCase();
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 6.0),
+                                    child: FilterChip(
+                                      label: Text('${Producto.emojiCategoria(cat)}  $cat'),
+                                      labelStyle: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: seleccionada
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: seleccionada
+                                            ? AppColors.primary
+                                            : AppColors.textPrimary,
+                                      ),
+                                      selected: seleccionada,
+                                      selectedColor: AppColors.primary.withAlpha(35),
+                                      checkmarkColor: AppColors.primary,
+                                      backgroundColor: AppColors.surface,
+                                      side: BorderSide(
+                                        color: seleccionada ? AppColors.primary : AppColors.border,
+                                        width: seleccionada ? 1.5 : 1.0,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      onSelected: (bool selected) {
+                                        setState(() {
+                                          _categoriaController.text = selected ? cat : '';
+                                        });
+                                      },
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Selector de Proveedor Habitual
+                        Row(
+                          children: [
+                            Expanded(
+                              child: proveedoresAsync.when(
+                                loading: () => const LinearProgressIndicator(),
+                                error: (e, _) => const Text('Error al cargar proveedores'),
+                                data: (proveedores) {
+                                  final yaExiste = _proveedorSeleccionadoId == null ||
+                                      proveedores.any((p) => p.id == _proveedorSeleccionadoId);
+
+                                  final valorValido = yaExiste ? _proveedorSeleccionadoId : null;
+
+                                  return DropdownButtonFormField<String>(
+                                    key: ValueKey('prov_${valorValido ?? "ninguno"}'),
+                                    initialValue: valorValido,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Empresa Proveedora (Distribuidor)',
+                                      hintText: 'Ej. CBN, Embol, PIL...',
+                                      prefixIcon: Icon(Icons.local_shipping_outlined, color: AppColors.primary),
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    isExpanded: true,
+                                    items: [
+                                      const DropdownMenuItem<String>(
+                                        value: null,
+                                        child: Text('Sin Proveedor Fijo / Compra General'),
+                                      ),
+                                      ...proveedores.map(
+                                        (p) => DropdownMenuItem<String>(
+                                          value: p.id,
+                                          child: Text(
+                                            p.diasVisita != null ? '${p.nombreEmpresa} (${p.diasVisita})' : p.nombreEmpresa,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                    onChanged: (id) => setState(() => _proveedorSeleccionadoId = id),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton.filledTonal(
+                              icon: const Icon(Icons.add_business_rounded, color: AppColors.primary),
+                              tooltip: 'Crear Nuevo Proveedor',
+                              onPressed: () async {
+                                final nuevoProv = await showModalBottomSheet<ProveedorModel>(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (_) => const ModalNuevoProveedor(),
+                                );
+                                if (nuevoProv != null) {
+                                  ref.invalidate(proveedoresListProvider);
+                                  setState(() => _proveedorSeleccionadoId = nuevoProv.id);
+                                }
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),

@@ -75,16 +75,49 @@ final productosStockBajoListProvider = Provider<List<Producto>>((ref) {
   );
 });
 
-/// Proveedor reactivo de productos aplicando simultáneamente el filtro de búsqueda y el chip de stock bajo
+/// Categoría seleccionada actualmente para filtrar en el catálogo (null = todas)
+final filtroCategoriaSeleccionadaProvider = StateProvider<String?>((ref) => null);
+
+/// Mapa de categorías únicas disponibles en los productos con su conteo de artículos
+final categoriasDisponiblesProvider = Provider<Map<String, int>>((ref) {
+  final productosAsync = ref.watch(productosListProvider);
+  return productosAsync.maybeWhen(
+    data: (productos) {
+      final Map<String, int> conteo = {};
+      for (final p in productos) {
+        final cat = p.categoria?.trim();
+        if (cat != null && cat.isNotEmpty) {
+          conteo[cat] = (conteo[cat] ?? 0) + 1;
+        }
+      }
+      return conteo;
+    },
+    orElse: () => {},
+  );
+});
+
+/// Proveedor reactivo de productos aplicando simultáneamente el filtro de búsqueda, el chip de stock bajo y categoría
 final productosFiltradosProvider = Provider<AsyncValue<List<Producto>>>((ref) {
   final productosAsync = ref.watch(productosListProvider);
   final soloStockBajo = ref.watch(filtroSoloStockBajoProvider);
   final productosStockBajo = ref.watch(productosStockBajoListProvider);
+  final categoriaSeleccionada = ref.watch(filtroCategoriaSeleccionadaProvider);
 
   return productosAsync.whenData((productos) {
-    if (!soloStockBajo) return productos;
-    final idsBajos = productosStockBajo.map((p) => p.id).toSet();
-    return productos.where((p) => idsBajos.contains(p.id)).toList();
+    var resultado = productos;
+
+    if (soloStockBajo) {
+      final idsBajos = productosStockBajo.map((p) => p.id).toSet();
+      resultado = resultado.where((p) => idsBajos.contains(p.id)).toList();
+    }
+
+    if (categoriaSeleccionada != null) {
+      resultado = resultado
+          .where((p) => p.categoria?.trim().toLowerCase() == categoriaSeleccionada.toLowerCase())
+          .toList();
+    }
+
+    return resultado;
   });
 });
 
@@ -191,6 +224,35 @@ class ProductoOperacionNotifier extends StateNotifier<ProductoOperacionState> {
         errorMessage: 'Error al guardar producto: $e',
       );
       return null;
+    }
+  }
+
+  /// Actualiza rápidamente el precio de venta (y opcionalmente costo) de un producto
+  Future<bool> actualizarPrecioVenta(
+    Producto producto,
+    double nuevoPrecio, {
+    double? nuevoCosto,
+  }) async {
+    state = state.copyWith(isLoading: true, errorMessage: null, successMessage: null);
+    try {
+      final modificado = producto.copyWith(
+        precioVenta: nuevoPrecio,
+        costoMayorista: nuevoCosto ?? producto.costoMayorista,
+        updatedAt: DateTime.now(),
+      );
+      await _repository.actualizarProducto(modificado);
+      _ref.invalidate(productosListProvider);
+      state = state.copyWith(
+        isLoading: false,
+        successMessage: 'Precio de "${producto.nombre}" actualizado a Bs. ${nuevoPrecio.toStringAsFixed(2)}',
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Error al actualizar precio: $e',
+      );
+      return false;
     }
   }
 

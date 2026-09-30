@@ -7,13 +7,46 @@ import '../../state/providers/inventario_providers.dart';
 import '../../state/providers/reposicion_providers.dart';
 import '../../utils/pedido_formatter.dart';
 
-class ListaReposicionScreen extends ConsumerWidget {
+import '../../../compras/data/models/proveedor_model.dart';
+import '../../../compras/state/providers/compras_providers.dart';
+import '../../../compras/ui/screens/compras_proveedores_screen.dart';
+
+class ListaReposicionScreen extends ConsumerStatefulWidget {
   const ListaReposicionScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ListaReposicionScreen> createState() => _ListaReposicionScreenState();
+}
+
+class _ListaReposicionScreenState extends ConsumerState<ListaReposicionScreen> {
+  String? _proveedorFiltroId;
+
+  @override
+  Widget build(BuildContext context) {
     final reposicionState = ref.watch(reposicionProvider);
     final productosBajos = ref.watch(productosStockBajoListProvider);
+    final proveedoresAsync = ref.watch(proveedoresListProvider);
+
+    final List<ProveedorModel> proveedores = proveedoresAsync.valueOrNull ?? [];
+
+    // Filtrado por proveedor ("CBN no vende aceite")
+    final itemsFiltrados = reposicionState.items.where((item) {
+      if (_proveedorFiltroId == null) return true;
+      if (_proveedorFiltroId == '__SIN_PROVEEDOR__') {
+        return item.producto.proveedorId == null;
+      }
+      return item.producto.proveedorId == _proveedorFiltroId;
+    }).toList();
+
+    final double inversionFiltrada =
+        itemsFiltrados.fold(0.0, (acc, item) => acc + item.subtotalEstimado);
+    final double articulosFiltrados =
+        itemsFiltrados.fold(0.0, (acc, item) => acc + item.cantidadAComprar);
+
+    ProveedorModel? proveedorSeleccionado;
+    if (_proveedorFiltroId != null && _proveedorFiltroId != '__SIN_PROVEEDOR__') {
+      proveedorSeleccionado = proveedores.where((p) => p.id == _proveedorFiltroId).firstOrNull;
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -48,36 +81,108 @@ class ListaReposicionScreen extends ConsumerWidget {
       body: SafeArea(
         child: Column(
           children: [
+            // Filtros rápidos por Proveedor / Empresa
+            if (proveedores.isNotEmpty && !reposicionState.estaVacia)
+              Container(
+                color: AppColors.surface,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      FilterChip(
+                        label: Text('Todos (${reposicionState.items.length})'),
+                        selected: _proveedorFiltroId == null,
+                        selectedColor: AppColors.primary.withAlpha(25),
+                        checkmarkColor: AppColors.primary,
+                        labelStyle: TextStyle(
+                          color: _proveedorFiltroId == null ? AppColors.primary : AppColors.textPrimary,
+                          fontWeight: _proveedorFiltroId == null ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 12,
+                        ),
+                        onSelected: (_) => setState(() => _proveedorFiltroId = null),
+                      ),
+                      const SizedBox(width: 6),
+                      ...proveedores.map((prov) {
+                        final cant = reposicionState.items
+                            .where((i) => i.producto.proveedorId == prov.id)
+                            .length;
+                        final sel = _proveedorFiltroId == prov.id;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6.0),
+                          child: FilterChip(
+                            label: Text('${prov.nombreEmpresa} ($cant)'),
+                            selected: sel,
+                            selectedColor: AppColors.primary.withAlpha(25),
+                            checkmarkColor: AppColors.primary,
+                            labelStyle: TextStyle(
+                              color: sel ? AppColors.primary : AppColors.textPrimary,
+                              fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                              fontSize: 12,
+                            ),
+                            onSelected: (_) => setState(() => _proveedorFiltroId = prov.id),
+                          ),
+                        );
+                      }),
+                      FilterChip(
+                        label: const Text('Sin Proveedor'),
+                        selected: _proveedorFiltroId == '__SIN_PROVEEDOR__',
+                        selectedColor: AppColors.primary.withAlpha(25),
+                        checkmarkColor: AppColors.primary,
+                        labelStyle: TextStyle(
+                          color: _proveedorFiltroId == '__SIN_PROVEEDOR__' ? AppColors.primary : AppColors.textPrimary,
+                          fontWeight: _proveedorFiltroId == '__SIN_PROVEEDOR__' ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 12,
+                        ),
+                        onSelected: (_) => setState(() => _proveedorFiltroId = '__SIN_PROVEEDOR__'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
             // Banner superior de inversión requerida
             _ResumenPresupuestoHeader(
-              totalInversion: reposicionState.totalInversion,
-              totalArticulos: reposicionState.totalArticulos,
-              totalProductos: reposicionState.totalProductosDistintos,
+              totalInversion: inversionFiltrada,
+              totalArticulos: articulosFiltrados,
+              totalProductos: itemsFiltrados.length,
             ),
 
             const Divider(height: 1, thickness: 1, color: AppColors.border),
 
             // Contenido principal: Lista de productos o estado vacío
             Expanded(
-              child: reposicionState.estaVacia
+              child: itemsFiltrados.isEmpty
                   ? _buildEmptyState(context)
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-                      itemCount: reposicionState.items.length,
+                      itemCount: itemsFiltrados.length,
                       separatorBuilder: (context, index) =>
                           const SizedBox(height: 14),
                       itemBuilder: (context, index) {
-                        final item = reposicionState.items[index];
+                        final item = itemsFiltrados[index];
                         return _ItemReposicionCard(item: item);
                       },
                     ),
             ),
 
             // Barra inferior con botones de acción masivos
-            if (!reposicionState.estaVacia)
+            if (itemsFiltrados.isNotEmpty)
               _BarraAccionesPedido(
-                items: reposicionState.items,
-                totalInversion: reposicionState.totalInversion,
+                items: itemsFiltrados,
+                totalInversion: inversionFiltrada,
+                onIngresarComoCompra: () {
+                  ref.read(carritoComprasProvider.notifier).cargarDesdeListaReposicion(
+                    proveedor: proveedorSeleccionado,
+                    itemsReposicion: itemsFiltrados,
+                  );
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ComprasProveedoresScreen(tabInicial: 0),
+                    ),
+                  );
+                },
               ),
           ],
         ),
@@ -447,10 +552,12 @@ class _ItemReposicionCard extends ConsumerWidget {
 class _BarraAccionesPedido extends StatelessWidget {
   final List<ItemReposicion> items;
   final double totalInversion;
+  final VoidCallback onIngresarComoCompra;
 
   const _BarraAccionesPedido({
     required this.items,
     required this.totalInversion,
+    required this.onIngresarComoCompra,
   });
 
   @override
@@ -473,14 +580,40 @@ class _BarraAccionesPedido extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Botón Azul Ingresar como Compra a Inventario
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              onPressed: onIngresarComoCompra,
+              icon: const Icon(Icons.add_shopping_cart, color: Colors.white, size: 24),
+              label: const Text(
+                'Ingresar como Compra a Inventario',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+
           // Botón Verde WhatsApp Masivo
           SizedBox(
             width: double.infinity,
-            height: 60,
+            height: 52,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF25D366), // Verde oficial WhatsApp
-                elevation: 3,
+                elevation: 2,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),

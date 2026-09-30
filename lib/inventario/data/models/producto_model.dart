@@ -27,6 +27,42 @@ class Producto {
   // Enlace a producto hijo para desempaque automático (ej. Caja de Huari -> Botella de Huari)
   final String? productoHijoId;
 
+  // Enlace a proveedor habitual ("CBN no vende aceite")
+  final String? proveedorId;
+
+  // Clasificación por categoría / familia de producto
+  final String? categoria;
+
+  static const List<String> categoriasSugeridas = [
+    'Cervezas y Licores',
+    'Gaseosas, Jugos y Aguas',
+    'Abarrotes y Alimentos',
+    'Snacks y Golosinas',
+    'Lácteos y Embutidos',
+    'Limpieza y Hogar',
+    'Cigarrillos y Tabaco',
+    'Farmacia y Cuidado Personal',
+    'Otros',
+  ];
+
+  static String emojiCategoria(String? cat) {
+    if (cat == null || cat.trim().isEmpty) return '🏷️';
+    final c = cat.toLowerCase();
+    if (c.contains('cerveza')) return '🍺';
+    if (c.contains('licor') || c.contains('vino') || c.contains('singani') || c.contains('ron') || c.contains('vodka') || c.contains('whisky') || c.contains('trago')) return '🍷';
+    if (c.contains('gaseosa') || c.contains('soda') || c.contains('refresco') || c.contains('jugo') || c.contains('agua') || c.contains('bebida')) return '🥤';
+    if (c.contains('abarrote') || c.contains('alimento') || c.contains('arroz') || c.contains('fideo') || c.contains('aceite') || c.contains('conserva')) return '🥫';
+    if (c.contains('snack') || c.contains('golosina') || c.contains('dulce') || c.contains('chocolate') || c.contains('galleta') || c.contains('pipoca') || c.contains('caramelo')) return '🍫';
+    if (c.contains('lácteo') || c.contains('lacteo') || c.contains('leche') || c.contains('queso') || c.contains('yogurt') || c.contains('embutido') || c.contains('salchicha')) return '🥛';
+    if (c.contains('limpieza') || c.contains('detergente') || c.contains('jabon') || c.contains('lavavajilla') || c.contains('papel') || c.contains('hogar')) return '🧼';
+    if (c.contains('cigar') || c.contains('tabaco') || c.contains('fósforo') || c.contains('fosforo')) return '🚬';
+    if (c.contains('farmacia') || c.contains('salud') || c.contains('cuidado') || c.contains('pastilla')) return '💊';
+    if (c.contains('pan') || c.contains('masita') || c.contains('panaderia') || c.contains('torta')) return '🥖';
+    if (c.contains('helado')) return '🍦';
+    if (c.contains('carne') || c.contains('pollo')) return '🍗';
+    return '🏷️';
+  }
+
   const Producto({
     required this.id,
     required this.tenantId,
@@ -49,6 +85,8 @@ class Producto {
     this.unidadesEnEmpaqueVenta = 1.0,
     this.precioVentaSuelta = 0.0,
     this.productoHijoId,
+    this.proveedorId,
+    this.categoria,
   });
 
   /// Determina si el producto se vende a granel/fraccionable
@@ -133,6 +171,10 @@ class Producto {
     double? unidadesEnEmpaqueVenta,
     double? precioVentaSuelta,
     String? productoHijoId,
+    String? proveedorId,
+    String? categoria,
+    bool clearCategoria = false,
+    bool clearProveedor = false,
   }) {
     return Producto(
       id: id ?? this.id,
@@ -156,6 +198,8 @@ class Producto {
       unidadesEnEmpaqueVenta: unidadesEnEmpaqueVenta ?? this.unidadesEnEmpaqueVenta,
       precioVentaSuelta: precioVentaSuelta ?? this.precioVentaSuelta,
       productoHijoId: productoHijoId ?? this.productoHijoId,
+      proveedorId: clearProveedor ? null : (proveedorId ?? this.proveedorId),
+      categoria: clearCategoria ? null : (categoria ?? this.categoria),
     );
   }
 
@@ -182,6 +226,8 @@ class Producto {
       'unidades_en_empaque_venta': unidadesEnEmpaqueVenta,
       'precio_venta_suelta': precioVentaSuelta,
       'producto_hijo_id': productoHijoId,
+      'proveedor_id': proveedorId,
+      'categoria': categoria,
     };
   }
 
@@ -216,6 +262,8 @@ class Producto {
           : 1.0,
       precioVentaSuelta: _toDouble(map['precio_venta_suelta']),
       productoHijoId: map['producto_hijo_id'] as String?,
+      proveedorId: map['proveedor_id'] as String?,
+      categoria: map['categoria'] as String?,
     );
   }
 
