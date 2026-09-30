@@ -12,7 +12,7 @@ import '../../../cierre_caja/ui/screens/cierre_caja_screen.dart';
 import '../../data/models/producto_model.dart';
 import '../../state/providers/inventario_providers.dart';
 import 'lista_reposicion_screen.dart';
-import 'movimientos_inventario_screen.dart';
+import 'kardex_screen.dart';
 import 'formulario_producto_screen.dart';
 import '../../../cuentas_por_cobrar/state/providers/clientes_providers.dart';
 import '../../../cuentas_por_cobrar/ui/screens/gestion_fiados_screen.dart';
@@ -92,15 +92,15 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
             },
           ),
 
-          // Botón de Movimientos de Inventario (Desempaque y Mermas)
+          // Botón de Kardex e Historial de Movimientos
           IconButton(
-            icon: const Icon(Icons.swap_horiz_rounded, size: 30, color: Colors.white),
-            tooltip: 'Desempaque y Mermas',
+            icon: const Icon(Icons.auto_stories_rounded, size: 28, color: Colors.white),
+            tooltip: 'Kardex e Historial de Movimientos',
             onPressed: () async {
               await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const MovimientosInventarioScreen(),
+                  builder: (context) => const KardexScreen(),
                 ),
               );
               ref.invalidate(productosListProvider);
@@ -713,6 +713,18 @@ class _ProductoCard extends ConsumerWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
+          onLongPress: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => KardexScreen(
+                  productoIdInicial: producto.id,
+                  nombreProductoInicial: producto.nombre,
+                ),
+              ),
+            );
+            ref.invalidate(productosListProvider);
+          },
           onTap: () {
             // Ruta de decisión según tipo de producto
             if (producto.esFraccionable) {
@@ -826,42 +838,47 @@ class _ProductoCard extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
-                      Row(
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 6,
+                        runSpacing: 2,
                         children: [
                           if (alertaCompraDistribuidor)
                             const Padding(
-                              padding: EdgeInsets.only(right: 4.0),
-                              child: Icon(Icons.warning_amber_rounded, size: 18, color: AppColors.danger),
+                              padding: EdgeInsets.only(right: 2.0),
+                              child: Icon(Icons.warning_amber_rounded, size: 16, color: AppColors.danger),
                             ),
                           Text(
                             'Stock: ${producto.stockActual.toStringAsFixed(producto.esFraccionable ? 2 : 0)} $unidadTexto',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 15,
                               fontWeight: alertaCompraDistribuidor ? FontWeight.w800 : FontWeight.w500,
                               color: alertaCompraDistribuidor ? AppColors.danger : AppColors.textSecondary,
                             ),
                           ),
-                          if (producto.codigoBarras != null && producto.codigoBarras!.isNotEmpty) ...[
-                            const SizedBox(width: 8),
+                          if (producto.codigoBarras != null && producto.codigoBarras!.isNotEmpty)
                             Text(
                               '• #${producto.codigoBarras}',
-                              style: const TextStyle(fontSize: 14, color: AppColors.textMuted),
+                              style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
                             ),
-                          ],
                         ],
                       ),
                       if (tieneCajasEnAlmacen && stockBajo) ...[
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Row(
                           children: [
-                            const Icon(Icons.unarchive_outlined, size: 15, color: AppColors.secondary),
+                            const Icon(Icons.unarchive_outlined, size: 14, color: AppColors.secondary),
                             const SizedBox(width: 4),
-                            Text(
-                              'Hay ${unidadesEnCajas.toInt()} uds en almacén (Desempaquetar)',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.secondary,
+                            Expanded(
+                              child: Text(
+                                'Hay ${unidadesEnCajas.toInt()} uds en almacén',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.secondary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
@@ -871,7 +888,7 @@ class _ProductoCard extends ConsumerWidget {
                   ),
                 ),
 
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
 
                 // Precio de venta
                 Column(
@@ -881,48 +898,100 @@ class _ProductoCard extends ConsumerWidget {
                     Text(
                       'Bs. ${producto.precioVenta.toStringAsFixed(2)}',
                       style: const TextStyle(
-                        fontSize: 22,
+                        fontSize: 20,
                         fontWeight: FontWeight.w900,
                         color: AppColors.success,
                       ),
                     ),
                     const Text(
                       'Precio venta',
-                      style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                      style: TextStyle(fontSize: 11, color: AppColors.textMuted),
                     ),
-                    const SizedBox(height: 6),
-                    InkWell(
-                      borderRadius: BorderRadius.circular(6),
-                      onTap: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => FormularioProductoScreen(
-                              productoParaEditar: producto,
+                    const SizedBox(height: 5),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Botón Kardex directo
+                        Tooltip(
+                          message: 'Ver Kardex',
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(6),
+                            onTap: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => KardexScreen(
+                                    productoIdInicial: producto.id,
+                                    nombreProductoInicial: producto.nombre,
+                                  ),
+                                ),
+                              );
+                              ref.invalidate(productosListProvider);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withAlpha(15),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: AppColors.primary.withAlpha(40)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.auto_stories_outlined, size: 14, color: AppColors.primary),
+                                  SizedBox(width: 2),
+                                  Text(
+                                    'Kardex',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        );
-                        ref.invalidate(productosListProvider);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceMuted,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: AppColors.border),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.edit_note_rounded, size: 16, color: AppColors.textSecondary),
-                            SizedBox(width: 3),
-                            Text(
-                              'Editar',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                        const SizedBox(width: 4),
+                        // Botón Editar
+                        Tooltip(
+                          message: 'Editar producto',
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(6),
+                            onTap: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => FormularioProductoScreen(
+                                    productoParaEditar: producto,
+                                  ),
+                                ),
+                              );
+                              ref.invalidate(productosListProvider);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceMuted,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: AppColors.border),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.edit_note_rounded, size: 15, color: AppColors.textSecondary),
+                                  SizedBox(width: 2),
+                                  Text(
+                                    'Editar',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),

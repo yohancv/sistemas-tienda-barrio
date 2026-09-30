@@ -148,6 +148,8 @@ class InventarioRepository {
     required String tenantId,
     required double cantidadDelta,
     required double costoUnitario,
+    double? stockAnterior,
+    double? stockPosterior,
   }) async {
     final tipoMovimiento = cantidadDelta > 0 ? 'AJUSTE_POSITIVO' : 'AJUSTE_NEGATIVO';
     final costoTotal = costoUnitario * cantidadDelta.abs();
@@ -160,6 +162,8 @@ class InventarioRepository {
       'costo_unitario': costoUnitario,
       'costo_total': costoTotal,
       'motivo': 'Ajuste manual de stock desde edición de catálogo',
+      'stock_anterior': ?stockAnterior,
+      'stock_posterior': ?stockPosterior,
     });
   }
 }

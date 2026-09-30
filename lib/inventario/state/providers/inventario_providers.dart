@@ -167,6 +167,8 @@ class ProductoOperacionNotifier extends StateNotifier<ProductoOperacionState> {
                 tenantId: producto.tenantId,
                 cantidadDelta: delta,
                 costoUnitario: producto.costoMayorista,
+                stockAnterior: stockAnterior,
+                stockPosterior: producto.stockActual,
               );
             } catch (_) {
               // No bloquear el guardado si falla el registro de auditoría

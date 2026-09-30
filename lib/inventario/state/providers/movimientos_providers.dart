@@ -43,7 +43,7 @@ class MovimientosNotifier extends StateNotifier<MovimientoOperacionState> {
   MovimientosNotifier(this._repository, this._ref)
       : super(const MovimientoOperacionState());
 
-  /// Ejecuta el desempaque de cajas y refresca reactivamente todo el catálogo
+  /// Ejecuta el desempaque de cajas y refresca reactivamente todo el catálogo y kardex
   Future<bool> desempaquetar({
     required Producto caja,
     required Producto unidadesDestino,
@@ -61,9 +61,10 @@ class MovimientosNotifier extends StateNotifier<MovimientoOperacionState> {
         motivo: motivo,
       );
 
-      // Invalidar proveedores de inventario para que el stock se actualice en toda la app de inmediato
+      // Invalidar proveedores de inventario y kardex
       _ref.invalidate(productosListProvider);
       _ref.invalidate(historialMovimientosProvider);
+      _ref.invalidate(kardexListProvider);
 
       final unidadesSumadas = res['unidades_sumadas'] ?? 0;
       state = state.copyWith(
@@ -99,9 +100,10 @@ class MovimientosNotifier extends StateNotifier<MovimientoOperacionState> {
         motivo: motivo,
       );
 
-      // Refrescar inventario
+      // Refrescar inventario y kardex
       _ref.invalidate(productosListProvider);
       _ref.invalidate(historialMovimientosProvider);
+      _ref.invalidate(kardexListProvider);
 
       final costoPerdida = (res['costo_perdida'] as num?)?.toDouble() ?? 0.0;
       state = state.copyWith(
@@ -131,9 +133,190 @@ final movimientosNotifierProvider =
   return MovimientosNotifier(repo, ref);
 });
 
-/// Proveedor del historial reciente de movimientos para auditoría
+/// Proveedor del historial reciente de movimientos para auditoría rápida
 final historialMovimientosProvider =
     FutureProvider<List<MovimientoInventario>>((ref) async {
   final repo = ref.watch(movimientosRepositoryProvider);
   return repo.obtenerHistorialMovimientos(SupabaseConfig.defaultTenantId);
+});
+
+// ============================================================================
+// FILTROS Y ESTADO REACTIVO DEL KARDEX
+// ============================================================================
+
+enum PeriodoKardex { hoy, ultimos7Dias, esteMes, todos }
+
+class KardexFiltroState {
+  final PeriodoKardex periodo;
+  final String filtroTipo; // 'TODOS', 'VENTA', 'MERMAS', 'DESEMPAQUES', 'AJUSTES', 'ENTRADAS'
+  final String? productoId;
+  final String? nombreProducto;
+  final String busquedaTexto;
+
+  const KardexFiltroState({
+    this.periodo = PeriodoKardex.esteMes,
+    this.filtroTipo = 'TODOS',
+    this.productoId,
+    this.nombreProducto,
+    this.busquedaTexto = '',
+  });
+
+  DateTime? get fechaInicio {
+    final now = DateTime.now();
+    switch (periodo) {
+      case PeriodoKardex.hoy:
+        return DateTime(now.year, now.month, now.day);
+      case PeriodoKardex.ultimos7Dias:
+        return now.subtract(const Duration(days: 7));
+      case PeriodoKardex.esteMes:
+        return DateTime(now.year, now.month, 1);
+      case PeriodoKardex.todos:
+        return null;
+    }
+  }
+
+  DateTime? get fechaFin => null;
+
+  KardexFiltroState copyWith({
+    PeriodoKardex? periodo,
+    String? filtroTipo,
+    String? productoId,
+    String? nombreProducto,
+    bool clearProducto = false,
+    String? busquedaTexto,
+  }) {
+    return KardexFiltroState(
+      periodo: periodo ?? this.periodo,
+      filtroTipo: filtroTipo ?? this.filtroTipo,
+      productoId: clearProducto ? null : (productoId ?? this.productoId),
+      nombreProducto: clearProducto ? null : (nombreProducto ?? this.nombreProducto),
+      busquedaTexto: busquedaTexto ?? this.busquedaTexto,
+    );
+  }
+}
+
+class KardexFiltroNotifier extends Notifier<KardexFiltroState> {
+  @override
+  KardexFiltroState build() => const KardexFiltroState();
+
+  void cambiarPeriodo(PeriodoKardex periodo) {
+    state = state.copyWith(periodo: periodo);
+  }
+
+  void cambiarTipo(String tipo) {
+    state = state.copyWith(filtroTipo: tipo);
+  }
+
+  void seleccionarProducto(String? productoId, {String? nombreProducto}) {
+    if (productoId == null) {
+      state = state.copyWith(clearProducto: true);
+    } else {
+      state = state.copyWith(
+        productoId: productoId,
+        nombreProducto: nombreProducto,
+      );
+    }
+  }
+
+  void actualizarBusqueda(String texto) {
+    state = state.copyWith(busquedaTexto: texto);
+  }
+
+  void limpiarBusquedaYProducto() {
+    state = state.copyWith(
+      clearProducto: true,
+      busquedaTexto: '',
+    );
+  }
+
+  void resetearFiltros() {
+    state = const KardexFiltroState();
+  }
+}
+
+final kardexFiltroProvider =
+    NotifierProvider<KardexFiltroNotifier, KardexFiltroState>(
+  KardexFiltroNotifier.new,
+);
+
+/// Proveedor de la lista filtrada del Kardex
+final kardexListProvider =
+    FutureProvider<List<MovimientoInventario>>((ref) async {
+  final filtro = ref.watch(kardexFiltroProvider);
+  final repo = ref.watch(movimientosRepositoryProvider);
+
+  final movimientos = await repo.obtenerKardex(
+    tenantId: SupabaseConfig.defaultTenantId,
+    productoId: filtro.productoId,
+    fechaInicio: filtro.fechaInicio,
+    fechaFin: filtro.fechaFin,
+    filtroTipo: filtro.filtroTipo,
+    limite: 150,
+  );
+
+  // Filtrado local por texto de búsqueda si el usuario escribe en el buscador
+  if (filtro.busquedaTexto.trim().isNotEmpty) {
+    final term = filtro.busquedaTexto.toLowerCase().trim();
+    return movimientos.where((m) {
+      final nombre = m.nombreProducto?.toLowerCase() ?? '';
+      final codigo = m.codigoBarrasProducto?.toLowerCase() ?? '';
+      final motivo = m.motivo?.toLowerCase() ?? '';
+      return nombre.contains(term) || codigo.contains(term) || motivo.contains(term);
+    }).toList();
+  }
+
+  return movimientos;
+});
+
+/// Resumen métrico consolidado del período actual del Kardex
+class ResumenKardex {
+  final double totalUnidadesVendidas;
+  final double totalUnidadesIngresadas;
+  final double totalUnidadesMermas;
+  final double totalCostoPerdidaMermas;
+
+  const ResumenKardex({
+    required this.totalUnidadesVendidas,
+    required this.totalUnidadesIngresadas,
+    required this.totalUnidadesMermas,
+    required this.totalCostoPerdidaMermas,
+  });
+
+  factory ResumenKardex.desdeLista(List<MovimientoInventario> lista) {
+    double vendidas = 0.0;
+    double ingresadas = 0.0;
+    double mermas = 0.0;
+    double costoMermas = 0.0;
+
+    for (final m in lista) {
+      if (m.esVenta) {
+        vendidas += m.cantidad;
+      } else if (m.esMerma) {
+        mermas += m.cantidad;
+        costoMermas += m.costoTotal;
+      } else if (m.esEntrada) {
+        ingresadas += m.cantidad;
+      }
+    }
+
+    return ResumenKardex(
+      totalUnidadesVendidas: vendidas,
+      totalUnidadesIngresadas: ingresadas,
+      totalUnidadesMermas: mermas,
+      totalCostoPerdidaMermas: costoMermas,
+    );
+  }
+}
+
+final resumenKardexProvider = Provider<ResumenKardex>((ref) {
+  final movimientosAsync = ref.watch(kardexListProvider);
+  return movimientosAsync.maybeWhen(
+    data: (lista) => ResumenKardex.desdeLista(lista),
+    orElse: () => const ResumenKardex(
+      totalUnidadesVendidas: 0,
+      totalUnidadesIngresadas: 0,
+      totalUnidadesMermas: 0,
+      totalCostoPerdidaMermas: 0,
+    ),
+  );
 });

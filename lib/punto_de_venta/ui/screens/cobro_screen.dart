@@ -11,6 +11,7 @@ import '../../state/providers/carrito_providers.dart';
 import '../../state/providers/pago_providers.dart';
 import '../../state/providers/venta_providers.dart';
 import '../../../inventario/state/providers/inventario_providers.dart';
+import '../../../inventario/state/providers/movimientos_providers.dart';
 import '../../../cierre_caja/state/providers/caja_providers.dart';
 
 enum MetodoPagoCobro { efectivo, qr, fiado }
@@ -241,12 +242,14 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
             pagos: pagos,
           );
 
-      // Refrescar proveedores de inventario, clientes y caja
+      // Refrescar proveedores de inventario, clientes, caja y kardex
       ref.read(carritoProvider.notifier).limpiarCarrito();
       ref.read(efectivoRecibidoProvider.notifier).corregir();
       ref.invalidate(productosListProvider);
       ref.invalidate(clientesListProvider);
       ref.invalidate(resumenCajaTurnoProvider);
+      ref.invalidate(kardexListProvider);
+      ref.invalidate(historialMovimientosProvider);
 
       if (!mounted) return;
 

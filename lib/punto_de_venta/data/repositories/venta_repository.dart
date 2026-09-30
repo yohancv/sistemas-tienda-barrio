@@ -101,6 +101,26 @@ class VentaRepository {
           .from('productos')
           .update({'stock_actual': nuevoStock})
           .eq('id', detalle.productoId);
+
+      // Registrar salida por venta en el Kardex inmutable
+      try {
+        final ticketCorto = ventaId.length > 8 ? ventaId.substring(0, 8) : ventaId;
+        await _client.from('movimientos_inventario').insert({
+          'tenant_id': venta.tenantId,
+          'producto_id': detalle.productoId,
+          'tipo_movimiento': 'VENTA',
+          'cantidad': detalle.cantidad,
+          'costo_unitario': detalle.costoUnitario,
+          'costo_total': (detalle.costoUnitario * detalle.cantidad),
+          'motivo': 'Venta mostrador (Ticket #$ticketCorto)',
+          'referencia_id': ventaId,
+          'stock_anterior': stockActual,
+          'stock_posterior': nuevoStock,
+        });
+      } catch (e) {
+        // ignore: avoid_print
+        print('[Kardex Venta Error] No se pudo insertar en movimientos_inventario: $e');
+      }
     }
 
     return ventaCreada;

@@ -34,7 +34,7 @@ class MovimientosRepository {
   }
 
   /// Registra una merma o rotura de producto con su cálculo financiero de pérdida en Bs.
-  /// Descuenta el stock físico y guarda la auditoría inmutable en PostgreSQL.
+  /// Descuenta el stock físico y guarda la auditoría inmutable con stock_anterior y stock_posterior.
   Future<Map<String, dynamic>> registrarMerma({
     required String productoId,
     required double cantidad,
@@ -60,20 +60,91 @@ class MovimientosRepository {
     }
   }
 
-  /// Consulta los movimientos recientes de auditoría de inventario (desempaques, mermas, etc.)
+  /// Consulta el Kardex filtrable con JOIN al catálogo de productos
+  Future<List<MovimientoInventario>> obtenerKardex({
+    required String tenantId,
+    String? productoId,
+    DateTime? fechaInicio,
+    DateTime? fechaFin,
+    String? filtroTipo,
+    int limite = 100,
+  }) async {
+    try {
+      var query = _client
+          .from('movimientos_inventario')
+          .select('*, productos(nombre, codigo_barras)')
+          .eq('tenant_id', tenantId);
+
+      // Filtro por producto específico
+      if (productoId != null && productoId.isNotEmpty) {
+        query = query.eq('producto_id', productoId);
+      }
+
+      // Filtros de fecha
+      if (fechaInicio != null) {
+        query = query.gte('created_at', fechaInicio.toIso8601String());
+      }
+      if (fechaFin != null) {
+        query = query.lte('created_at', fechaFin.toIso8601String());
+      }
+
+      // Filtros por grupo de tipo de movimiento
+      if (filtroTipo != null && filtroTipo != 'TODOS') {
+        switch (filtroTipo) {
+          case 'VENTA':
+            query = query.eq('tipo_movimiento', 'VENTA');
+            break;
+          case 'MERMAS':
+            query = query.inFilter('tipo_movimiento', [
+              'MERMA_ROTURA',
+              'MERMA_VENCIMIENTO',
+              'MERMA_DETERIORO',
+            ]);
+            break;
+          case 'DESEMPAQUES':
+            query = query.inFilter('tipo_movimiento', [
+              'DESEMPAQUE_SALIDA',
+              'DESEMPAQUE_ENTRADA',
+            ]);
+            break;
+          case 'AJUSTES':
+            query = query.inFilter('tipo_movimiento', [
+              'AJUSTE_POSITIVO',
+              'AJUSTE_NEGATIVO',
+              'AJUSTE_MANUAL',
+            ]);
+            break;
+          case 'ENTRADAS':
+            query = query.inFilter('tipo_movimiento', [
+              'ENTRADA_COMPRA',
+              'DESEMPAQUE_ENTRADA',
+              'AJUSTE_POSITIVO',
+            ]);
+            break;
+          default:
+            query = query.eq('tipo_movimiento', filtroTipo);
+        }
+      }
+
+      final response = await query
+          .order('created_at', ascending: false)
+          .limit(limite);
+
+      return (response as List<dynamic>)
+          .map((item) => MovimientoInventario.fromMap(item as Map<String, dynamic>))
+          .toList();
+    } catch (e, stack) {
+      // ignore: avoid_print
+      print('[Kardex Repository Error] Falló al consultar kardex: $e\n$stack');
+      return [];
+    }
+  }
+
+  /// Consulta rápida de movimientos recientes de auditoría
   Future<List<MovimientoInventario>> obtenerHistorialMovimientos(
     String tenantId, {
     int limite = 50,
   }) async {
-    final response = await _client
-        .from('movimientos_inventario')
-        .select()
-        .eq('tenant_id', tenantId)
-        .order('created_at', ascending: false)
-        .limit(limite);
-
-    return (response as List<dynamic>)
-        .map((item) => MovimientoInventario.fromMap(item as Map<String, dynamic>))
-        .toList();
+    return obtenerKardex(tenantId: tenantId, limite: limite);
   }
 }
