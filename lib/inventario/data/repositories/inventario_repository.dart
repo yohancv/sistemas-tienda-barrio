@@ -84,4 +84,82 @@ class InventarioRepository {
         })
         .eq('id', productoId);
   }
+
+  /// Reactivar un producto previamente dado de baja (Soft Delete inverso)
+  Future<Producto> reactivarProducto(String productoId) async {
+    final response = await _client
+        .from('productos')
+        .update({
+          'estado_activo': true,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', productoId)
+        .select()
+        .single();
+
+    return Producto.fromMap(response);
+  }
+
+  /// Obtiene los productos inactivos (retirados del catálogo) para reactivación
+  Future<List<Producto>> obtenerProductosInactivos(String tenantId) async {
+    final response = await _client
+        .from('productos')
+        .select()
+        .eq('tenant_id', tenantId)
+        .eq('estado_activo', false)
+        .order('updated_at', ascending: false);
+
+    return (response as List<dynamic>)
+        .map((item) => Producto.fromMap(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Verifica si un código de barras ya está en uso por otro producto activo.
+  /// Retorna el Producto existente si hay colisión, o null si el código está disponible.
+  Future<Producto?> verificarCodigoBarrasDisponible(
+    String tenantId,
+    String codigoBarras, {
+    String? excluirProductoId,
+  }) async {
+    if (codigoBarras.trim().isEmpty) return null;
+
+    var query = _client
+        .from('productos')
+        .select()
+        .eq('tenant_id', tenantId)
+        .eq('estado_activo', true)
+        .eq('codigo_barras', codigoBarras.trim());
+
+    if (excluirProductoId != null) {
+      query = query.neq('id', excluirProductoId);
+    }
+
+    final response = await query.limit(1);
+    final lista = response as List<dynamic>;
+
+    if (lista.isEmpty) return null;
+    return Producto.fromMap(lista.first as Map<String, dynamic>);
+  }
+
+  /// Registra un ajuste manual de stock como movimiento inmutable de auditoría.
+  /// Se usa cuando el usuario edita directamente el stock desde el formulario de producto.
+  Future<void> registrarAjusteManualStock({
+    required String productoId,
+    required String tenantId,
+    required double cantidadDelta,
+    required double costoUnitario,
+  }) async {
+    final tipoMovimiento = cantidadDelta > 0 ? 'AJUSTE_POSITIVO' : 'AJUSTE_NEGATIVO';
+    final costoTotal = costoUnitario * cantidadDelta.abs();
+
+    await _client.from('movimientos_inventario').insert({
+      'tenant_id': tenantId,
+      'producto_id': productoId,
+      'tipo_movimiento': tipoMovimiento,
+      'cantidad': cantidadDelta.abs(),
+      'costo_unitario': costoUnitario,
+      'costo_total': costoTotal,
+      'motivo': 'Ajuste manual de stock desde edición de catálogo',
+    });
+  }
 }

@@ -11,6 +11,7 @@ import '../../state/providers/carrito_providers.dart';
 import '../../state/providers/pago_providers.dart';
 import '../../state/providers/venta_providers.dart';
 import '../../../inventario/state/providers/inventario_providers.dart';
+import '../../../cierre_caja/state/providers/caja_providers.dart';
 
 enum MetodoPagoCobro { efectivo, qr, fiado }
 
@@ -195,10 +196,14 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
         vueltoVenta = 0.0;
       }
 
+      // Obtener turno activo de caja si existe
+      final turnoActivo = ref.read(cajaTurnoActivaProvider).value;
+
       // 1. Construir cabecera de Venta
       final venta = Venta(
         tenantId: tenantId,
         clienteId: _clienteSeleccionado?.id,
+        cajaTurnoId: turnoActivo?.id,
         totalVenta: widget.totalAPagar,
         metodoPago: metodoBD,
         montoRecibido: montoRecibidoVenta,
@@ -236,11 +241,12 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
             pagos: pagos,
           );
 
-      // Refrescar proveedores de inventario y clientes
+      // Refrescar proveedores de inventario, clientes y caja
       ref.read(carritoProvider.notifier).limpiarCarrito();
       ref.read(efectivoRecibidoProvider.notifier).corregir();
       ref.invalidate(productosListProvider);
       ref.invalidate(clientesListProvider);
+      ref.invalidate(resumenCajaTurnoProvider);
 
       if (!mounted) return;
 

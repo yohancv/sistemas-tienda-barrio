@@ -5,6 +5,8 @@ import '../../../core/theme/app_typography.dart';
 import '../../data/models/item_carrito_model.dart';
 import '../../state/providers/carrito_providers.dart';
 import '../../../inventario/state/providers/inventario_providers.dart';
+import '../../../cierre_caja/state/providers/caja_providers.dart';
+import '../../../cierre_caja/ui/screens/cierre_caja_screen.dart';
 import 'cobro_screen.dart';
 
 class TicketScreen extends ConsumerWidget {
@@ -164,6 +166,11 @@ class TicketScreen extends ConsumerWidget {
                         elevation: 4,
                       ),
                       onPressed: () {
+                        final hayCaja = ref.read(hayCajaAbiertaProvider);
+                        if (!hayCaja) {
+                          _mostrarAlertaCajaCerrada(context);
+                          return;
+                        }
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -187,6 +194,49 @@ class TicketScreen extends ConsumerWidget {
               ),
             )
           : null,
+    );
+  }
+
+  void _mostrarAlertaCajaCerrada(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.point_of_sale, color: AppColors.warning, size: 30),
+            SizedBox(width: 10),
+            Text('Caja Cerrada', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'Debes abrir un turno de caja con el fondo inicial en efectivo antes de registrar cobros y ventas.',
+          style: TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar', style: TextStyle(fontSize: 16)),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const CierreCajaScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.lock_open, color: Colors.white),
+            label: const Text(
+              'Abrir Caja Ahora',
+              style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

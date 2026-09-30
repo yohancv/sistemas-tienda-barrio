@@ -3,6 +3,7 @@ class Venta {
   final String? id;
   final String tenantId;
   final String? clienteId;
+  final String? cajaTurnoId;
   final double totalVenta;
   final String metodoPago; // 'EFECTIVO', 'QR', 'MIXTO', 'CREDITO_FIADO'
   final double montoRecibido;
@@ -13,6 +14,7 @@ class Venta {
     this.id,
     required this.tenantId,
     this.clienteId,
+    this.cajaTurnoId,
     required this.totalVenta,
     required this.metodoPago,
     this.montoRecibido = 0.0,
@@ -24,6 +26,7 @@ class Venta {
     final map = <String, dynamic>{
       'tenant_id': tenantId,
       'cliente_id': clienteId,
+      if (cajaTurnoId != null) 'caja_turno_id': cajaTurnoId,
       'total_venta': totalVenta,
       'metodo_pago': metodoPago,
       'monto_recibido': montoRecibido,
@@ -39,6 +42,7 @@ class Venta {
       id: map['id'] as String?,
       tenantId: map['tenant_id'] as String,
       clienteId: map['cliente_id'] as String?,
+      cajaTurnoId: map['caja_turno_id'] as String?,
       totalVenta: _toDouble(map['total_venta']),
       metodoPago: map['metodo_pago'] as String? ?? 'EFECTIVO',
       montoRecibido: _toDouble(map['monto_recibido']),
@@ -53,6 +57,7 @@ class Venta {
     String? id,
     String? tenantId,
     String? clienteId,
+    String? cajaTurnoId,
     double? totalVenta,
     String? metodoPago,
     double? montoRecibido,
@@ -63,6 +68,7 @@ class Venta {
       id: id ?? this.id,
       tenantId: tenantId ?? this.tenantId,
       clienteId: clienteId ?? this.clienteId,
+      cajaTurnoId: cajaTurnoId ?? this.cajaTurnoId,
       totalVenta: totalVenta ?? this.totalVenta,
       metodoPago: metodoPago ?? this.metodoPago,
       montoRecibido: montoRecibido ?? this.montoRecibido,

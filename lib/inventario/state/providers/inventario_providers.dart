@@ -127,8 +127,24 @@ class ProductoOperacionNotifier extends StateNotifier<ProductoOperacionState> {
   ProductoOperacionNotifier(this._repository, this._ref)
       : super(const ProductoOperacionState());
 
-  /// Guarda un producto (Crea si id está vacío, actualiza si ya existe)
-  Future<Producto?> guardarProducto(Producto producto) async {
+  /// Verifica si un código de barras ya está registrado por otro producto activo.
+  /// Retorna el Producto colisionante, o null si está disponible.
+  Future<Producto?> verificarCodigoBarras(String codigo, {String? excluirProductoId}) async {
+    if (codigo.trim().isEmpty) return null;
+    try {
+      return await _repository.verificarCodigoBarrasDisponible(
+        SupabaseConfig.defaultTenantId,
+        codigo,
+        excluirProductoId: excluirProductoId,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Guarda un producto (Crea si id está vacío, actualiza si ya existe).
+  /// Si se edita el stock de un producto existente, registra un movimiento de auditoría inmutable.
+  Future<Producto?> guardarProducto(Producto producto, {double? stockAnterior}) async {
     state = state.copyWith(isLoading: true, errorMessage: null, successMessage: null);
     try {
       Producto resultado;
@@ -140,6 +156,24 @@ class ProductoOperacionNotifier extends StateNotifier<ProductoOperacionState> {
         );
       } else {
         resultado = await _repository.actualizarProducto(producto);
+
+        // Registrar auditoría inmutable si el stock cambió durante la edición
+        if (stockAnterior != null) {
+          final delta = producto.stockActual - stockAnterior;
+          if (delta.abs() > 0.001) {
+            try {
+              await _repository.registrarAjusteManualStock(
+                productoId: producto.id,
+                tenantId: producto.tenantId,
+                cantidadDelta: delta,
+                costoUnitario: producto.costoMayorista,
+              );
+            } catch (_) {
+              // No bloquear el guardado si falla el registro de auditoría
+            }
+          }
+        }
+
         state = state.copyWith(
           isLoading: false,
           successMessage: '¡Producto "${resultado.nombre}" actualizado correctamente!',
@@ -164,6 +198,7 @@ class ProductoOperacionNotifier extends StateNotifier<ProductoOperacionState> {
     try {
       await _repository.desactivarProducto(productoId);
       _ref.invalidate(productosListProvider);
+      _ref.invalidate(productosInactivosProvider);
       state = state.copyWith(
         isLoading: false,
         successMessage: 'Producto "$nombre" retirado del catálogo.',
@@ -178,6 +213,27 @@ class ProductoOperacionNotifier extends StateNotifier<ProductoOperacionState> {
     }
   }
 
+  /// Reactivar un producto desactivado (restaurar al catálogo)
+  Future<Producto?> reactivarProducto(String productoId) async {
+    state = state.copyWith(isLoading: true, errorMessage: null, successMessage: null);
+    try {
+      final resultado = await _repository.reactivarProducto(productoId);
+      _ref.invalidate(productosListProvider);
+      _ref.invalidate(productosInactivosProvider);
+      state = state.copyWith(
+        isLoading: false,
+        successMessage: '¡Producto "${resultado.nombre}" reactivado en el catálogo!',
+      );
+      return resultado;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Error al reactivar producto: $e',
+      );
+      return null;
+    }
+  }
+
   void limpiarMensajes() {
     state = const ProductoOperacionState();
   }
@@ -187,5 +243,12 @@ final productoOperacionProvider =
     StateNotifierProvider<ProductoOperacionNotifier, ProductoOperacionState>((ref) {
   final repo = ref.watch(inventarioRepositoryProvider);
   return ProductoOperacionNotifier(repo, ref);
+});
+
+/// Proveedor de productos inactivos (retirados) para la pantalla de reactivación
+final productosInactivosProvider = FutureProvider<List<Producto>>((ref) async {
+  final repository = ref.watch(inventarioRepositoryProvider);
+  const tenantId = SupabaseConfig.defaultTenantId;
+  return repository.obtenerProductosInactivos(tenantId);
 });
 
