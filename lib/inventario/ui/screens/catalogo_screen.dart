@@ -17,6 +17,7 @@ import '../../../compras/ui/screens/compras_proveedores_screen.dart';
 import 'formulario_producto_screen.dart';
 import '../../../cuentas_por_cobrar/state/providers/clientes_providers.dart';
 import '../../../cuentas_por_cobrar/ui/screens/gestion_fiados_screen.dart';
+import 'gestion_categorias_screen.dart';
 
 class CatalogoScreen extends ConsumerStatefulWidget {
   const CatalogoScreen({super.key});
@@ -54,6 +55,8 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
     final totalMonto = ref.watch(totalCarritoProvider);
     final categoriasConteo = ref.watch(categoriasDisponiblesProvider);
     final categoriaSeleccionada = ref.watch(filtroCategoriaSeleccionadaProvider);
+    final subcategoriasConteo = ref.watch(subcategoriasDisponiblesProvider);
+    final subcategoriaSeleccionada = ref.watch(filtroSubcategoriaSeleccionadaProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -183,16 +186,32 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
             },
           ),
 
-          // Menú con opciones adicionales (Productos retirados para reactivación)
+          // Menú con opciones adicionales
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: Colors.white, size: 28),
             tooltip: 'Más opciones',
-            onSelected: (value) {
-              if (value == 'retirados') {
+            onSelected: (value) async {
+              if (value == 'categorias') {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const GestionCategoriasScreen()),
+                );
+                ref.invalidate(productosListProvider);
+              } else if (value == 'retirados') {
                 _mostrarProductosRetirados(context);
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'categorias',
+                child: Row(
+                  children: [
+                    Icon(Icons.category_outlined, color: AppColors.primary),
+                    SizedBox(width: 10),
+                    Text('Categorías y Familias', style: TextStyle(fontSize: 16)),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: 'retirados',
                 child: Row(
@@ -363,6 +382,7 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                           ),
                           onSelected: (_) {
                             ref.read(filtroCategoriaSeleccionadaProvider.notifier).state = null;
+                            ref.read(filtroSubcategoriaSeleccionadaProvider.notifier).state = null;
                           },
                         ),
                       ),
@@ -395,6 +415,77 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                             onSelected: (selected) {
                               ref.read(filtroCategoriaSeleccionadaProvider.notifier).state =
                                   selected ? catNombre : null;
+                              ref.read(filtroSubcategoriaSeleccionadaProvider.notifier).state = null;
+                            },
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Carrusel horizontal de Subcategorías (Nivel 2 de jerarquía: tamaños, sabores o tipos)
+            if (categoriaSeleccionada != null && subcategoriasConteo.isNotEmpty)
+              Container(
+                color: AppColors.surface,
+                padding: const EdgeInsets.only(left: 14.0, right: 14.0, bottom: 8.0),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      // Chip 'Todas las [categoría]'
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: FilterChip(
+                          avatar: const Icon(Icons.subdirectory_arrow_right_rounded, size: 16),
+                          label: Text('Todas (${categoriasConteo[categoriaSeleccionada] ?? 0})'),
+                          selected: subcategoriaSeleccionada == null,
+                          selectedColor: AppColors.secondary.withAlpha(25),
+                          checkmarkColor: AppColors.secondary,
+                          labelStyle: TextStyle(
+                            color: subcategoriaSeleccionada == null ? AppColors.secondary : AppColors.textPrimary,
+                            fontWeight: subcategoriaSeleccionada == null ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 12.5,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(
+                              color: subcategoriaSeleccionada == null ? AppColors.secondary : AppColors.border,
+                            ),
+                          ),
+                          onSelected: (_) {
+                            ref.read(filtroSubcategoriaSeleccionadaProvider.notifier).state = null;
+                          },
+                        ),
+                      ),
+                      // Chips por cada subcategoría disponible dentro de la categoría
+                      ...subcategoriasConteo.entries.map((entry) {
+                        final subNombre = entry.key;
+                        final subCantidad = entry.value;
+                        final esSubSeleccionada = subcategoriaSeleccionada?.toLowerCase() == subNombre.toLowerCase();
+
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: FilterChip(
+                            label: Text('$subNombre ($subCantidad)'),
+                            selected: esSubSeleccionada,
+                            selectedColor: AppColors.secondary.withAlpha(25),
+                            checkmarkColor: AppColors.secondary,
+                            labelStyle: TextStyle(
+                              color: esSubSeleccionada ? AppColors.secondary : AppColors.textPrimary,
+                              fontWeight: esSubSeleccionada ? FontWeight.bold : FontWeight.normal,
+                              fontSize: 12.5,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(
+                                color: esSubSeleccionada ? AppColors.secondary : AppColors.border,
+                              ),
+                            ),
+                            onSelected: (selected) {
+                              ref.read(filtroSubcategoriaSeleccionadaProvider.notifier).state =
+                                  selected ? subNombre : null;
                             },
                           ),
                         );
@@ -927,6 +1018,28 @@ class _ProductoCard extends ConsumerWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      if (producto.categoria != null && producto.categoria!.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withAlpha(15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            producto.subcategoria != null && producto.subcategoria!.isNotEmpty
+                                ? '${Producto.emojiCategoria(producto.categoria)} ${producto.categoria} › ${producto.subcategoria}'
+                                : '${Producto.emojiCategoria(producto.categoria)} ${producto.categoria}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 4),
                       Wrap(
                         crossAxisAlignment: WrapCrossAlignment.center,

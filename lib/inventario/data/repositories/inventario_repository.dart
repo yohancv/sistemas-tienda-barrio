@@ -32,7 +32,7 @@ class InventarioRepository {
         .select()
         .eq('tenant_id', tenantId)
         .eq('estado_activo', true)
-        .or('nombre.ilike.%$cleanQuery%,codigo_barras.ilike.%$cleanQuery%')
+        .or('nombre.ilike.%$cleanQuery%,codigo_barras.ilike.%$cleanQuery%,categoria.ilike.%$cleanQuery%,subcategoria.ilike.%$cleanQuery%')
         .order('nombre', ascending: true);
 
     return (response as List<dynamic>)

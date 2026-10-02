@@ -78,6 +78,9 @@ final productosStockBajoListProvider = Provider<List<Producto>>((ref) {
 /// Categoría seleccionada actualmente para filtrar en el catálogo (null = todas)
 final filtroCategoriaSeleccionadaProvider = StateProvider<String?>((ref) => null);
 
+/// Subcategoría seleccionada actualmente para filtrar en el catálogo (null = todas dentro de la categoría)
+final filtroSubcategoriaSeleccionadaProvider = StateProvider<String?>((ref) => null);
+
 /// Mapa de categorías únicas disponibles en los productos con su conteo de artículos
 final categoriasDisponiblesProvider = Provider<Map<String, int>>((ref) {
   final productosAsync = ref.watch(productosListProvider);
@@ -96,12 +99,39 @@ final categoriasDisponiblesProvider = Provider<Map<String, int>>((ref) {
   );
 });
 
-/// Proveedor reactivo de productos aplicando simultáneamente el filtro de búsqueda, el chip de stock bajo y categoría
+/// Mapa de subcategorías disponibles para la categoría actualmente seleccionada con su conteo
+final subcategoriasDisponiblesProvider = Provider<Map<String, int>>((ref) {
+  final productosAsync = ref.watch(productosListProvider);
+  final categoriaSeleccionada = ref.watch(filtroCategoriaSeleccionadaProvider);
+
+  if (categoriaSeleccionada == null) return {};
+
+  return productosAsync.maybeWhen(
+    data: (productos) {
+      final Map<String, int> conteo = {};
+      final productosDeCat = productos.where(
+        (p) => p.categoria?.trim().toLowerCase() == categoriaSeleccionada.toLowerCase(),
+      );
+
+      for (final p in productosDeCat) {
+        final sub = p.subcategoria?.trim();
+        if (sub != null && sub.isNotEmpty) {
+          conteo[sub] = (conteo[sub] ?? 0) + 1;
+        }
+      }
+      return conteo;
+    },
+    orElse: () => {},
+  );
+});
+
+/// Proveedor reactivo de productos aplicando simultáneamente búsqueda, stock bajo, categoría y subcategoría
 final productosFiltradosProvider = Provider<AsyncValue<List<Producto>>>((ref) {
   final productosAsync = ref.watch(productosListProvider);
   final soloStockBajo = ref.watch(filtroSoloStockBajoProvider);
   final productosStockBajo = ref.watch(productosStockBajoListProvider);
   final categoriaSeleccionada = ref.watch(filtroCategoriaSeleccionadaProvider);
+  final subcategoriaSeleccionada = ref.watch(filtroSubcategoriaSeleccionadaProvider);
 
   return productosAsync.whenData((productos) {
     var resultado = productos;
@@ -115,6 +145,12 @@ final productosFiltradosProvider = Provider<AsyncValue<List<Producto>>>((ref) {
       resultado = resultado
           .where((p) => p.categoria?.trim().toLowerCase() == categoriaSeleccionada.toLowerCase())
           .toList();
+
+      if (subcategoriaSeleccionada != null) {
+        resultado = resultado
+            .where((p) => p.subcategoria?.trim().toLowerCase() == subcategoriaSeleccionada.toLowerCase())
+            .toList();
+      }
     }
 
     return resultado;

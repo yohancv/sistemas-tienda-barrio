@@ -17,6 +17,7 @@ class Producto {
   final String tipoEmpaque; // 'UNIDAD','CAJA','PAQUETE','FARDO','BOLSA','TIRA','KILO','LIBRA'
   final double unidadesPorEmpaque;
   final double costoPorEmpaque;
+  final double? precioEmpaqueMayorista; // Precio de venta opcional si se vende el paquete entero
 
   // Campos de venta dual al detalle (cigarrillos sueltos, pastillas, etc.)
   final bool permiteVentaSuelta;
@@ -30,8 +31,9 @@ class Producto {
   // Enlace a proveedor habitual ("CBN no vende aceite")
   final String? proveedorId;
 
-  // Clasificación por categoría / familia de producto
+  // Clasificación por categoría y subcategoría (jerarquía en 2 niveles)
   final String? categoria;
+  final String? subcategoria;
 
   static const List<String> categoriasSugeridas = [
     'Cervezas y Licores',
@@ -44,6 +46,37 @@ class Producto {
     'Farmacia y Cuidado Personal',
     'Otros',
   ];
+
+  /// Sugerencias inteligentes de subcategorías/presentaciones según la categoría principal
+  static List<String> sugerenciasSubcategoriasPorCategoria(String? cat) {
+    if (cat == null || cat.trim().isEmpty) return ['Grande', 'Mediano', 'Personal', 'Económico'];
+    final c = cat.toLowerCase();
+    if (c.contains('cerveza')) {
+      return ['710cc', 'Lata 354cc', 'Botellín 330cc', 'Lata 473cc', 'Artesanal', 'Mini'];
+    }
+    if (c.contains('licor') || c.contains('vino') || c.contains('singani') || c.contains('ron') || c.contains('vodka') || c.contains('whisky')) {
+      return ['Botella 750ml', 'Botella 1 Litro', 'Petaca / Chico', 'Caneca', 'Caja tetra'];
+    }
+    if (c.contains('gaseosa') || c.contains('soda') || c.contains('refresco') || c.contains('bebida')) {
+      return ['2 Litros', '3 Litros', 'Retornable 2.5L', '500ml Personal', 'Mini 250ml', 'Lata 350ml'];
+    }
+    if (c.contains('jugo') || c.contains('agua')) {
+      return ['1 Litro', '2 Litros', '500ml', 'Sachet / Bolsa', 'Con Pulpa', 'Sin Gas'];
+    }
+    if (c.contains('lácteo') || c.contains('lacteo') || c.contains('leche') || c.contains('yogurt')) {
+      return ['Bolsa 1L', 'Cartón 1L', 'Yogurt Sachet', 'Yogurt Botella', 'Personal 200ml'];
+    }
+    if (c.contains('snack') || c.contains('golosina') || c.contains('dulce') || c.contains('galleta')) {
+      return ['Familiar / Grande', 'Personal', 'Tira', 'Caja', 'Unidad'];
+    }
+    if (c.contains('abarrote') || c.contains('alimento') || c.contains('arroz') || c.contains('fideo')) {
+      return ['1 Kilo', '1 Libra', 'Arroba', 'Fardo', 'Sachet'];
+    }
+    if (c.contains('limpieza') || c.contains('detergente')) {
+      return ['Grande', 'Económico', 'Sachet', 'Botella 1L', 'Galón'];
+    }
+    return ['Grande', 'Mediano', 'Personal', 'Económico'];
+  }
 
   static String emojiCategoria(String? cat) {
     if (cat == null || cat.trim().isEmpty) return '🏷️';
@@ -80,6 +113,7 @@ class Producto {
     this.tipoEmpaque = 'UNIDAD',
     this.unidadesPorEmpaque = 1.0,
     this.costoPorEmpaque = 0.0,
+    this.precioEmpaqueMayorista,
     this.permiteVentaSuelta = false,
     this.nombreUnidadSuelta = 'unidad',
     this.unidadesEnEmpaqueVenta = 1.0,
@@ -87,10 +121,14 @@ class Producto {
     this.productoHijoId,
     this.proveedorId,
     this.categoria,
+    this.subcategoria,
   });
 
   /// Determina si el producto se vende a granel/fraccionable
   bool get esFraccionable => tipoUnidad == 'FRACCIONABLE';
+
+  /// Unidad de medida legible para mostrador y balanza ('lb', 'kg' o 'uds')
+  String get unidadMedida => tipoEmpaque == 'LIBRA' ? 'lb' : (tipoUnidad == 'FRACCIONABLE' ? 'kg' : 'uds');
 
   /// Determina si el producto ha alcanzado o superado su nivel crítico de reposición
   bool get esStockBajo => stockActual <= stockMinimo;
@@ -166,6 +204,8 @@ class Producto {
     String? tipoEmpaque,
     double? unidadesPorEmpaque,
     double? costoPorEmpaque,
+    double? precioEmpaqueMayorista,
+    bool clearPrecioEmpaqueMayorista = false,
     bool? permiteVentaSuelta,
     String? nombreUnidadSuelta,
     double? unidadesEnEmpaqueVenta,
@@ -173,7 +213,9 @@ class Producto {
     String? productoHijoId,
     String? proveedorId,
     String? categoria,
+    String? subcategoria,
     bool clearCategoria = false,
+    bool clearSubcategoria = false,
     bool clearProveedor = false,
   }) {
     return Producto(
@@ -193,6 +235,7 @@ class Producto {
       tipoEmpaque: tipoEmpaque ?? this.tipoEmpaque,
       unidadesPorEmpaque: unidadesPorEmpaque ?? this.unidadesPorEmpaque,
       costoPorEmpaque: costoPorEmpaque ?? this.costoPorEmpaque,
+      precioEmpaqueMayorista: clearPrecioEmpaqueMayorista ? null : (precioEmpaqueMayorista ?? this.precioEmpaqueMayorista),
       permiteVentaSuelta: permiteVentaSuelta ?? this.permiteVentaSuelta,
       nombreUnidadSuelta: nombreUnidadSuelta ?? this.nombreUnidadSuelta,
       unidadesEnEmpaqueVenta: unidadesEnEmpaqueVenta ?? this.unidadesEnEmpaqueVenta,
@@ -200,6 +243,7 @@ class Producto {
       productoHijoId: productoHijoId ?? this.productoHijoId,
       proveedorId: clearProveedor ? null : (proveedorId ?? this.proveedorId),
       categoria: clearCategoria ? null : (categoria ?? this.categoria),
+      subcategoria: clearSubcategoria ? null : (subcategoria ?? this.subcategoria),
     );
   }
 
@@ -221,6 +265,7 @@ class Producto {
       'tipo_empaque': tipoEmpaque,
       'unidades_por_empaque': unidadesPorEmpaque,
       'costo_por_empaque': costoPorEmpaque,
+      'precio_empaque_mayorista': precioEmpaqueMayorista,
       'permite_venta_suelta': permiteVentaSuelta,
       'nombre_unidad_suelta': nombreUnidadSuelta,
       'unidades_en_empaque_venta': unidadesEnEmpaqueVenta,
@@ -228,6 +273,7 @@ class Producto {
       'producto_hijo_id': productoHijoId,
       'proveedor_id': proveedorId,
       'categoria': categoria,
+      'subcategoria': subcategoria,
     };
   }
 
@@ -255,6 +301,9 @@ class Producto {
           ? _toDouble(map['unidades_por_empaque'])
           : 1.0,
       costoPorEmpaque: _toDouble(map['costo_por_empaque']),
+      precioEmpaqueMayorista: map['precio_empaque_mayorista'] != null
+          ? _toDouble(map['precio_empaque_mayorista'])
+          : null,
       permiteVentaSuelta: map['permite_venta_suelta'] as bool? ?? false,
       nombreUnidadSuelta: map['nombre_unidad_suelta'] as String? ?? 'unidad',
       unidadesEnEmpaqueVenta: map['unidades_en_empaque_venta'] != null
@@ -264,6 +313,7 @@ class Producto {
       productoHijoId: map['producto_hijo_id'] as String?,
       proveedorId: map['proveedor_id'] as String?,
       categoria: map['categoria'] as String?,
+      subcategoria: map['subcategoria'] as String?,
     );
   }
 

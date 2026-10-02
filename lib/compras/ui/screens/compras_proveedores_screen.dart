@@ -2035,6 +2035,21 @@ class _CardProductoProveedor extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (producto.categoria != null && producto.categoria!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      producto.subcategoria != null && producto.subcategoria!.isNotEmpty
+                          ? '${producto.categoria} › ${producto.subcategoria}'
+                          : producto.categoria!,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                   const SizedBox(height: 3),
                   Wrap(
                     crossAxisAlignment: WrapCrossAlignment.center,
