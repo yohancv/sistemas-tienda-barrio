@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../cierre_caja/state/providers/caja_providers.dart';
 import '../../../core/config/supabase_client.dart';
+import '../../../core/database/app_database.dart';
 import '../../../inventario/data/models/item_reposicion_model.dart';
 import '../../../inventario/data/models/producto_model.dart';
 import '../../../inventario/state/providers/inventario_providers.dart';
@@ -10,9 +11,9 @@ import '../../data/models/item_compra_model.dart';
 import '../../data/models/proveedor_model.dart';
 import '../../data/repositories/compras_repository.dart';
 
-/// Proveedor global del repositorio de compras
+/// Proveedor global del repositorio de compras local (SQLite)
 final comprasRepositoryProvider = Provider<ComprasRepository>((ref) {
-  return ComprasRepository(SupabaseConfig.client);
+  return ComprasRepository();
 });
 
 /// Proveedor de la lista de proveedores activos
@@ -123,24 +124,34 @@ class CarritoComprasNotifier extends StateNotifier<CarritoComprasState> {
     state = state.copyWith(observaciones: valor);
   }
 
-  /// Agrega un producto al carrito de compras
-  void agregarProducto(Producto producto, {double cantidad = 1.0}) {
+  /// Agrega un producto al carrito de compras (soporta empaque o unidad)
+  void agregarProducto(Producto producto, {double cantidad = 1.0, bool porEmpaque = false}) {
     final index = state.items.indexWhere((i) => i.productoId == producto.id);
+    final factor = (porEmpaque && producto.unidadesPorEmpaque > 1)
+        ? producto.unidadesPorEmpaque
+        : 1.0;
+    final unidadesAAgregar = cantidad * factor;
+
     List<ItemCompraModel> nuevosItems;
 
     if (index >= 0) {
       final actual = state.items[index];
-      final nuevaCant = actual.cantidad + cantidad;
+      final nuevaCant = actual.cantidad + unidadesAAgregar;
       final actualizado = actual.copyWith(
         cantidad: nuevaCant,
         subtotal: nuevaCant * actual.costoUnitario,
+        esPorEmpaque: porEmpaque,
       );
       nuevosItems = [...state.items];
       nuevosItems[index] = actualizado;
     } else {
       nuevosItems = [
         ...state.items,
-        ItemCompraModel.desdeProducto(producto, cantidad: cantidad),
+        ItemCompraModel.desdeProducto(
+          producto,
+          cantidad: unidadesAAgregar,
+          esPorEmpaque: porEmpaque,
+        ),
       ];
     }
 
@@ -177,9 +188,16 @@ class CarritoComprasNotifier extends StateNotifier<CarritoComprasState> {
       final index = nuevosItems.indexWhere((i) => i.productoId == prod.id);
       final enAlmacen = unidadesEnAlmacenMap[prod.id] ?? 0.0;
       final stockTotal = prod.stockActual + enAlmacen;
-      final faltante = (prod.stockMinimo - stockTotal) > 0
+      final factor = prod.tieneEmpaqueMayorista ? prod.unidadesPorEmpaque : 1.0;
+      final unidadesFaltantes = (prod.stockMinimo - stockTotal) > 0
           ? (prod.stockMinimo - stockTotal)
-          : (prod.tieneEmpaqueMayorista ? prod.unidadesPorEmpaque : 1.0);
+          : factor;
+
+      // Si tiene empaque mayorista, redondear al paquete completo superior
+      final faltante = prod.tieneEmpaqueMayorista
+          ? ((unidadesFaltantes / factor).ceil() * factor)
+          : unidadesFaltantes;
+      final porEmpaque = prod.tieneEmpaqueMayorista;
 
       if (index >= 0) {
         final actual = nuevosItems[index];
@@ -187,16 +205,32 @@ class CarritoComprasNotifier extends StateNotifier<CarritoComprasState> {
           nuevosItems[index] = actual.copyWith(
             cantidad: faltante,
             subtotal: faltante * actual.costoUnitario,
+            esPorEmpaque: porEmpaque,
           );
         }
       } else {
-        nuevosItems.add(ItemCompraModel.desdeProducto(prod, cantidad: faltante));
+        nuevosItems.add(ItemCompraModel.desdeProducto(
+          prod,
+          cantidad: faltante,
+          esPorEmpaque: porEmpaque,
+        ));
       }
     }
     _actualizarItemsYRecalcularPagos(nuevosItems);
   }
 
-  /// Modifica la cantidad recibida de un producto
+  /// Alterna entre modo empaque (cajas/paquetes) y modo unidad suelta
+  void cambiarModoEmpaque(String productoId, bool esPorEmpaque) {
+    final nuevos = state.items.map((i) {
+      if (i.productoId == productoId) {
+        return i.copyWith(esPorEmpaque: esPorEmpaque);
+      }
+      return i;
+    }).toList();
+    state = state.copyWith(items: nuevos);
+  }
+
+  /// Actualiza la cantidad recibida de un producto
   void actualizarCantidad(String productoId, double cantidad) {
     if (cantidad <= 0) {
       eliminarItem(productoId);
@@ -214,6 +248,31 @@ class CarritoComprasNotifier extends StateNotifier<CarritoComprasState> {
     }).toList();
 
     _actualizarItemsYRecalcularPagos(nuevos);
+  }
+
+  /// Actualiza la cantidad expresada en empaques cerrados (calcula loose units)
+  void actualizarCantidadEmpaques(String productoId, double empaques) {
+    if (empaques <= 0) {
+      eliminarItem(productoId);
+      return;
+    }
+    final index = state.items.indexWhere((i) => i.productoId == productoId);
+    if (index >= 0) {
+      final item = state.items[index];
+      final factor = item.unidadesPorEmpaque > 0 ? item.unidadesPorEmpaque : 1.0;
+      actualizarCantidad(productoId, empaques * factor);
+    }
+  }
+
+  /// Actualiza el costo ingresado por empaque cerrado (recalcula costoUnitario)
+  void actualizarCostoEmpaque(String productoId, double costoEmpaque) {
+    if (costoEmpaque < 0) return;
+    final index = state.items.indexWhere((i) => i.productoId == productoId);
+    if (index >= 0) {
+      final item = state.items[index];
+      final factor = item.unidadesPorEmpaque > 0 ? item.unidadesPorEmpaque : 1.0;
+      actualizarCosto(productoId, costoEmpaque / factor);
+    }
   }
 
   /// Actualiza el costo unitario de compra si varió
@@ -423,6 +482,66 @@ class CarritoComprasNotifier extends StateNotifier<CarritoComprasState> {
       return false;
     }
   }
+
+  /// Guarda el pedido actual como PENDIENTE (preventa / pedido en app)
+  /// NO descuenta caja ni incrementa stock.
+  Future<bool> guardarPedidoPendiente() async {
+    if (state.items.isEmpty) {
+      state = state.copyWith(errorMessage: 'La orden está vacía.');
+      return false;
+    }
+
+    state = state.copyWith(isLoading: true, errorMessage: null, successMessage: null);
+
+    try {
+      final pedido = CompraModel(
+        id: AppDatabase.nuevoId(),
+        tenantId: SupabaseConfig.defaultTenantId,
+        proveedorId: state.proveedorSeleccionado?.id,
+        numeroComprobante: state.numeroComprobante.trim().isNotEmpty ? state.numeroComprobante.trim() : null,
+        totalCompra: state.totalCompra,
+        metodoPago: state.metodoPago,
+        observaciones: state.observaciones.trim().isNotEmpty ? state.observaciones.trim() : null,
+        estado: 'PENDIENTE',
+        fechaCompra: DateTime.now(),
+      );
+
+      final res = await _repository.guardarPedidoPendiente(
+        pedido: pedido,
+        detalles: state.items,
+      );
+
+      _ref.invalidate(pedidosPendientesProvider);
+
+      final List<dynamic> creados = res['pedidos_creados'] ?? [];
+      String mensaje;
+      if (creados.length > 1) {
+        final provs = creados.map((p) => p['proveedor'] as String? ?? 'Proveedor').join(', ');
+        mensaje = '¡Se dividió en ${creados.length} pedidos independientes en camino para: $provs!';
+      } else if (creados.length == 1) {
+        final p = creados.first;
+        final prov = p['proveedor'] ?? 'Proveedor';
+        final total = (p['total'] as num?)?.toDouble() ?? state.totalCompra;
+        mensaje = '¡Pedido a $prov guardado! Queda en espera de la llegada del camión (Bs. ${total.toStringAsFixed(2)}).';
+      } else {
+        final provNombre = res['proveedor'] ?? 'Proveedor';
+        final total = res['total_pedido'] ?? state.totalCompra;
+        mensaje = '¡Pedido a $provNombre guardado! Queda en espera del camión (Bs. ${(total as num).toStringAsFixed(2)}).';
+      }
+
+      state = const CarritoComprasState().copyWith(
+        successMessage: mensaje,
+      );
+
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString().replaceAll('Exception: ', ''),
+      );
+      return false;
+    }
+  }
 }
 
 /// Proveedor del Notifier del carrito de compras
@@ -463,3 +582,11 @@ final historialComprasProvider =
     hasta: filtro.hasta,
   );
 });
+
+/// Proveedor reactivo de pedidos pendientes de entrega
+final pedidosPendientesProvider =
+    FutureProvider<List<CompraModel>>((ref) async {
+  final repo = ref.watch(comprasRepositoryProvider);
+  return repo.obtenerPedidosPendientes(SupabaseConfig.defaultTenantId);
+});
+

@@ -10,6 +10,11 @@ class ResumenCajaModel {
   final double totalFiadosCobradosQr;
   final double totalEntradasManuales;
   final double totalSalidasManuales;
+  final double totalRetirosQr;
+  final double totalSalidasTienda;
+  final double totalSalidasPersonal;
+  final double totalMercaderiaFutura;
+  final double saldoNetoQr;
   final double montoEsperadoEfectivo;
 
   const ResumenCajaModel({
@@ -24,15 +29,33 @@ class ResumenCajaModel {
     required this.totalFiadosCobradosQr,
     required this.totalEntradasManuales,
     required this.totalSalidasManuales,
+    this.totalRetirosQr = 0.0,
+    this.totalSalidasTienda = 0.0,
+    this.totalSalidasPersonal = 0.0,
+    this.totalMercaderiaFutura = 0.0,
+    this.saldoNetoQr = 0.0,
     required this.montoEsperadoEfectivo,
   });
 
-  /// Total de ingresos brutos del día (Ventas efectivo + Ventas QR + Fiados cobrados en efectivo + Fiados cobrados en QR)
+  /// Total de ingresos brutos cobrados en el turno (Ventas efectivo + Ventas QR + Abonos de fiados)
   double get totalIngresosDia =>
       totalVentasEfectivo +
       totalVentasQr +
       totalFiadosCobradosEfectivo +
       totalFiadosCobradosQr;
+
+  /// Total de dinero real disponible sumando cajón físico y banco QR
+  double get totalDineroDisponible =>
+      montoEsperadoEfectivo + saldoNetoQr;
+
+  /// Total de dinero que ha salido en el turno (Caja física + Cajero QR)
+  double get totalSalidasGlobales =>
+      totalSalidasManuales + totalRetirosQr;
+
+  /// Margen neto operativo del turno (Ingresos del día - Gastos operativos de la tienda)
+  /// Sin contar retiros personales ni apartados de ahorro.
+  double get balanceOperativoTienda =>
+      totalIngresosDia - totalSalidasTienda;
 
   factory ResumenCajaModel.fromMap(Map<String, dynamic> map) {
     return ResumenCajaModel(
@@ -49,6 +72,11 @@ class ResumenCajaModel {
       totalFiadosCobradosQr: _toDouble(map['total_fiados_cobrados_qr']),
       totalEntradasManuales: _toDouble(map['total_entradas_manuales']),
       totalSalidasManuales: _toDouble(map['total_salidas_manuales']),
+      totalRetirosQr: _toDouble(map['total_retiros_qr']),
+      totalSalidasTienda: _toDouble(map['total_salidas_tienda']),
+      totalSalidasPersonal: _toDouble(map['total_salidas_personal']),
+      totalMercaderiaFutura: _toDouble(map['total_mercaderia_futura']),
+      saldoNetoQr: _toDouble(map['saldo_neto_qr']),
       montoEsperadoEfectivo: _toDouble(map['monto_esperado_efectivo']),
     );
   }

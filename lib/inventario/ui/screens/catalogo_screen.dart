@@ -876,8 +876,6 @@ class _ProductoCard extends ConsumerWidget {
     final bool alertaCompraDistribuidor =
         stockBajo && (!tieneCajasEnAlmacen || (producto.stockActual + unidadesEnCajas <= producto.stockMinimo));
 
-    final String unidadTexto = producto.esFraccionable ? 'kg/g' : 'uds';
-
     return Container(
       constraints: const BoxConstraints(minHeight: 80.0),
       decoration: BoxDecoration(
@@ -965,9 +963,17 @@ class _ProductoCard extends ConsumerWidget {
                   producto: producto,
                   unidadesEnCajas: unidadesEnCajas,
                   cantidadInicialEnCarrito: inicial,
-                  onConfirmar: (cantidad) {
-                    ref.read(carritoProvider.notifier).establecerCantidad(producto, cantidad);
-                    _mostrarSnackAgregado(context, '${cantidad.toInt()} uds de ${producto.nombre}');
+                  onConfirmar: (cantidad, modoVenta) {
+                    if (modoVenta == ModoVenta.porEmpaqueMayorista) {
+                      ref.read(carritoProvider.notifier).establecerCantidadEmpaque(producto, cantidad);
+                      _mostrarSnackAgregado(
+                        context,
+                        '${cantidad.toInt()} ${cantidad == 1 ? producto.nombreEmpaqueLegible : producto.nombreEmpaquePlural} de ${producto.nombre}',
+                      );
+                    } else {
+                      ref.read(carritoProvider.notifier).establecerCantidad(producto, cantidad);
+                      _mostrarSnackAgregado(context, '${cantidad.toInt()} uds de ${producto.nombre}');
+                    }
                   },
                 ),
               );
@@ -1052,10 +1058,12 @@ class _ProductoCard extends ConsumerWidget {
                               child: Icon(Icons.warning_amber_rounded, size: 16, color: AppColors.danger),
                             ),
                           Text(
-                            'Stock: ${producto.stockActual.toStringAsFixed(producto.esFraccionable ? 2 : 0)} $unidadTexto',
+                            'Stock: ${producto.stockLegibleDesglosado}',
                             style: TextStyle(
                               fontSize: 15,
-                              fontWeight: alertaCompraDistribuidor ? FontWeight.w800 : FontWeight.w500,
+                              fontWeight: (alertaCompraDistribuidor || producto.tieneEmpaqueMayorista)
+                                  ? FontWeight.w800
+                                  : FontWeight.w500,
                               color: alertaCompraDistribuidor ? AppColors.danger : AppColors.textSecondary,
                             ),
                           ),
@@ -1127,6 +1135,25 @@ class _ProductoCard extends ConsumerWidget {
                       'Precio venta',
                       style: TextStyle(fontSize: 11, color: AppColors.textMuted),
                     ),
+                    if (producto.permiteVentaEmpaque) ...[
+                      const SizedBox(height: 2),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.secondary.withAlpha(20),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppColors.secondary.withAlpha(60)),
+                        ),
+                        child: Text(
+                          '${producto.nombreEmpaqueCorto.toUpperCase()}: Bs. ${producto.precioVentaEmpaqueEfectivo.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.secondary,
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 5),
                     Row(
                       mainAxisSize: MainAxisSize.min,

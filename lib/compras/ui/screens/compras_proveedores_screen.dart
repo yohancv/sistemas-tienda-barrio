@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../cierre_caja/state/providers/caja_providers.dart';
@@ -12,6 +13,7 @@ import '../../data/models/proveedor_model.dart';
 import '../../state/providers/compras_providers.dart';
 import '../widgets/modal_detalle_compra.dart';
 import '../widgets/modal_nuevo_proveedor.dart';
+import '../widgets/modal_recepcion_pedido.dart';
 
 class ComprasProveedoresScreen extends ConsumerStatefulWidget {
   final int tabInicial;
@@ -32,10 +34,6 @@ class _ComprasProveedoresScreenState
   late final TabController _tabController;
   final TextEditingController _searchProductoController = TextEditingController();
   final TextEditingController _searchProveedorController = TextEditingController();
-  final TextEditingController _comprobanteController = TextEditingController();
-  final TextEditingController _observacionesController = TextEditingController();
-  final TextEditingController _montoCajaController = TextEditingController();
-  final TextEditingController _montoExternoController = TextEditingController();
 
   String _filtroTextoProducto = '';
   String _filtroTextoProveedor = '';
@@ -44,12 +42,13 @@ class _ComprasProveedoresScreenState
   int _subTabCompra = 0;
   bool _expandirConStock = true;
   bool _buscarEnTodoElCatalogo = false;
+  bool _mostrarHeaderEmpresa = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 3,
+      length: 4,
       vsync: this,
       initialIndex: widget.tabInicial,
     );
@@ -60,10 +59,6 @@ class _ComprasProveedoresScreenState
     _tabController.dispose();
     _searchProductoController.dispose();
     _searchProveedorController.dispose();
-    _comprobanteController.dispose();
-    _observacionesController.dispose();
-    _montoCajaController.dispose();
-    _montoExternoController.dispose();
     super.dispose();
   }
 
@@ -110,15 +105,8 @@ class _ComprasProveedoresScreenState
 
     final cajaTurno = cajaTurnoAsync.valueOrNull;
     final efectivoCajaDisponible = resumenCaja.valueOrNull?.montoEsperadoEfectivo ?? 0.0;
-
-    if (carrito.metodoPago == 'PAGO_MIXTO') {
-      if (_montoCajaController.text.isEmpty && carrito.montoCaja > 0) {
-        _montoCajaController.text = carrito.montoCaja.toStringAsFixed(2);
-      }
-      if (_montoExternoController.text.isEmpty && carrito.montoExterno > 0) {
-        _montoExternoController.text = carrito.montoExterno.toStringAsFixed(2);
-      }
-    }
+    final pedidosPendientesAsync = ref.watch(pedidosPendientesProvider);
+    final conteoPendientes = pedidosPendientesAsync.valueOrNull?.length ?? 0;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -138,7 +126,7 @@ class _ComprasProveedoresScreenState
           indicatorWeight: 3.5,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           tabs: [
             Tab(
               icon: Badge(
@@ -149,6 +137,16 @@ class _ComprasProveedoresScreenState
                 child: const Icon(Icons.shopping_cart_checkout),
               ),
               text: 'Nueva Compra',
+            ),
+            Tab(
+              icon: Badge(
+                isLabelVisible: conteoPendientes > 0,
+                label: Text('$conteoPendientes'),
+                backgroundColor: AppColors.warning,
+                textColor: Colors.white,
+                child: const Icon(Icons.local_shipping_rounded),
+              ),
+              text: 'En Camino',
             ),
             const Tab(
               icon: Icon(Icons.business_rounded),
@@ -176,12 +174,17 @@ class _ComprasProveedoresScreenState
           ),
 
           // ================================================================
-          // TAB 2: DIRECTORIO DE PROVEEDORES
+          // TAB 2: PEDIDOS EN CAMINO (ESPERANDO CAMIÓN)
+          // ================================================================
+          _buildTabPedidosEnCamino(context),
+
+          // ================================================================
+          // TAB 3: DIRECTORIO DE PROVEEDORES
           // ================================================================
           _buildTabDirectorioProveedores(context, proveedoresAsync),
 
           // ================================================================
-          // TAB 3: HISTORIAL DE COMPRAS
+          // TAB 4: HISTORIAL DE COMPRAS
           // ================================================================
           _buildTabHistorialCompras(context, proveedoresAsync),
         ],
@@ -231,204 +234,202 @@ class _ComprasProveedoresScreenState
     // Productos para el buscador
     final productosABuscar = _buscarEnTodoElCatalogo ? todosLosProductos : productosDelProveedor;
 
-    return Column(
-      children: [
-        // 1. Selector de Proveedor
-        Container(
-          color: AppColors.surface,
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: proveedoresAsync.when(
-                      loading: () => const LinearProgressIndicator(),
-                      error: (e, _) => const Text('Error al cargar proveedores'),
-                      data: (proveedores) {
-                        final provSeleccionado = carrito.proveedorSeleccionado;
-                        final yaExiste = provSeleccionado == null ||
-                            proveedores.any((p) => p.id == provSeleccionado.id);
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification.metrics.axis == Axis.vertical) {
+          if (notification.metrics.pixels <= 15) {
+            if (!_mostrarHeaderEmpresa) {
+              setState(() => _mostrarHeaderEmpresa = true);
+            }
+          } else if (notification is UserScrollNotification) {
+            if (notification.direction == ScrollDirection.reverse) {
+              // Usuario desliza hacia abajo en la lista (ocultar cabecera)
+              if (_mostrarHeaderEmpresa) {
+                setState(() => _mostrarHeaderEmpresa = false);
+              }
+            } else if (notification.direction == ScrollDirection.forward) {
+              // Usuario desliza hacia arriba en la lista (reaparecer cabecera)
+              if (!_mostrarHeaderEmpresa) {
+                setState(() => _mostrarHeaderEmpresa = true);
+              }
+            }
+          }
+        }
+        return false;
+      },
+      child: Column(
+        children: [
+          // 1. Selector de Proveedor (Colapsable al hacer scroll hacia abajo para dar amplio espacio al catálogo)
+          AnimatedSize(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+            child: (_subTabCompra == 0 && _mostrarHeaderEmpresa)
+                ? Container(
+                    color: AppColors.surface,
+                    padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: proveedoresAsync.when(
+                                loading: () => const LinearProgressIndicator(),
+                                error: (e, _) => const Text('Error al cargar proveedores'),
+                                data: (proveedores) {
+                                  final provSeleccionado = carrito.proveedorSeleccionado;
+                                  final yaExiste = provSeleccionado == null ||
+                                      proveedores.any((p) => p.id == provSeleccionado.id);
 
-                        final listaProveedores = [
-                          ...proveedores,
-                          if (!yaExiste) provSeleccionado,
-                        ];
+                                  final listaProveedores = [
+                                    ...proveedores,
+                                    if (!yaExiste) provSeleccionado,
+                                  ];
 
-                        final String? valorValido = listaProveedores
-                                .any((p) => p.id == provSeleccionado?.id)
-                            ? provSeleccionado?.id
-                            : null;
+                                  final String? valorValido = listaProveedores
+                                          .any((p) => p.id == provSeleccionado?.id)
+                                      ? provSeleccionado?.id
+                                      : null;
 
-                        return DropdownButtonFormField<String>(
-                          key: ValueKey('prov_${valorValido ?? "ninguno"}'),
-                          initialValue: valorValido,
-                          decoration: InputDecoration(
-                            labelText: 'Empresa Proveedora (Distribuidor)',
-                            prefixIcon: const Icon(Icons.local_shipping_outlined, color: AppColors.primary),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          hint: const Text('Seleccionar proveedor (ej. CBN, Embol...)'),
-                          isExpanded: true,
-                          items: [
-                            const DropdownMenuItem<String>(
-                              value: null,
-                              child: Text('Compra General / Sin Proveedor Fijo'),
+                                  return DropdownButtonFormField<String>(
+                                    key: ValueKey('prov_${valorValido ?? "ninguno"}'),
+                                    initialValue: valorValido,
+                                    isDense: true,
+                                    decoration: InputDecoration(
+                                      labelText: 'Empresa Distribuidora / Proveedor',
+                                      prefixIcon: const Icon(Icons.local_shipping_outlined, color: AppColors.primary, size: 20),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                    hint: const Text('Seleccionar proveedor...'),
+                                    isExpanded: true,
+                                    items: [
+                                      const DropdownMenuItem<String>(
+                                        value: null,
+                                        child: Text('Compra General / Sin Proveedor Fijo'),
+                                      ),
+                                      ...listaProveedores.map(
+                                        (p) => DropdownMenuItem<String>(
+                                          value: p.id,
+                                          child: Text(p.nombreEmpresa, overflow: TextOverflow.ellipsis),
+                                        ),
+                                      ),
+                                    ],
+                                    onChanged: (id) {
+                                      if (id == null) {
+                                        ref.read(carritoComprasProvider.notifier).seleccionarProveedor(null);
+                                      } else {
+                                        final sel = listaProveedores.firstWhere((p) => p.id == id);
+                                        ref.read(carritoComprasProvider.notifier).seleccionarProveedor(sel);
+                                      }
+                                      setState(() {
+                                        _subTabCompra = 0;
+                                        _mostrarHeaderEmpresa = true;
+                                      });
+                                    },
+                                  );
+                                },
+                              ),
                             ),
-                            ...listaProveedores.map(
-                              (p) => DropdownMenuItem<String>(
-                                value: p.id,
-                                child: Text(p.nombreEmpresa, overflow: TextOverflow.ellipsis),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              onPressed: () => _abrirModalNuevoProveedor(),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.add, color: Colors.white, size: 18),
+                                  SizedBox(width: 2),
+                                  Text('Nuevo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                                ],
                               ),
                             ),
                           ],
-                          onChanged: (id) {
-                            if (id == null) {
-                              ref.read(carritoComprasProvider.notifier).seleccionarProveedor(null);
-                            } else {
-                              final sel = listaProveedores.firstWhere((p) => p.id == id);
-                              ref.read(carritoComprasProvider.notifier).seleccionarProveedor(sel);
-                            }
-                            setState(() => _subTabCompra = 0);
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    onPressed: () => _abrirModalNuevoProveedor(),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.add, color: Colors.white, size: 20),
-                        SizedBox(width: 2),
-                        Text('Nuevo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ),
+
+                        // Días de visita del proveedor seleccionado
+                        if (carrito.proveedorSeleccionado != null &&
+                            carrito.proveedorSeleccionado!.tieneDiasVisita) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(Icons.event_available_rounded, size: 14, color: AppColors.primary),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Visita: ${carrito.proveedorSeleccionado!.diasVisita}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+
+          // 2. Selector Segmentado: [Catálogo del Proveedor] vs [Orden de Compra]
+          Container(
+            color: AppColors.surface,
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _SegmentoBoton(
+                    label: tieneProveedor
+                        ? '📋 ${carrito.proveedorSeleccionado!.nombreEmpresa} (${productosDelProveedor.length})'
+                        : '📋 Catálogo General (${todosLosProductos.length})',
+                    seleccionado: _subTabCompra == 0,
+                    onTap: () => setState(() {
+                      _subTabCompra = 0;
+                      _mostrarHeaderEmpresa = true;
+                    }),
                   ),
-                ],
-              ),
-
-              // Chips de acceso rápido si aún no se ha seleccionado proveedor
-              if (carrito.proveedorSeleccionado == null)
-                proveedoresAsync.maybeWhen(
-                  data: (proveedores) {
-                    if (proveedores.isEmpty) return const SizedBox.shrink();
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            const Text(
-                              'Empresas: ',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
-                            ),
-                            ...proveedores.take(6).map((p) {
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 6.0),
-                                child: ActionChip(
-                                  avatar: const Icon(Icons.business_outlined, size: 14, color: AppColors.primary),
-                                  label: Text(p.nombreEmpresa, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                  backgroundColor: AppColors.background,
-                                  side: const BorderSide(color: AppColors.border),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                  onPressed: () {
-                                    ref.read(carritoComprasProvider.notifier).seleccionarProveedor(p);
-                                    setState(() => _subTabCompra = 0);
-                                  },
-                                ),
-                              );
-                            }),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                  orElse: () => const SizedBox.shrink(),
                 ),
-
-              // Días de visita del proveedor seleccionado
-              if (carrito.proveedorSeleccionado != null &&
-                  carrito.proveedorSeleccionado!.tieneDiasVisita) ...[
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    const Icon(Icons.event_available_rounded, size: 16, color: AppColors.primary),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Visita del preventista: ${carrito.proveedorSeleccionado!.diasVisita}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _SegmentoBoton(
+                    label: '🛒 Orden (${carrito.items.length}) • Bs. ${carrito.totalCompra.toStringAsFixed(2)}',
+                    seleccionado: _subTabCompra == 1,
+                    badgeColor: carrito.items.isNotEmpty ? AppColors.success : null,
+                    onTap: () => setState(() => _subTabCompra = 1),
+                  ),
                 ),
               ],
-            ],
+            ),
           ),
-        ),
+          const Divider(height: 1),
 
-        // 2. Selector Segmentado: [Catálogo del Proveedor] vs [Orden de Compra]
-        Container(
-          color: AppColors.surface,
-          padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: _SegmentoBoton(
-                  label: tieneProveedor
-                      ? '📋 ${carrito.proveedorSeleccionado!.nombreEmpresa} (${productosDelProveedor.length})'
-                      : '📋 Catálogo General (${todosLosProductos.length})',
-                  seleccionado: _subTabCompra == 0,
-                  onTap: () => setState(() => _subTabCompra = 0),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _SegmentoBoton(
-                  label: '🛒 Orden (${carrito.items.length}) • Bs. ${carrito.totalCompra.toStringAsFixed(2)}',
-                  seleccionado: _subTabCompra == 1,
-                  badgeColor: carrito.items.isNotEmpty ? AppColors.success : null,
-                  onTap: () => setState(() => _subTabCompra = 1),
-                ),
-              ),
-            ],
+          // 3. Contenido según el Sub-Tab activo
+          Expanded(
+            child: _subTabCompra == 0
+                ? _buildVistaCatalogoProveedor(
+                    context: context,
+                    carrito: carrito,
+                    tieneProveedor: tieneProveedor,
+                    productosDelProveedor: productosDelProveedor,
+                    productosFaltantes: productosFaltantes,
+                    productosConStock: productosConStock,
+                    productosABuscar: productosABuscar,
+                  )
+                : _buildVistaOrdenCompra(
+                    context: context,
+                    carrito: carrito,
+                    cajaTurnoId: cajaTurnoId,
+                    efectivoCajaDisponible: efectivoCajaDisponible,
+                    tieneProveedor: tieneProveedor,
+                  ),
           ),
-        ),
-        const Divider(height: 1),
-
-        // 3. Contenido según el Sub-Tab activo
-        Expanded(
-          child: _subTabCompra == 0
-              ? _buildVistaCatalogoProveedor(
-                  context: context,
-                  carrito: carrito,
-                  tieneProveedor: tieneProveedor,
-                  productosDelProveedor: productosDelProveedor,
-                  productosFaltantes: productosFaltantes,
-                  productosConStock: productosConStock,
-                  productosABuscar: productosABuscar,
-                )
-              : _buildVistaOrdenCompra(
-                  context: context,
-                  carrito: carrito,
-                  cajaTurnoId: cajaTurnoId,
-                  efectivoCajaDisponible: efectivoCajaDisponible,
-                  tieneProveedor: tieneProveedor,
-                ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -447,35 +448,38 @@ class _ComprasProveedoresScreenState
         // Buscador
         Container(
           color: AppColors.surface,
-          padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
           child: Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: _searchProductoController,
-                  decoration: InputDecoration(
-                    hintText: tieneProveedor && !_buscarEnTodoElCatalogo
-                        ? 'Buscar en ${carrito.proveedorSeleccionado!.nombreEmpresa}...'
-                        : 'Buscar en todo el inventario...',
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    suffixIcon: _filtroTextoProducto.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
-                            onPressed: () {
-                              _searchProductoController.clear();
-                              setState(() => _filtroTextoProducto = '');
-                            },
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: AppColors.background,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
+                child: SizedBox(
+                  height: 40,
+                  child: TextField(
+                    controller: _searchProductoController,
+                    decoration: InputDecoration(
+                      hintText: tieneProveedor && !_buscarEnTodoElCatalogo
+                          ? 'Buscar en ${carrito.proveedorSeleccionado!.nombreEmpresa}...'
+                          : 'Buscar en todo el inventario...',
+                      prefixIcon: const Icon(Icons.search, size: 18),
+                      suffixIcon: _filtroTextoProducto.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 16),
+                              onPressed: () {
+                                _searchProductoController.clear();
+                                setState(() => _filtroTextoProducto = '');
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: AppColors.background,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
+                    onChanged: (val) => setState(() => _filtroTextoProducto = val.toLowerCase().trim()),
                   ),
-                  onChanged: (val) => setState(() => _filtroTextoProducto = val.toLowerCase().trim()),
                 ),
               ),
               if (tieneProveedor) ...[
@@ -657,10 +661,6 @@ class _ComprasProveedoresScreenState
           ...productosFaltantes.map((p) {
             final item = carrito.items.where((i) => i.productoId == p.id).firstOrNull;
             final unidadesEnAlmacen = unidadesEnCajasMap[p.id] ?? 0.0;
-            final stockTotal = p.stockActual + unidadesEnAlmacen;
-            final faltante = (p.stockMinimo - stockTotal) > 0
-                ? (p.stockMinimo - stockTotal)
-                : (p.tieneEmpaqueMayorista ? p.unidadesPorEmpaque : 1.0);
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
@@ -669,8 +669,12 @@ class _ComprasProveedoresScreenState
                 itemEnCarrito: item,
                 esStockBajo: true,
                 unidadesEnAlmacen: unidadesEnAlmacen,
-                onAgregar: () {
-                  ref.read(carritoComprasProvider.notifier).agregarProducto(p, cantidad: faltante);
+                onAgregarPorEmpaque: (porEmpaque) {
+                  ref.read(carritoComprasProvider.notifier).agregarProducto(
+                    p,
+                    cantidad: 1.0,
+                    porEmpaque: porEmpaque,
+                  );
                 },
                 onActualizarCantidad: (cant) {
                   ref.read(carritoComprasProvider.notifier).actualizarCantidad(p.id, cant);
@@ -733,9 +737,12 @@ class _ComprasProveedoresScreenState
                   itemEnCarrito: item,
                   esStockBajo: false,
                   unidadesEnAlmacen: unidadesEnAlmacen,
-                  onAgregar: () {
-                    final cant = p.tieneEmpaqueMayorista ? p.unidadesPorEmpaque : 1.0;
-                    ref.read(carritoComprasProvider.notifier).agregarProducto(p, cantidad: cant);
+                  onAgregarPorEmpaque: (porEmpaque) {
+                    ref.read(carritoComprasProvider.notifier).agregarProducto(
+                      p,
+                      cantidad: 1.0,
+                      porEmpaque: porEmpaque,
+                    );
                   },
                   onActualizarCantidad: (cant) {
                     ref.read(carritoComprasProvider.notifier).actualizarCantidad(p.id, cant);
@@ -801,17 +808,18 @@ class _ComprasProveedoresScreenState
         final unidadesEnAlmacen = unidadesEnCajasMap[p.id] ?? 0.0;
         final stockTotal = p.stockActual + unidadesEnAlmacen;
         final esBajo = p.esStockBajo && stockTotal <= p.stockMinimo;
-        final faltante = (p.stockMinimo - stockTotal) > 0
-            ? (p.stockMinimo - stockTotal)
-            : (p.tieneEmpaqueMayorista ? p.unidadesPorEmpaque : 1.0);
 
         return _CardProductoProveedor(
           producto: p,
           itemEnCarrito: item,
           esStockBajo: esBajo,
           unidadesEnAlmacen: unidadesEnAlmacen,
-          onAgregar: () {
-            ref.read(carritoComprasProvider.notifier).agregarProducto(p, cantidad: faltante);
+          onAgregarPorEmpaque: (porEmpaque) {
+            ref.read(carritoComprasProvider.notifier).agregarProducto(
+              p,
+              cantidad: 1.0,
+              porEmpaque: porEmpaque,
+            );
           },
           onActualizarCantidad: (cant) {
             ref.read(carritoComprasProvider.notifier).actualizarCantidad(p.id, cant);
@@ -939,22 +947,34 @@ class _ComprasProveedoresScreenState
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '${carrito.items.length} productos en la orden (${carrito.totalArticulos.toInt()} uds)',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+              Row(
+                children: [
+                  Icon(
+                    tieneProveedor ? Icons.business_outlined : Icons.shopping_basket_outlined,
+                    size: 16,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    tieneProveedor
+                        ? '${carrito.proveedorSeleccionado!.nombreEmpresa} (${carrito.items.length} prods)'
+                        : '${carrito.items.length} productos en la orden (${carrito.totalArticulos.toInt()} uds)',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                  ),
+                ],
               ),
               TextButton.icon(
                 style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
                 onPressed: () => setState(() => _subTabCompra = 0),
                 icon: const Icon(Icons.add_shopping_cart, size: 16),
-                label: const Text('+ Agregar más productos', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                label: const Text('+ Agregar más', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
               ),
             ],
           ),
         ),
         const Divider(height: 1),
 
-        // Lista de ítems en la orden
+        // Lista de ítems en la orden (¡Con amplio espacio vertical para scroll!)
         Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -970,6 +990,12 @@ class _ComprasProveedoresScreenState
                 onCostoChanged: (costo) => ref
                     .read(carritoComprasProvider.notifier)
                     .actualizarCosto(item.productoId, costo),
+                onCostoEmpaqueChanged: (costoEmpaque) => ref
+                    .read(carritoComprasProvider.notifier)
+                    .actualizarCostoEmpaque(item.productoId, costoEmpaque),
+                onModoEmpaqueChanged: (porEmpaque) => ref
+                    .read(carritoComprasProvider.notifier)
+                    .cambiarModoEmpaque(item.productoId, porEmpaque),
                 onPrecioVentaChanged: (pv) => ref
                     .read(carritoComprasProvider.notifier)
                     .actualizarPrecioVenta(item.productoId, pv),
@@ -981,8 +1007,8 @@ class _ComprasProveedoresScreenState
           ),
         ),
 
-        // Panel de Pago y Confirmación
-        _buildPanelInferiorPago(
+        // Barra inferior compacta fija (Sticky Footer de ~60px)
+        _buildBarraInferiorStickyOrden(
           context: context,
           carrito: carrito,
           cajaTurnoId: cajaTurnoId,
@@ -993,15 +1019,41 @@ class _ComprasProveedoresScreenState
   }
 
   // ==========================================================================
-  // PANEL INFERIOR DE PAGO (CAJA vs. BILLETERA/ATM vs. MIXTO)
+  // BARRA INFERIOR STICKY Y MODAL DE CONFIRMACIÓN DE PAGO
   // ==========================================================================
-  Widget _buildPanelInferiorPago({
+  Widget _buildBarraInferiorStickyOrden({
     required BuildContext context,
     required CarritoComprasState carrito,
     required String? cajaTurnoId,
     required double efectivoCajaDisponible,
   }) {
     final total = carrito.totalCompra;
+    final esCajaInsuficiente = carrito.metodoPago == 'EFECTIVO_CAJA' &&
+        (cajaTurnoId == null || efectivoCajaDisponible < total);
+
+    String nombreMetodo;
+    IconData iconoMetodo;
+    switch (carrito.metodoPago) {
+      case 'EFECTIVO_CAJA':
+        nombreMetodo = 'Efectivo Caja';
+        iconoMetodo = Icons.point_of_sale_rounded;
+        break;
+      case 'EFECTIVO_EXTERNO_ATM':
+        nombreMetodo = 'Dinero Propio';
+        iconoMetodo = Icons.account_balance_wallet_outlined;
+        break;
+      case 'QR_BANCO':
+        nombreMetodo = 'QR Personal';
+        iconoMetodo = Icons.qr_code_scanner_rounded;
+        break;
+      case 'PAGO_MIXTO':
+        nombreMetodo = 'Pago Mixto';
+        iconoMetodo = Icons.call_split_rounded;
+        break;
+      default:
+        nombreMetodo = 'Efectivo';
+        iconoMetodo = Icons.payments_outlined;
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -1009,386 +1061,191 @@ class _ComprasProveedoresScreenState
         border: const Border(top: BorderSide(color: AppColors.border, width: 1.5)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(15),
-            blurRadius: 10,
+            color: Colors.black.withAlpha(20),
+            blurRadius: 8,
             offset: const Offset(0, -3),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(14.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Total de la orden
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Total a Pagar (${carrito.items.length} artículos):',
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-              ),
-              Text(
-                'Bs. ${total.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.primary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Selector de Origen de Fondos
-          const Text(
-            'Origen del Dinero:',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 6),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _ChipMetodoPago(
-                  label: '💵 Efectivo de Caja',
-                  seleccionado: carrito.metodoPago == 'EFECTIVO_CAJA',
-                  onTap: () => ref
-                      .read(carritoComprasProvider.notifier)
-                      .establecerMetodoPago('EFECTIVO_CAJA', efectivoCajaDisponible: efectivoCajaDisponible),
-                ),
-                const SizedBox(width: 6),
-                _ChipMetodoPago(
-                  label: '🏧 Dinero Propio / Cajero',
-                  seleccionado: carrito.metodoPago == 'EFECTIVO_EXTERNO_ATM',
-                  onTap: () => ref
-                      .read(carritoComprasProvider.notifier)
-                      .establecerMetodoPago('EFECTIVO_EXTERNO_ATM'),
-                ),
-                const SizedBox(width: 6),
-                _ChipMetodoPago(
-                  label: '📱 QR Personal',
-                  seleccionado: carrito.metodoPago == 'QR_BANCO',
-                  onTap: () => ref
-                      .read(carritoComprasProvider.notifier)
-                      .establecerMetodoPago('QR_BANCO'),
-                ),
-                const SizedBox(width: 6),
-                _ChipMetodoPago(
-                  label: '🔀 Pago Mixto',
-                  seleccionado: carrito.metodoPago == 'PAGO_MIXTO',
-                  onTap: () {
-                    ref.read(carritoComprasProvider.notifier).establecerMetodoPago(
-                          'PAGO_MIXTO',
-                          efectivoCajaDisponible: efectivoCajaDisponible,
-                        );
-                    final c = ref.read(carritoComprasProvider);
-                    _montoCajaController.text =
-                        c.montoCaja > 0 ? c.montoCaja.toStringAsFixed(2) : '';
-                    _montoExternoController.text =
-                        c.montoExterno > 0 ? c.montoExterno.toStringAsFixed(2) : '';
-                  },
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Alerta o campos según el método
-          if (carrito.metodoPago == 'EFECTIVO_CAJA') ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: (cajaTurnoId == null || efectivoCajaDisponible < total)
-                    ? AppColors.warning.withAlpha(25)
-                    : AppColors.success.withAlpha(20),
-                borderRadius: BorderRadius.circular(8),
-              ),
+      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            // Resumen de Total y Chip tocable de Método de Pago
+            Expanded(
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(
-                        (cajaTurnoId == null || efectivoCajaDisponible < total)
-                            ? Icons.warning_amber_rounded
-                            : Icons.check_circle_outline,
-                        size: 18,
-                        color: (cajaTurnoId == null || efectivoCajaDisponible < total)
-                            ? AppColors.warning
-                            : AppColors.success,
+                      const Text(
+                        'Total a Pagar',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
                       ),
                       const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          cajaTurnoId == null
-                              ? 'No hay caja abierta. Abre un turno o usa dinero propio / cajero.'
-                              : 'Efectivo en cajón: Bs. ${efectivoCajaDisponible.toStringAsFixed(2)} ${efectivoCajaDisponible < total ? "(Insuficiente para Bs. ${total.toStringAsFixed(2)})" : "(Suficiente)"}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: (cajaTurnoId == null || efectivoCajaDisponible < total)
-                                ? AppColors.warning
-                                : AppColors.success,
+                      InkWell(
+                        onTap: () => _abrirModalConfirmacionPago(
+                          context: context,
+                          cajaTurnoId: cajaTurnoId,
+                          efectivoCajaDisponible: efectivoCajaDisponible,
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: esCajaInsuficiente
+                                ? AppColors.warning.withAlpha(25)
+                                : AppColors.primary.withAlpha(20),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: esCajaInsuficiente
+                                  ? AppColors.warning.withAlpha(80)
+                                  : AppColors.primary.withAlpha(40),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                esCajaInsuficiente ? Icons.warning_amber_rounded : iconoMetodo,
+                                size: 12,
+                                color: esCajaInsuficiente ? AppColors.warning : AppColors.primary,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                nombreMetodo,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: esCajaInsuficiente ? AppColors.warning : AppColors.primary,
+                                ),
+                              ),
+                              const Icon(Icons.arrow_drop_down, size: 14, color: AppColors.textSecondary),
+                            ],
                           ),
                         ),
                       ),
                     ],
                   ),
-                  if (cajaTurnoId != null && efectivoCajaDisponible < total && efectivoCajaDisponible > 0) ...[
-                    const SizedBox(height: 6),
-                    SizedBox(
-                      height: 32,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        icon: const Icon(Icons.call_split_rounded, size: 16, color: Colors.white),
-                        label: Text(
-                          'Sugerencia: Usar Pago Mixto (Caja Bs. ${efectivoCajaDisponible.toStringAsFixed(2)} + Externo Bs. ${(total - efectivoCajaDisponible).toStringAsFixed(2)})',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-                        ),
-                        onPressed: () {
-                          ref.read(carritoComprasProvider.notifier).establecerMetodoPago(
-                                'PAGO_MIXTO',
-                                efectivoCajaDisponible: efectivoCajaDisponible,
-                              );
-                          _montoCajaController.text = efectivoCajaDisponible.toStringAsFixed(2);
-                          _montoExternoController.text = (total - efectivoCajaDisponible).toStringAsFixed(2);
-                        },
-                      ),
+                  Text(
+                    'Bs. ${total.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.primary,
+                      height: 1.1,
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
-          ] else if (carrito.metodoPago == 'PAGO_MIXTO') ...[
+
+            // Acciones: Guardar Pedido Pendiente vs Pagar Ahora
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _montoCajaController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: 'Del Cajón (Caja)',
-                      prefixText: 'Bs. ',
-                      isDense: true,
-                      border: const OutlineInputBorder(),
-                      helperText: cajaTurnoId != null
-                          ? 'Máx disp: Bs. ${efectivoCajaDisponible.toStringAsFixed(2)}'
-                          : 'Sin caja abierta',
-                      helperStyle: TextStyle(
-                        color: cajaTurnoId != null ? AppColors.textMuted : AppColors.danger,
-                        fontSize: 11,
-                      ),
-                    ),
-                    onChanged: (val) {
-                      final c = double.tryParse(val.replaceAll(',', '.')) ?? 0.0;
-                      ref.read(carritoComprasProvider.notifier).establecerMontoCaja(c);
-                    },
+                // 1. Guardar como Pedido Pendiente (Preventa / app de proveedor)
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.warning, width: 1.5),
+                    foregroundColor: AppColors.warning,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: carrito.isLoading
+                      ? null
+                      : () async {
+                          final messenger = ScaffoldMessenger.of(context);
+                          final exito = await ref.read(carritoComprasProvider.notifier).guardarPedidoPendiente();
+                          if (!mounted) return;
+                          if (exito) {
+                            ref.invalidate(pedidosPendientesProvider);
+                            _tabController.animateTo(1); // Mover a la pestaña 'En Camino'
+                            messenger.showSnackBar(
+                              SnackBar(
+                                backgroundColor: AppColors.success,
+                                content: Text(
+                                  ref.read(carritoComprasProvider).successMessage ??
+                                      '¡Pedido guardado! Lo encontrarás en la pestaña "En Camino".',
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            );
+                          } else {
+                            final err = ref.read(carritoComprasProvider).errorMessage ?? 'No se pudo guardar el pedido';
+                            messenger.showSnackBar(
+                              SnackBar(
+                                backgroundColor: AppColors.danger,
+                                content: Text('❌ $err'),
+                              ),
+                            );
+                          }
+                        },
+                  icon: const Icon(Icons.schedule_rounded, size: 16),
+                  label: const Text(
+                    'Guardar Pedido',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: TextFormField(
-                    controller: _montoExternoController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: 'Dinero Personal/ATM',
-                      prefixText: 'Bs. ',
-                      isDense: true,
-                      border: OutlineInputBorder(),
-                      helperText: 'Billetera, QR o Cajero',
-                      helperStyle: TextStyle(fontSize: 11),
-                    ),
-                    onChanged: (val) {
-                      final ext = double.tryParse(val.replaceAll(',', '.')) ?? 0.0;
-                      ref.read(carritoComprasProvider.notifier).establecerMontoExterno(ext);
-                    },
+
+                // 2. Compra Inmediata / Mayorista
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.success,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 2,
+                  ),
+                  onPressed: carrito.isLoading
+                      ? null
+                      : () => _abrirModalConfirmacionPago(
+                            context: context,
+                            cajaTurnoId: cajaTurnoId,
+                            efectivoCajaDisponible: efectivoCajaDisponible,
+                          ),
+                  icon: carrito.isLoading
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Icon(Icons.flash_on_rounded, size: 16),
+                  label: const Text(
+                    'Pagar Ahora',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
-            Builder(
-              builder: (_) {
-                final suma = carrito.montoCaja + carrito.montoExterno;
-                final diff = total - suma;
-                final esExacto = diff.abs() < 0.02;
-
-                if (esExacto) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withAlpha(20),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.check_circle, size: 16, color: AppColors.success),
-                        SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            'Suma de pagos exacta: cubre el 100% de la compra.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.success,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.danger.withAlpha(25),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.error_outline, size: 16, color: AppColors.danger),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          diff > 0
-                              ? 'Faltan Bs. ${diff.toStringAsFixed(2)} para cubrir el total.'
-                              : 'Excede el total por Bs. ${(-diff).toStringAsFixed(2)}.',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.danger,
-                          ),
-                        ),
-                      ),
-                      TextButton(
-                        style: TextButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                        ),
-                        onPressed: () {
-                          final nuevoExt = (total - carrito.montoCaja) > 0
-                              ? (total - carrito.montoCaja)
-                              : 0.0;
-                          ref
-                              .read(carritoComprasProvider.notifier)
-                              .establecerMontoExterno(nuevoExt);
-                        },
-                        child: const Text('Auto-cuadrar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
           ],
-
-          const SizedBox(height: 10),
-
-          // Botón Confirmar Compra
-          SizedBox(
-            height: 52,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.success,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: carrito.isLoading
-                  ? null
-                  : () async {
-                      // Validación anticipada de sugerencia Pago Mixto
-                      if (carrito.metodoPago == 'EFECTIVO_CAJA' &&
-                          cajaTurnoId != null &&
-                          efectivoCajaDisponible < total) {
-                        final aplicarMixto = await showDialog<bool>(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Row(
-                              children: [
-                                Icon(Icons.savings_outlined, color: AppColors.warning),
-                                SizedBox(width: 8),
-                                Text('Efectivo Insuficiente'),
-                              ],
-                            ),
-                            content: Text(
-                              'El cajón solo tiene Bs. ${efectivoCajaDisponible.toStringAsFixed(2)}, insuficiente para cubrir el total de Bs. ${total.toStringAsFixed(2)}.\n\n¿Deseas aplicar Pago Mixto automáticamente usando Bs. ${efectivoCajaDisponible.toStringAsFixed(2)} del cajón y Bs. ${(total - efectivoCajaDisponible).toStringAsFixed(2)} de dinero externo/cajero?',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('Cancelar'),
-                              ),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-                                onPressed: () => Navigator.pop(ctx, true),
-                                child: const Text('Aplicar Pago Mixto', style: TextStyle(color: Colors.white)),
-                              ),
-                            ],
-                          ),
-                        );
-
-                        if (aplicarMixto == true) {
-                          ref.read(carritoComprasProvider.notifier).establecerMetodoPago(
-                                'PAGO_MIXTO',
-                                efectivoCajaDisponible: efectivoCajaDisponible,
-                              );
-                          _montoCajaController.text = efectivoCajaDisponible.toStringAsFixed(2);
-                          _montoExternoController.text = (total - efectivoCajaDisponible).toStringAsFixed(2);
-                        }
-                        return;
-                      }
-
-                      final ok = await ref
-                          .read(carritoComprasProvider.notifier)
-                          .confirmarCompra(
-                            cajaTurnoId: cajaTurnoId,
-                            efectivoCajaDisponible: efectivoCajaDisponible,
-                          );
-
-                      if (context.mounted) {
-                        if (ok) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              backgroundColor: AppColors.success,
-                              content: Text(ref.read(carritoComprasProvider).successMessage ?? '¡Compra registrada!'),
-                              duration: const Duration(seconds: 3),
-                            ),
-                          );
-                          _tabController.animateTo(2); // Ir al historial
-                        } else {
-                          final err = ref.read(carritoComprasProvider).errorMessage;
-                          if (err != null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                backgroundColor: AppColors.danger,
-                                content: Text(err),
-                                duration: const Duration(seconds: 4),
-                              ),
-                            );
-                          }
-                        }
-                      }
-                    },
-              icon: carrito.isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                    )
-                  : const Icon(Icons.check_circle_outline, color: Colors.white, size: 24),
-              label: Text(
-                carrito.isLoading ? 'Procesando Compra...' : 'Confirmar Ingreso de Mercadería',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
+    );
+  }
+
+  void _abrirModalConfirmacionPago({
+    required BuildContext context,
+    required String? cajaTurnoId,
+    required double efectivoCajaDisponible,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalCtx) {
+        return _ModalConfirmacionPagoContent(
+          cajaTurnoId: cajaTurnoId,
+          efectivoCajaDisponible: efectivoCajaDisponible,
+          onCompraExitosa: () {
+            Navigator.of(modalCtx).pop();
+            _tabController.animateTo(2); // Ir al Historial
+          },
+        );
+      },
     );
   }
 
@@ -1560,7 +1417,298 @@ class _ComprasProveedoresScreenState
   }
 
   // ==========================================================================
-  // WIDGETS TAB 3: HISTORIAL DE COMPRAS
+  // WIDGETS TAB 2: PEDIDOS EN CAMINO (ESPERANDO CAMIÓN DE PROVEEDOR)
+  // ==========================================================================
+  Widget _buildTabPedidosEnCamino(BuildContext context) {
+    final pedidosAsync = ref.watch(pedidosPendientesProvider);
+
+    return Column(
+      children: [
+        // Barra informativa superior
+        Container(
+          color: AppColors.surface,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.local_shipping_outlined, color: AppColors.primary, size: 22),
+                  SizedBox(width: 8),
+                  Text(
+                    'Pedidos en Espera de Camión',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh, color: AppColors.primary),
+                tooltip: 'Refrescar Pedidos',
+                onPressed: () => ref.invalidate(pedidosPendientesProvider),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+
+        // Lista de pedidos pendientes agrupados por empresa
+        Expanded(
+          child: pedidosAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, _) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
+                    const SizedBox(height: 10),
+                    Text('Error al cargar pedidos: $err', textAlign: TextAlign.center),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => ref.invalidate(pedidosPendientesProvider),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Reintentar'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            data: (pedidos) {
+              if (pedidos.isEmpty) {
+                return RefreshIndicator(
+                  onRefresh: () async => ref.invalidate(pedidosPendientesProvider),
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.local_shipping_outlined, size: 64, color: Colors.grey.shade400),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'No hay pedidos pendientes de entrega',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'Cuando hagas un pedido por la app de la empresa (ej. BEES) o con el preventista, guárdalo con "Guardar Pedido" para confirmar lo que realmente llegó cuando el camión esté en tu puerta.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                              ),
+                              const SizedBox(height: 16),
+                              OutlinedButton.icon(
+                                onPressed: () => ref.invalidate(pedidosPendientesProvider),
+                                icon: const Icon(Icons.refresh, size: 16),
+                                label: const Text('Actualizar Lista'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return RefreshIndicator(
+                onRefresh: () async => ref.invalidate(pedidosPendientesProvider),
+                child: ListView.separated(
+                padding: const EdgeInsets.all(14),
+                itemCount: pedidos.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final p = pedidos[index];
+                  final fecha = p.fechaCompra;
+                  final fechaStr = '${fecha.day}/${fecha.month} - ${fecha.hour}:${fecha.minute.toString().padLeft(2, '0')}';
+
+                  return Card(
+                    elevation: 1.5,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      side: BorderSide(color: AppColors.warning.withAlpha(120), width: 1.5),
+                    ),
+                    color: Colors.white,
+                    child: Padding(
+                      padding: const EdgeInsets.all(14.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 42,
+                                      height: 42,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary.withAlpha(15),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: const Icon(Icons.business_rounded, color: AppColors.primary, size: 24),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            p.nombreProveedor ?? 'Proveedor',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          Text(
+                                            'Pedido: $fechaStr',
+                                            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.warning.withAlpha(25),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppColors.warning.withAlpha(90)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.schedule, size: 14, color: AppColors.warning),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Esperando Camión',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.warning,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          const Divider(height: 1),
+                          const SizedBox(height: 10),
+
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Total Estimado', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                  Text(
+                                    'Bs. ${p.totalCompra.toStringAsFixed(2)}',
+                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.primary),
+                                  ),
+                                ],
+                              ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    tooltip: 'Cancelar o eliminar pedido',
+                                    icon: const Icon(Icons.delete_outline, color: AppColors.danger),
+                                    onPressed: () => _mostrarDialogoCancelarPedido(p),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.success,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                    onPressed: () {
+                                      showModalBottomSheet(
+                                        context: context,
+                                        isScrollControlled: true,
+                                        backgroundColor: Colors.transparent,
+                                        builder: (_) => ModalRecepcionPedido(pedido: p),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.done_all_rounded, size: 18),
+                                    label: const Text('¡Llegó el Camión! Recibir', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _mostrarDialogoCancelarPedido(CompraModel pedido) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppColors.danger),
+            SizedBox(width: 8),
+            Text('¿Eliminar Pedido?'),
+          ],
+        ),
+        content: Text(
+          '¿Deseas eliminar el pedido pendiente a "${pedido.nombreProveedor ?? 'Proveedor'}"?\n\n'
+          'Esta acción es segura: no afectará tu stock ni tu dinero de caja.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Volver'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ref.read(comprasRepositoryProvider).cancelarPedidoPendiente(pedido.id);
+              ref.invalidate(pedidosPendientesProvider);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: AppColors.textPrimary,
+                    content: Text('Pedido a ${pedido.nombreProveedor ?? 'Proveedor'} eliminado.'),
+                  ),
+                );
+              }
+            },
+            child: const Text('Eliminar Pedido'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================================================
+  // WIDGETS TAB 4: HISTORIAL DE COMPRAS
   // ==========================================================================
   Widget _buildTabHistorialCompras(
     BuildContext context,
@@ -1723,11 +1871,13 @@ class _ChipMetodoPago extends StatelessWidget {
   }
 }
 
-/// Tarjeta de ítem en la lista de compra con edición de cantidad, costo y nuevo precio de venta
-class _CardItemCompra extends StatelessWidget {
+/// Tarjeta de ítem en la lista de compra con edición de cantidad, costo y soporte de empaque vs. unidad suelta
+class _CardItemCompra extends StatefulWidget {
   final ItemCompraModel item;
   final ValueChanged<double> onCantidadChanged;
   final ValueChanged<double> onCostoChanged;
+  final ValueChanged<double> onCostoEmpaqueChanged;
+  final ValueChanged<bool> onModoEmpaqueChanged;
   final ValueChanged<double?> onPrecioVentaChanged;
   final VoidCallback onEliminar;
 
@@ -1735,12 +1885,27 @@ class _CardItemCompra extends StatelessWidget {
     required this.item,
     required this.onCantidadChanged,
     required this.onCostoChanged,
+    required this.onCostoEmpaqueChanged,
+    required this.onModoEmpaqueChanged,
     required this.onPrecioVentaChanged,
     required this.onEliminar,
   });
 
   @override
+  State<_CardItemCompra> createState() => _CardItemCompraState();
+}
+
+class _CardItemCompraState extends State<_CardItemCompra> {
+  bool _mostrarAjustePrecio = false;
+
+  @override
   Widget build(BuildContext context) {
+    final item = widget.item;
+    final debeMostrarAlerta = item.costoSubio ||
+        item.costoBajo ||
+        _mostrarAjustePrecio ||
+        (item.nuevoPrecioVenta != null && item.nuevoPrecioVenta! > 0);
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -1765,7 +1930,7 @@ class _CardItemCompra extends StatelessWidget {
                   children: [
                     Text(
                       item.nombreProducto,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1778,58 +1943,176 @@ class _CardItemCompra extends StatelessWidget {
                 ),
               ),
               IconButton(
+                visualDensity: VisualDensity.compact,
                 icon: const Icon(Icons.close, color: AppColors.danger, size: 20),
                 tooltip: 'Quitar de la compra (ej. camión no trajo stock)',
-                onPressed: onEliminar,
+                onPressed: widget.onEliminar,
               ),
             ],
           ),
-          const SizedBox(height: 8),
+
+          // Selector de Modo: Por Paquete/Caja vs Por Unidad (si el producto tiene empaque)
+          if (item.tieneEmpaqueMayorista) ...[
+            Container(
+              margin: const EdgeInsets.only(top: 4, bottom: 8),
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => widget.onModoEmpaqueChanged(true),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 5),
+                        decoration: BoxDecoration(
+                          color: item.esPorEmpaque ? AppColors.primary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '📦 Por ${item.nombreEmpaqueLegible} (x${item.unidadesPorEmpaque.toInt()}u)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: item.esPorEmpaque ? Colors.white : AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => widget.onModoEmpaqueChanged(false),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 5),
+                        decoration: BoxDecoration(
+                          color: !item.esPorEmpaque ? AppColors.primary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '🥤 Por Unidad Suelta',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: !item.esPorEmpaque ? Colors.white : AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 6),
+          ],
 
           // Fila Media: Controles de Cantidad y Costo Unitario
           Row(
             children: [
               // Controles de cantidad
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, size: 22),
-                    onPressed: () => onCantidadChanged(item.cantidad - 1),
-                  ),
-                  Container(
-                    constraints: const BoxConstraints(minWidth: 36),
-                    alignment: Alignment.center,
-                    child: Text(
-                      item.cantidad.toStringAsFixed(0),
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+              if (item.esPorEmpaque && item.tieneEmpaqueMayorista) ...[
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.remove_circle_outline, size: 22),
+                      onPressed: () {
+                        final nuevaCant = item.cantidad - item.unidadesPorEmpaque;
+                        widget.onCantidadChanged(nuevaCant > 0 ? nuevaCant : 0);
+                      },
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.add_circle_outline, size: 22, color: AppColors.primary),
-                    onPressed: () => onCantidadChanged(item.cantidad + 1),
-                  ),
-                ],
-              ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${item.cantidadEmpaques.toStringAsFixed(item.cantidadEmpaques % 1 == 0 ? 0 : 1)} ${item.nombreEmpaquePlural}',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+                        ),
+                        Text(
+                          '(${item.cantidad.toInt()} uds)',
+                          style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.add_circle_outline, size: 22, color: AppColors.primary),
+                      onPressed: () => widget.onCantidadChanged(item.cantidad + item.unidadesPorEmpaque),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.remove_circle_outline, size: 22),
+                      onPressed: () => widget.onCantidadChanged(item.cantidad - 1),
+                    ),
+                    Container(
+                      constraints: const BoxConstraints(minWidth: 32),
+                      alignment: Alignment.center,
+                      child: Text(
+                        item.cantidad.toStringAsFixed(0),
+                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.add_circle_outline, size: 22, color: AppColors.primary),
+                      onPressed: () => widget.onCantidadChanged(item.cantidad + 1),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(width: 8),
 
-              // Costo Unitario
+              // Costo Unitario o Costo por Empaque
               Expanded(
-                child: TextFormField(
-                  initialValue: item.costoUnitario.toStringAsFixed(2),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    labelText: 'Costo Unit. (Bs.)',
-                    prefixText: 'Bs. ',
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onChanged: (val) {
-                    final c = double.tryParse(val);
-                    if (c != null && c >= 0) onCostoChanged(c);
-                  },
-                ),
+                child: item.esPorEmpaque && item.tieneEmpaqueMayorista
+                    ? TextFormField(
+                        key: ValueKey('costo_empaque_${item.productoId}_${item.esPorEmpaque}'),
+                        initialValue: item.costoPorEmpaque.toStringAsFixed(2),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(
+                          labelText: 'Costo ${item.nombreEmpaqueLegible}',
+                          prefixText: 'Bs. ',
+                          helperText: '(Bs. ${item.costoUnitario.toStringAsFixed(2)} c/u)',
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onChanged: (val) {
+                          final c = double.tryParse(val.trim().replaceAll(',', '.'));
+                          if (c != null && c >= 0) widget.onCostoEmpaqueChanged(c);
+                        },
+                      )
+                    : TextFormField(
+                        key: ValueKey('costo_unit_${item.productoId}_${item.esPorEmpaque}'),
+                        initialValue: item.costoUnitario.toStringAsFixed(2),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(
+                          labelText: 'Costo Unit. (Bs.)',
+                          prefixText: 'Bs. ',
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onChanged: (val) {
+                          final c = double.tryParse(val.trim().replaceAll(',', '.'));
+                          if (c != null && c >= 0) widget.onCostoChanged(c);
+                        },
+                      ),
               ),
               const SizedBox(width: 8),
 
@@ -1840,119 +2123,159 @@ class _CardItemCompra extends StatelessWidget {
                   const Text('Subtotal', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
                   Text(
                     'Bs. ${item.subtotal.toStringAsFixed(2)}',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
                   ),
                 ],
               ),
             ],
           ),
 
-          // Alerta de variación de costo y ajuste de precio de mostrador al público
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: item.costoSubio
-                  ? AppColors.warning.withAlpha(15)
-                  : (item.costoBajo ? AppColors.secondary.withAlpha(15) : AppColors.background),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
+          // Alerta o Resumen de Precio de Venta
+          if (debeMostrarAlerta) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
                 color: item.costoSubio
-                    ? AppColors.warning.withAlpha(60)
-                    : (item.costoBajo ? AppColors.secondary.withAlpha(60) : AppColors.border.withAlpha(70)),
+                    ? AppColors.warning.withAlpha(15)
+                    : (item.costoBajo ? AppColors.secondary.withAlpha(15) : AppColors.background),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: item.costoSubio
+                      ? AppColors.warning.withAlpha(60)
+                      : (item.costoBajo ? AppColors.secondary.withAlpha(60) : AppColors.border.withAlpha(70)),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (item.costoSubio) ...[
+                    Row(
+                      children: [
+                        const Icon(Icons.trending_up, size: 16, color: AppColors.warning),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            'Costo subió: Bs. ${item.costoAnterior.toStringAsFixed(2)} ➔ Bs. ${item.costoUnitario.toStringAsFixed(2)} (+Bs. ${item.deltaCosto.toStringAsFixed(2)})',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.warning),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                  ] else if (item.costoBajo) ...[
+                    Row(
+                      children: [
+                        const Icon(Icons.trending_down, size: 16, color: AppColors.secondary),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            'Costo bajó: Bs. ${item.costoAnterior.toStringAsFixed(2)} ➔ Bs. ${item.costoUnitario.toStringAsFixed(2)} (-Bs. ${(-item.deltaCosto).toStringAsFixed(2)})',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.secondary),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.sell_outlined, size: 15, color: AppColors.textSecondary),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'P. Venta: Bs. ${item.precioVentaActual.toStringAsFixed(2)}',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              item.nuevoPrecioVenta != null && item.nuevoPrecioVenta! > 0
+                                  ? 'Nuevo margen: ${item.margenEfectivo.toStringAsFixed(1)}%'
+                                  : 'Margen: ${item.margenConPrecioActual.toStringAsFixed(1)}%',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: item.margenPeligroso
+                                    ? AppColors.danger
+                                    : (item.margenEfectivo >= 20 ? AppColors.success : AppColors.warning),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 125,
+                        child: TextFormField(
+                          initialValue: item.nuevoPrecioVenta != null ? item.nuevoPrecioVenta!.toStringAsFixed(2) : '',
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: InputDecoration(
+                            labelText: 'Nuevo P. Venta',
+                            prefixText: 'Bs. ',
+                            hintText: item.precioVentaActual.toStringAsFixed(2),
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            filled: true,
+                            fillColor: AppColors.surface,
+                          ),
+                          onChanged: (val) {
+                            final pv = double.tryParse(val.trim().replaceAll(',', '.'));
+                            widget.onPrecioVentaChanged(pv != null && pv > 0 ? pv : null);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (item.costoSubio) ...[
-                  Row(
-                    children: [
-                      const Icon(Icons.trending_up, size: 16, color: AppColors.warning),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          'Costo subió: Bs. ${item.costoAnterior.toStringAsFixed(2)} ➔ Bs. ${item.costoUnitario.toStringAsFixed(2)} (+Bs. ${item.deltaCosto.toStringAsFixed(2)})',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.warning),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                ] else if (item.costoBajo) ...[
-                  Row(
-                    children: [
-                      const Icon(Icons.trending_down, size: 16, color: AppColors.secondary),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          'Costo bajó: Bs. ${item.costoAnterior.toStringAsFixed(2)} ➔ Bs. ${item.costoUnitario.toStringAsFixed(2)} (-Bs. ${(-item.deltaCosto).toStringAsFixed(2)})',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.secondary),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                ],
-                Row(
+          ] else ...[
+            const SizedBox(height: 6),
+            InkWell(
+              onTap: () => setState(() => _mostrarAjustePrecio = true),
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppColors.border.withAlpha(50)),
+                ),
+                child: Row(
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.sell_outlined, size: 15, color: AppColors.textSecondary),
-                              const SizedBox(width: 4),
-                              Text(
-                                'P. Venta actual: Bs. ${item.precioVentaActual.toStringAsFixed(2)}',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            item.nuevoPrecioVenta != null && item.nuevoPrecioVenta! > 0
-                                ? 'Nuevo margen: ${item.margenEfectivo.toStringAsFixed(1)}%'
-                                : 'Margen: ${item.margenConPrecioActual.toStringAsFixed(1)}%',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: item.margenPeligroso
-                                  ? AppColors.danger
-                                  : (item.margenEfectivo >= 20 ? AppColors.success : AppColors.warning),
-                            ),
-                          ),
-                        ],
+                    const Icon(Icons.sell_outlined, size: 12, color: AppColors.textSecondary),
+                    const SizedBox(width: 4),
+                    Text(
+                      'P. Venta mostrador: Bs. ${item.precioVentaActual.toStringAsFixed(2)}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '• ${item.margenConPrecioActual.toStringAsFixed(0)}% margen',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: item.margenPeligroso ? AppColors.danger : AppColors.success,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 130,
-                      child: TextFormField(
-                        initialValue: item.nuevoPrecioVenta != null ? item.nuevoPrecioVenta!.toStringAsFixed(2) : '',
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: InputDecoration(
-                          labelText: 'Nuevo P. Venta',
-                          prefixText: 'Bs. ',
-                          hintText: item.precioVentaActual.toStringAsFixed(2),
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          filled: true,
-                          fillColor: AppColors.surface,
-                        ),
-                        onChanged: (val) {
-                          final pv = double.tryParse(val.trim().replaceAll(',', '.'));
-                          onPrecioVentaChanged(pv != null && pv > 0 ? pv : null);
-                        },
-                      ),
+                    const Spacer(),
+                    const Text(
+                      '✏️ Ajustar',
+                      style: TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -1965,7 +2288,7 @@ class _CardProductoProveedor extends StatelessWidget {
   final ItemCompraModel? itemEnCarrito;
   final bool esStockBajo;
   final double unidadesEnAlmacen;
-  final VoidCallback onAgregar;
+  final void Function(bool porEmpaque) onAgregarPorEmpaque;
   final ValueChanged<double> onActualizarCantidad;
 
   const _CardProductoProveedor({
@@ -1973,7 +2296,7 @@ class _CardProductoProveedor extends StatelessWidget {
     required this.itemEnCarrito,
     required this.esStockBajo,
     this.unidadesEnAlmacen = 0.0,
-    required this.onAgregar,
+    required this.onAgregarPorEmpaque,
     required this.onActualizarCantidad,
   });
 
@@ -2103,7 +2426,9 @@ class _CardProductoProveedor extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Costo: Bs. ${producto.costoMayorista.toStringAsFixed(2)}  •  P. Venta: Bs. ${producto.precioVenta.toStringAsFixed(2)}',
+                    producto.tieneEmpaqueMayorista
+                        ? '${producto.nombreEmpaqueLegible} x${producto.unidadesPorEmpaque.toInt()}u  •  Costo: Bs. ${producto.costoMayorista.toStringAsFixed(2)}/u'
+                        : 'Costo: Bs. ${producto.costoMayorista.toStringAsFixed(2)}  •  P. Venta: Bs. ${producto.precioVenta.toStringAsFixed(2)}',
                     style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
                   ),
                 ],
@@ -2125,50 +2450,97 @@ class _CardProductoProveedor extends StatelessWidget {
                     IconButton(
                       icon: const Icon(Icons.remove, size: 18, color: AppColors.primary),
                       visualDensity: VisualDensity.compact,
-                      onPressed: () => onActualizarCantidad(cantEnOrden - 1),
+                      onPressed: () {
+                        if (itemEnCarrito!.esPorEmpaque && producto.unidadesPorEmpaque > 1) {
+                          onActualizarCantidad(cantEnOrden - producto.unidadesPorEmpaque);
+                        } else {
+                          onActualizarCantidad(cantEnOrden - 1);
+                        }
+                      },
                     ),
-                    Text(
-                      cantEnOrden.toInt().toString(),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          itemEnCarrito!.esPorEmpaque && producto.unidadesPorEmpaque > 1
+                              ? '${itemEnCarrito!.cantidadEmpaques.toStringAsFixed(itemEnCarrito!.cantidadEmpaques % 1 == 0 ? 0 : 1)} ${producto.nombreEmpaquePlural}'
+                              : '${cantEnOrden.toInt()} uds',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        if (itemEnCarrito!.esPorEmpaque && producto.unidadesPorEmpaque > 1)
+                          Text(
+                            '(${cantEnOrden.toInt()} uds)',
+                            style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                          ),
+                      ],
                     ),
                     IconButton(
                       icon: const Icon(Icons.add, size: 18, color: AppColors.primary),
                       visualDensity: VisualDensity.compact,
-                      onPressed: () => onActualizarCantidad(cantEnOrden + 1),
+                      onPressed: () {
+                        if (itemEnCarrito!.esPorEmpaque && producto.unidadesPorEmpaque > 1) {
+                          onActualizarCantidad(cantEnOrden + producto.unidadesPorEmpaque);
+                        } else {
+                          onActualizarCantidad(cantEnOrden + 1);
+                        }
+                      },
                     ),
                   ],
                 ),
               )
-            else if (esStockBajo)
+            else if (producto.tieneEmpaqueMayorista)
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: esStockBajo ? AppColors.danger : AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onPressed: () => onAgregarPorEmpaque(true),
+                    child: Text(
+                      '+1 ${producto.nombreEmpaqueCorto} (${producto.unidadesPorEmpaque.toInt()}u)',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  InkWell(
+                    onTap: () => onAgregarPorEmpaque(false),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Text(
+                        '+1 Ud suelta',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary.withAlpha(220),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            else
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.danger,
+                  backgroundColor: esStockBajo ? AppColors.danger : AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                onPressed: onAgregar,
+                onPressed: () => onAgregarPorEmpaque(false),
                 icon: const Icon(Icons.add_shopping_cart, size: 16),
                 label: Text(
-                  '+${faltante.toInt()}',
+                  esStockBajo ? '+${faltante.toInt()}' : 'Añadir',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-              )
-            else
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onPressed: onAgregar,
-                icon: const Icon(Icons.add, size: 16, color: AppColors.primary),
-                label: const Text(
-                  'Añadir',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
                 ),
               ),
           ],
@@ -2231,4 +2603,522 @@ class _SegmentoBoton extends StatelessWidget {
     );
   }
 }
+
+// ============================================================================
+// MODAL BOTTOM SHEET: CONFIRMACIÓN Y PAGO DE ORDEN DE COMPRA
+// ============================================================================
+class _ModalConfirmacionPagoContent extends ConsumerStatefulWidget {
+  final String? cajaTurnoId;
+  final double efectivoCajaDisponible;
+  final VoidCallback onCompraExitosa;
+
+  const _ModalConfirmacionPagoContent({
+    required this.cajaTurnoId,
+    required this.efectivoCajaDisponible,
+    required this.onCompraExitosa,
+  });
+
+  @override
+  ConsumerState<_ModalConfirmacionPagoContent> createState() =>
+      _ModalConfirmacionPagoContentState();
+}
+
+class _ModalConfirmacionPagoContentState
+    extends ConsumerState<_ModalConfirmacionPagoContent> {
+  late final TextEditingController _montoCajaController;
+  late final TextEditingController _montoExternoController;
+
+  @override
+  void initState() {
+    super.initState();
+    final c = ref.read(carritoComprasProvider);
+    _montoCajaController = TextEditingController(
+      text: c.montoCaja > 0 ? c.montoCaja.toStringAsFixed(2) : '',
+    );
+    _montoExternoController = TextEditingController(
+      text: c.montoExterno > 0 ? c.montoExterno.toStringAsFixed(2) : '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _montoCajaController.dispose();
+    _montoExternoController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final carrito = ref.watch(carritoComprasProvider);
+    final total = carrito.totalCompra;
+    final cajaTurnoId = widget.cajaTurnoId;
+    final efectivoCajaDisponible = widget.efectivoCajaDisponible;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(
+        top: 12,
+        left: 18,
+        right: 18,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 18,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Asa decorativa superior
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            // Cabecera del Modal
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Confirmar Ingreso y Pago',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        carrito.proveedorSeleccionado != null
+                            ? '🏢 ${carrito.proveedorSeleccionado!.nombreEmpresa} • ${carrito.items.length} productos'
+                            : '📦 Compra General • ${carrito.items.length} productos',
+                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const Divider(height: 16),
+
+            // Tarjeta de Resumen del Total
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Total de la Mercadería', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      Text(
+                        '${carrito.items.length} productos (${carrito.totalArticulos.toInt()} uds totales)',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'Bs. ${total.toStringAsFixed(2)}',
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.primary),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Selector de Origen de Fondos
+            const Text(
+              'Origen del Dinero para pagar:',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+            ),
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _ChipMetodoPago(
+                    label: '💵 Efectivo de Caja',
+                    seleccionado: carrito.metodoPago == 'EFECTIVO_CAJA',
+                    onTap: () => ref
+                        .read(carritoComprasProvider.notifier)
+                        .establecerMetodoPago('EFECTIVO_CAJA', efectivoCajaDisponible: efectivoCajaDisponible),
+                  ),
+                  const SizedBox(width: 6),
+                  _ChipMetodoPago(
+                    label: '🏧 Dinero Propio / Cajero',
+                    seleccionado: carrito.metodoPago == 'EFECTIVO_EXTERNO_ATM',
+                    onTap: () => ref
+                        .read(carritoComprasProvider.notifier)
+                        .establecerMetodoPago('EFECTIVO_EXTERNO_ATM'),
+                  ),
+                  const SizedBox(width: 6),
+                  _ChipMetodoPago(
+                    label: '📱 QR Personal',
+                    seleccionado: carrito.metodoPago == 'QR_BANCO',
+                    onTap: () => ref
+                        .read(carritoComprasProvider.notifier)
+                        .establecerMetodoPago('QR_BANCO'),
+                  ),
+                  const SizedBox(width: 6),
+                  _ChipMetodoPago(
+                    label: '🔀 Pago Mixto',
+                    seleccionado: carrito.metodoPago == 'PAGO_MIXTO',
+                    onTap: () {
+                      ref.read(carritoComprasProvider.notifier).establecerMetodoPago(
+                            'PAGO_MIXTO',
+                            efectivoCajaDisponible: efectivoCajaDisponible,
+                          );
+                      final c = ref.read(carritoComprasProvider);
+                      _montoCajaController.text =
+                          c.montoCaja > 0 ? c.montoCaja.toStringAsFixed(2) : '';
+                      _montoExternoController.text =
+                          c.montoExterno > 0 ? c.montoExterno.toStringAsFixed(2) : '';
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Alerta o campos según el método de pago seleccionado
+            if (carrito.metodoPago == 'EFECTIVO_CAJA') ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: (cajaTurnoId == null || efectivoCajaDisponible < total)
+                      ? AppColors.warning.withAlpha(25)
+                      : AppColors.success.withAlpha(20),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          (cajaTurnoId == null || efectivoCajaDisponible < total)
+                              ? Icons.warning_amber_rounded
+                              : Icons.check_circle_outline,
+                          size: 20,
+                          color: (cajaTurnoId == null || efectivoCajaDisponible < total)
+                              ? AppColors.warning
+                              : AppColors.success,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            cajaTurnoId == null
+                                ? 'No hay caja abierta. Abre un turno en Cierre de Caja o usa dinero propio / cajero.'
+                                : 'Efectivo en cajón: Bs. ${efectivoCajaDisponible.toStringAsFixed(2)} ${efectivoCajaDisponible < total ? "(Insuficiente para Bs. ${total.toStringAsFixed(2)})" : "(Suficiente)"}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: (cajaTurnoId == null || efectivoCajaDisponible < total)
+                                  ? AppColors.warning
+                                  : AppColors.success,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (cajaTurnoId != null && efectivoCajaDisponible < total && efectivoCajaDisponible > 0) ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.call_split_rounded, size: 16, color: Colors.white),
+                          label: Text(
+                            'Usar Pago Mixto (Caja Bs. ${efectivoCajaDisponible.toStringAsFixed(2)} + Externo Bs. ${(total - efectivoCajaDisponible).toStringAsFixed(2)})',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                          onPressed: () {
+                            ref.read(carritoComprasProvider.notifier).establecerMetodoPago(
+                                  'PAGO_MIXTO',
+                                  efectivoCajaDisponible: efectivoCajaDisponible,
+                                );
+                            _montoCajaController.text = efectivoCajaDisponible.toStringAsFixed(2);
+                            _montoExternoController.text = (total - efectivoCajaDisponible).toStringAsFixed(2);
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ] else if (carrito.metodoPago == 'PAGO_MIXTO') ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _montoCajaController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: 'Del Cajón (Caja)',
+                        prefixText: 'Bs. ',
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                        helperText: cajaTurnoId != null
+                            ? 'Máx disp: Bs. ${efectivoCajaDisponible.toStringAsFixed(2)}'
+                            : 'Sin caja abierta',
+                        helperStyle: TextStyle(
+                          color: cajaTurnoId != null ? AppColors.textMuted : AppColors.danger,
+                          fontSize: 11,
+                        ),
+                      ),
+                      onChanged: (val) {
+                        final c = double.tryParse(val.replaceAll(',', '.')) ?? 0.0;
+                        ref.read(carritoComprasProvider.notifier).establecerMontoCaja(c);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _montoExternoController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Dinero Personal/ATM',
+                        prefixText: 'Bs. ',
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                        helperText: 'Billetera, QR o Cajero',
+                        helperStyle: TextStyle(fontSize: 11),
+                      ),
+                      onChanged: (val) {
+                        final ext = double.tryParse(val.replaceAll(',', '.')) ?? 0.0;
+                        ref.read(carritoComprasProvider.notifier).establecerMontoExterno(ext);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Builder(
+                builder: (_) {
+                  final suma = carrito.montoCaja + carrito.montoExterno;
+                  final diff = total - suma;
+                  final esExacto = diff.abs() < 0.02;
+
+                  if (esExacto) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withAlpha(20),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.check_circle, size: 16, color: AppColors.success),
+                          SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Suma exacta: cubre el 100% de la compra.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.success,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.danger.withAlpha(25),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline, size: 16, color: AppColors.danger),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            diff > 0
+                                ? 'Faltan Bs. ${diff.toStringAsFixed(2)} para cubrir el total.'
+                                : 'Excede el total por Bs. ${(-diff).toStringAsFixed(2)}.',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.danger,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                          ),
+                          onPressed: () {
+                            final nuevoExt = (total - carrito.montoCaja) > 0
+                                ? (total - carrito.montoCaja)
+                                : 0.0;
+                            ref
+                                .read(carritoComprasProvider.notifier)
+                                .establecerMontoExterno(nuevoExt);
+                            _montoExternoController.text = nuevoExt.toStringAsFixed(2);
+                          },
+                          child: const Text('Auto-cuadrar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withAlpha(15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 18, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        carrito.metodoPago == 'QR_BANCO'
+                            ? 'Pago registrado con QR / Transferencia Bancaria. No descontará efectivo del cajón.'
+                            : 'Pago con dinero propio o retiro de cajero. No descontará dinero de la caja de la tienda.',
+                        style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 16),
+
+            // Botón Confirmar Compra
+            SizedBox(
+              height: 52,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.success,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 2,
+                ),
+                onPressed: carrito.isLoading
+                    ? null
+                    : () async {
+                        // Validación anticipada de sugerencia Pago Mixto
+                        if (carrito.metodoPago == 'EFECTIVO_CAJA' &&
+                            cajaTurnoId != null &&
+                            efectivoCajaDisponible < total) {
+                          final aplicarMixto = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Row(
+                                children: [
+                                  Icon(Icons.savings_outlined, color: AppColors.warning),
+                                  SizedBox(width: 8),
+                                  Text('Efectivo Insuficiente'),
+                                ],
+                              ),
+                              content: Text(
+                                'El cajón solo tiene Bs. ${efectivoCajaDisponible.toStringAsFixed(2)}, insuficiente para cubrir el total de Bs. ${total.toStringAsFixed(2)}.\n\n¿Deseas aplicar Pago Mixto automáticamente usando Bs. ${efectivoCajaDisponible.toStringAsFixed(2)} del cajón y Bs. ${(total - efectivoCajaDisponible).toStringAsFixed(2)} de dinero externo/cajero?',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('Cancelar'),
+                                ),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('Aplicar Pago Mixto', style: TextStyle(color: Colors.white)),
+                                ),
+                              ],
+                            ),
+                          );
+
+                          if (aplicarMixto == true) {
+                            ref.read(carritoComprasProvider.notifier).establecerMetodoPago(
+                                  'PAGO_MIXTO',
+                                  efectivoCajaDisponible: efectivoCajaDisponible,
+                                );
+                            _montoCajaController.text = efectivoCajaDisponible.toStringAsFixed(2);
+                            _montoExternoController.text = (total - efectivoCajaDisponible).toStringAsFixed(2);
+                          }
+                          return;
+                        }
+
+                        final ok = await ref
+                            .read(carritoComprasProvider.notifier)
+                            .confirmarCompra(
+                              cajaTurnoId: cajaTurnoId,
+                              efectivoCajaDisponible: efectivoCajaDisponible,
+                            );
+
+                        if (context.mounted) {
+                          if (ok) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: AppColors.success,
+                                content: Text(ref.read(carritoComprasProvider).successMessage ?? '¡Compra registrada!'),
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                            widget.onCompraExitosa();
+                          } else {
+                            final err = ref.read(carritoComprasProvider).errorMessage;
+                            if (err != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: AppColors.danger,
+                                  content: Text(err),
+                                  duration: const Duration(seconds: 4),
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      },
+                icon: carrito.isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Icon(Icons.check_circle_outline, color: Colors.white, size: 24),
+                label: Text(
+                  carrito.isLoading ? 'Procesando Compra...' : 'Confirmar Ingreso de Mercadería',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 

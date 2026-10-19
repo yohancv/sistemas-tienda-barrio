@@ -1,4 +1,4 @@
-/// Modelo de Cabecera de Compra / Nota de Entrega de Mercadería
+/// Modelo de Cabecera de Compra / Pedido a Proveedor
 class CompraModel {
   final String id;
   final String tenantId;
@@ -10,6 +10,8 @@ class CompraModel {
   final double montoPagadoExterno;
   final String? cajaTurnoId;
   final String? observaciones;
+  final String estado; // 'PENDIENTE', 'COMPLETADA', 'CANCELADA'
+  final DateTime? fechaEntrega;
   final DateTime fechaCompra;
   final String? usuarioId;
 
@@ -28,11 +30,30 @@ class CompraModel {
     this.montoPagadoExterno = 0.0,
     this.cajaTurnoId,
     this.observaciones,
+    this.estado = 'COMPLETADA',
+    this.fechaEntrega,
     required this.fechaCompra,
     this.usuarioId,
     this.nombreProveedor,
     this.cantidadArticulos,
   });
+
+  bool get esPendiente => estado == 'PENDIENTE';
+  bool get esCompletada => estado == 'COMPLETADA';
+  bool get esCancelada => estado == 'CANCELADA';
+
+  String get etiquetaEstado {
+    switch (estado) {
+      case 'PENDIENTE':
+        return '🟡 Esperando Camión';
+      case 'COMPLETADA':
+        return '🟢 Entregado / Pagado';
+      case 'CANCELADA':
+        return '🔴 Cancelado';
+      default:
+        return estado;
+    }
+  }
 
   /// Etiqueta visual amigable del método de pago
   String get etiquetaMetodoPago {
@@ -63,6 +84,8 @@ class CompraModel {
     double? montoPagadoExterno,
     String? cajaTurnoId,
     String? observaciones,
+    String? estado,
+    DateTime? fechaEntrega,
     DateTime? fechaCompra,
     String? usuarioId,
     String? nombreProveedor,
@@ -79,6 +102,8 @@ class CompraModel {
       montoPagadoExterno: montoPagadoExterno ?? this.montoPagadoExterno,
       cajaTurnoId: cajaTurnoId ?? this.cajaTurnoId,
       observaciones: observaciones ?? this.observaciones,
+      estado: estado ?? this.estado,
+      fechaEntrega: fechaEntrega ?? this.fechaEntrega,
       fechaCompra: fechaCompra ?? this.fechaCompra,
       usuarioId: usuarioId ?? this.usuarioId,
       nombreProveedor: nombreProveedor ?? this.nombreProveedor,
@@ -98,6 +123,8 @@ class CompraModel {
       'monto_pagado_externo': montoPagadoExterno,
       'caja_turno_id': cajaTurnoId,
       'observaciones': observaciones,
+      'estado': estado,
+      if (fechaEntrega != null) 'fecha_entrega': fechaEntrega!.toIso8601String(),
       'fecha_compra': fechaCompra.toIso8601String(),
       'usuario_id': usuarioId,
     };
@@ -107,6 +134,17 @@ class CompraModel {
     String? proveedor;
     if (map['proveedores'] != null && map['proveedores'] is Map) {
       proveedor = map['proveedores']['nombre_empresa'] as String?;
+    } else if (map['nombre_proveedor'] != null) {
+      proveedor = map['nombre_proveedor'] as String?;
+    } else if (map['prov_nombre'] != null) {
+      proveedor = map['prov_nombre'] as String?;
+    }
+
+    int? cantArticulos;
+    if (map['cant_articulos'] != null) {
+      cantArticulos = (map['cant_articulos'] as num).toInt();
+    } else if (map['detalle_compras'] != null && map['detalle_compras'] is List) {
+      cantArticulos = (map['detalle_compras'] as List).length;
     }
 
     return CompraModel(
@@ -120,14 +158,16 @@ class CompraModel {
       montoPagadoExterno: _toDouble(map['monto_pagado_externo']),
       cajaTurnoId: map['caja_turno_id'] as String?,
       observaciones: map['observaciones'] as String?,
+      estado: map['estado'] as String? ?? 'COMPLETADA',
+      fechaEntrega: map['fecha_entrega'] != null
+          ? DateTime.tryParse(map['fecha_entrega'] as String)
+          : null,
       fechaCompra: map['fecha_compra'] != null
           ? DateTime.parse(map['fecha_compra'] as String)
           : DateTime.now(),
       usuarioId: map['usuario_id'] as String?,
       nombreProveedor: proveedor,
-      cantidadArticulos: map['detalle_compras'] != null && map['detalle_compras'] is List
-          ? (map['detalle_compras'] as List).length
-          : null,
+      cantidadArticulos: cantArticulos,
     );
   }
 

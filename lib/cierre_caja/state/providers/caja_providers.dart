@@ -86,9 +86,9 @@ class ConteoCajaNotifier extends Notifier<ConteoCajaState> {
   }
 }
 
-/// Proveedor del repositorio de caja
+/// Proveedor del repositorio de caja local (SQLite)
 final cajaRepositoryProvider = Provider<CajaRepository>((ref) {
-  return CajaRepository(SupabaseConfig.client);
+  return CajaRepository();
 });
 
 /// Notifier para el turno de caja actualmente activo
@@ -189,3 +189,10 @@ final conteoCajaProvider =
 typedef CajaState = ConteoCajaState;
 typedef CajaNotifier = ConteoCajaNotifier;
 final cajaProvider = conteoCajaProvider;
+
+/// Proveedor para conocer los datos del último turno cerrado (ej. con cuánto cerró)
+final ultimoTurnoCerradoProvider = FutureProvider<CajaTurnoModel?>((ref) async {
+  final repo = ref.read(cajaRepositoryProvider);
+  return await repo.obtenerUltimoTurnoCerrado(SupabaseConfig.defaultTenantId);
+});
+

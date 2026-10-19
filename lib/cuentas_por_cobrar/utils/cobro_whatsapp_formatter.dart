@@ -47,6 +47,14 @@ class CobroWhatsAppFormatter {
     return false;
   }
 
+  /// Envía recordatorio por WhatsApp manteniendo compatibilidad
+  static Future<bool> enviarRecordatorio({
+    required Cliente cliente,
+    String nombreTienda = 'Licorería & Tienda Familiar',
+  }) async {
+    return enviarWhatsApp(cliente);
+  }
+
   static Future<void> copiarAlPortapapeles(String texto) async {
     await Clipboard.setData(ClipboardData(text: texto));
   }

@@ -5,9 +5,9 @@ import '../../data/models/producto_model.dart';
 import '../../data/repositories/movimientos_repository.dart';
 import 'inventario_providers.dart';
 
-/// Proveedor del repositorio de movimientos inyectando Supabase
+/// Proveedor del repositorio de movimientos local (SQLite)
 final movimientosRepositoryProvider = Provider<MovimientosRepository>((ref) {
-  return MovimientosRepository(SupabaseConfig.client);
+  return MovimientosRepository();
 });
 
 /// Estado reactivo para las operaciones de desempaque y merma

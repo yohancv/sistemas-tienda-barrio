@@ -121,13 +121,108 @@ class CarritoNotifier extends Notifier<List<ItemCarrito>> {
     }
   }
 
-  /// Ajusta la cantidad exacta. Si es <= 0, remueve el item del carrito.
-  void ajustarCantidad(String productoId, double nuevaCantidad) {
+  /// Agrega empaques cerrados al ticket (ej. 1 caja de cerveza de 24 uds, paquete de velas, etc.)
+  void agregarEmpaque(Producto producto, [double cantidadEmpaques = 1.0]) {
+    final index = state.indexWhere(
+      (item) => item.producto.id == producto.id && item.modoVenta == ModoVenta.porEmpaqueMayorista,
+    );
+
+    if (index >= 0) {
+      final itemExistente = state[index];
+      final nuevaCantidad = itemExistente.cantidad + cantidadEmpaques;
+
+      state = [
+        ...state.sublist(0, index),
+        itemExistente.copyWith(cantidad: nuevaCantidad),
+        ...state.sublist(index + 1),
+      ];
+    } else {
+      state = [
+        ...state,
+        ItemCarrito(
+          producto: producto,
+          cantidad: cantidadEmpaques,
+          modoVenta: ModoVenta.porEmpaqueMayorista,
+        ),
+      ];
+    }
+  }
+
+  /// Establece la cantidad exacta de empaques cerrados en el ticket
+  void establecerCantidadEmpaque(Producto producto, double cantidadEmpaques) {
+    if (cantidadEmpaques <= 0) {
+      state = state.where((item) => !(item.producto.id == producto.id && item.modoVenta == ModoVenta.porEmpaqueMayorista)).toList();
+      return;
+    }
+
+    final index = state.indexWhere(
+      (item) => item.producto.id == producto.id && item.modoVenta == ModoVenta.porEmpaqueMayorista,
+    );
+
+    if (index >= 0) {
+      final itemExistente = state[index];
+      state = [
+        ...state.sublist(0, index),
+        itemExistente.copyWith(cantidad: cantidadEmpaques),
+        ...state.sublist(index + 1),
+      ];
+    } else {
+      state = [
+        ...state,
+        ItemCarrito(
+          producto: producto,
+          cantidad: cantidadEmpaques,
+          modoVenta: ModoVenta.porEmpaqueMayorista,
+        ),
+      ];
+    }
+  }
+
+  /// Modifica la cantidad de un item específico del carrito usando su item.id único
+  void ajustarCantidadItem(ItemCarrito item, double nuevaCantidad) {
     if (nuevaCantidad <= 0) {
-      state = state.where((item) => item.producto.id != productoId).toList();
+      state = state.where((i) => i.id != item.id).toList();
+      return;
+    }
+
+    state = state.map((i) {
+      if (i.id != item.id) return i;
+
+      if (i.modoVenta == ModoVenta.suelta) {
+        // En venta suelta, nuevaCantidad representa la cantidad de unidades sueltas
+        final fraccionInventario = i.producto.unidadesEnEmpaqueVenta > 0
+            ? nuevaCantidad / i.producto.unidadesEnEmpaqueVenta
+            : nuevaCantidad;
+        return i.copyWith(
+          cantidad: fraccionInventario,
+          cantidadSuelta: nuevaCantidad,
+        );
+      } else {
+        return i.copyWith(cantidad: nuevaCantidad);
+      }
+    }).toList();
+  }
+
+  /// Ajusta la cantidad exacta por productoId (y opcionalmente por modoVenta).
+  void ajustarCantidad(String productoId, double nuevaCantidad, {ModoVenta? modoVenta}) {
+    if (nuevaCantidad <= 0) {
+      state = state.where((item) {
+        if (item.producto.id != productoId) return true;
+        if (modoVenta != null && item.modoVenta != modoVenta) return true;
+        return false;
+      }).toList();
     } else {
       state = state.map((item) {
-        if (item.producto.id == productoId) {
+        if (item.producto.id == productoId && (modoVenta == null || item.modoVenta == modoVenta)) {
+          if (item.modoVenta == ModoVenta.suelta) {
+            final fraccion = item.producto.unidadesEnEmpaqueVenta > 0
+                ? nuevaCantidad / item.producto.unidadesEnEmpaqueVenta
+                : nuevaCantidad;
+            return item.copyWith(
+              cantidad: fraccion,
+              cantidadSuelta: nuevaCantidad,
+            );
+          }
           return item.copyWith(cantidad: nuevaCantidad);
         }
         return item;
@@ -156,5 +251,10 @@ final totalCarritoProvider = Provider<double>((ref) {
 /// Proveedor auxiliar para mostrar al usuario mayor el total de bultos/artículos
 final totalArticulosProvider = Provider<double>((ref) {
   final items = ref.watch(carritoProvider);
-  return items.fold<double>(0.0, (acc, item) => acc + item.cantidad);
+  return items.fold<double>(0.0, (acc, item) {
+    if (item.modoVenta == ModoVenta.suelta) {
+      return acc + item.cantidadSuelta;
+    }
+    return acc + item.cantidad;
+  });
 });

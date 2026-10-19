@@ -1,10 +1,10 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/database/app_database.dart';
 import '../models/cierre_caja_model.dart';
 
 class CierreCajaRepository {
-  final SupabaseClient _client;
+  final AppDatabase _db;
 
-  CierreCajaRepository(this._client);
+  CierreCajaRepository([AppDatabase? db]) : _db = db ?? AppDatabase.instance;
 
   /// Calcula el efectivo esperado en caja sumando las ventas en efectivo + fondo fijo
   Future<double> calcularMontoEsperadoEnEfectivo(
@@ -12,22 +12,13 @@ class CierreCajaRepository {
     double fondoFijo = 0.0,
   }) async {
     try {
-      final response = await _client
-          .from('pagos_ventas')
-          .select('monto')
-          .eq('tenant_id', tenantId)
-          .eq('metodo', 'EFECTIVO');
+      final db = await _db.database;
+      final res = await db.rawQuery(
+        'SELECT COALESCE(SUM(monto), 0) as total FROM pagos_ventas WHERE tenant_id = ? AND metodo = "EFECTIVO"',
+        [tenantId],
+      );
 
-      double totalEfectivo = 0.0;
-      for (final row in response as List<dynamic>) {
-        final monto = row['monto'];
-        if (monto is num) {
-          totalEfectivo += monto.toDouble();
-        } else if (monto is String) {
-          totalEfectivo += double.tryParse(monto) ?? 0.0;
-        }
-      }
-
+      final totalEfectivo = (res.first['total'] as num?)?.toDouble() ?? 0.0;
       final totalEsperado = fondoFijo + totalEfectivo;
       return (totalEsperado * 100).round() / 100.0;
     } catch (_) {
@@ -35,14 +26,13 @@ class CierreCajaRepository {
     }
   }
 
-  /// Registra el cierre de caja inmutable en Supabase
+  /// Registra el cierre de caja inmutable en SQLite local
   Future<CierreCaja> registrarCierre(CierreCaja cierre) async {
-    final response = await _client
-        .from('cierres_caja')
-        .insert(cierre.toMap())
-        .select()
-        .single();
+    final db = await _db.database;
+    final id = cierre.id ?? AppDatabase.nuevoId();
+    final cMap = cierre.copyWith(id: id).toMap();
 
-    return CierreCaja.fromMap(response);
+    await db.insert('cierres_caja', AppDatabase.aFila(cMap));
+    return CierreCaja.fromMap(cMap);
   }
 }

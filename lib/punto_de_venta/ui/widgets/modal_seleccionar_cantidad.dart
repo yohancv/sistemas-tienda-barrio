@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../inventario/data/models/producto_model.dart';
+import '../../data/models/item_carrito_model.dart';
 
 class ModalSeleccionarCantidad extends StatefulWidget {
   final Producto producto;
   final double unidadesEnCajas; // Unidades disponibles en cajas padre
   final double cantidadInicialEnCarrito;
-  final void Function(double cantidad) onConfirmar;
+  final void Function(double cantidad, ModoVenta modoVenta) onConfirmar;
 
   const ModalSeleccionarCantidad({
     super.key,
@@ -23,37 +24,31 @@ class ModalSeleccionarCantidad extends StatefulWidget {
 class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
   late final TextEditingController _cantidadController;
   double _cantidad = 1.0;
+  ModoVenta _modoVenta = ModoVenta.normal;
 
   double get _stockEnMostrador => widget.producto.stockActual;
   double get _stockTotalDisponible => _stockEnMostrador + widget.unidadesEnCajas;
   bool get _tieneCajasEnAlmacen => widget.unidadesEnCajas > 0;
+  bool get _tieneEmpaque => widget.producto.permiteVentaEmpaque;
+  double get _udsPorEmpaque =>
+      widget.producto.unidadesPorEmpaque > 0 ? widget.producto.unidadesPorEmpaque : 1.0;
 
-  // Determina si para esta cantidad se requerirá abrir cajas automáticamente
-  bool get _requiereAutoDesempaque =>
-      _cantidad > _stockEnMostrador && _cantidad <= _stockTotalDisponible;
+  bool get _esEmpaque => _modoVenta == ModoVenta.porEmpaqueMayorista;
 
-  // Determina si la cantidad supera el total físico existente
-  bool get _superaStockTotal => _cantidad > _stockTotalDisponible;
+  double get _maxDisponible =>
+      _esEmpaque ? (_stockTotalDisponible ~/ _udsPorEmpaque).toDouble() : _stockTotalDisponible;
 
-  // Cuántas cajas se abrirán
-  int get _cajasAAbrir {
-    if (!_requiereAutoDesempaque || widget.producto.unidadesPorEmpaque <= 0) return 0;
-    final faltante = _cantidad - _stockEnMostrador;
-    return (faltante / widget.producto.unidadesPorEmpaque).ceil();
-  }
+  bool get _superaStockTotal => _cantidad > _maxDisponible;
 
-  // Cuántas botellas/unidades quedarán sueltas tras la venta y el desempaque
-  double get _unidadesRestantesProyectadas {
-    final unidadesSumadas = _cajasAAbrir * widget.producto.unidadesPorEmpaque;
-    return (_stockEnMostrador + unidadesSumadas) - _cantidad;
-  }
+  double get _precioActivo =>
+      _esEmpaque ? widget.producto.precioVentaEmpaqueEfectivo : widget.producto.precioVenta;
+
+
 
   @override
   void initState() {
     super.initState();
-    // Iniciar con 1 unidad o lo que ya tenía
     _cantidad = widget.cantidadInicialEnCarrito > 0 ? widget.cantidadInicialEnCarrito : 1.0;
-    // Si el stock total es 0, permitir mostrar 0
     if (_stockTotalDisponible <= 0) {
       _cantidad = 0.0;
     }
@@ -70,13 +65,28 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
     super.dispose();
   }
 
+  void _cambiarModo(ModoVenta nuevoModo) {
+    if (_modoVenta == nuevoModo) return;
+    setState(() {
+      _modoVenta = nuevoModo;
+      if (nuevoModo == ModoVenta.porEmpaqueMayorista) {
+        final maxEmp = _stockTotalDisponible ~/ _udsPorEmpaque;
+        _cantidad = maxEmp > 0 ? 1.0 : 0.0;
+      } else {
+        _cantidad = _stockTotalDisponible > 0 ? 1.0 : 0.0;
+      }
+      _cantidadController.text = _cantidad.truncateToDouble() == _cantidad
+          ? _cantidad.toInt().toString()
+          : _cantidad.toStringAsFixed(1);
+    });
+  }
+
   void _ajustarCantidad(double nuevaCantidad) {
     if (nuevaCantidad < 1) return;
 
-    // Validación estricta: No permitir superar el stock total disponible
-    if (nuevaCantidad > _stockTotalDisponible && _stockTotalDisponible > 0) {
+    if (nuevaCantidad > _maxDisponible && _maxDisponible > 0) {
       _mostrarAvisoStockMaximo();
-      nuevaCantidad = _stockTotalDisponible;
+      nuevaCantidad = _maxDisponible;
     }
 
     setState(() {
@@ -95,13 +105,14 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
   }
 
   void _mostrarAvisoStockMaximo() {
+    final texto = _esEmpaque
+        ? 'Stock máximo: Solo hay ${_maxDisponible.toInt()} ${widget.producto.nombreEmpaquePlural.toLowerCase()} disponibles (${_stockTotalDisponible.toInt()} uds totales).'
+        : 'Stock máximo: Solo hay ${_stockTotalDisponible.toInt()} unidades disponibles.';
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: AppColors.danger,
-        content: Text(
-          'Stock máximo alcanzado: Solo hay ${_stockTotalDisponible.toInt()} unidades disponibles.',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
+        content: Text(texto, style: const TextStyle(fontWeight: FontWeight.bold)),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -109,7 +120,7 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
 
   @override
   Widget build(BuildContext context) {
-    final subtotal = (_cantidad * widget.producto.precioVenta * 100).round() / 100.0;
+    final subtotal = (_cantidad * _precioActivo * 100).round() / 100.0;
     final bool esValido = _cantidad > 0 && !_superaStockTotal;
 
     return Container(
@@ -148,10 +159,16 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withAlpha(20),
+                    color: _esEmpaque
+                        ? AppColors.secondary.withAlpha(25)
+                        : AppColors.primary.withAlpha(20),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.local_drink, size: 30, color: AppColors.primary),
+                  child: Icon(
+                    _esEmpaque ? Icons.inventory_2_outlined : Icons.local_drink,
+                    size: 30,
+                    color: _esEmpaque ? AppColors.secondary : AppColors.primary,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -170,11 +187,13 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Precio unitario: Bs. ${widget.producto.precioVenta.toStringAsFixed(2)}',
-                        style: const TextStyle(
+                        _esEmpaque
+                            ? 'Precio ${widget.producto.nombreEmpaqueLegible}: Bs. ${_precioActivo.toStringAsFixed(2)}'
+                            : 'Precio unitario: Bs. ${_precioActivo.toStringAsFixed(2)}',
+                        style: TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.secondary,
+                          fontWeight: FontWeight.w700,
+                          color: _esEmpaque ? AppColors.secondary : AppColors.primary,
                         ),
                       ),
                     ],
@@ -187,11 +206,99 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
               ],
             ),
 
-            const SizedBox(height: 14),
-            const Divider(height: 1),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
 
-            // Tarjeta de estado de stock en mostrador y almacén
+            // Selector interactivo: Venta por Unidad vs Venta por Paquete / Caja
+            if (_tieneEmpaque) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    // Opción 1: Por Unidad
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _cambiarModo(ModoVenta.normal),
+                        borderRadius: BorderRadius.circular(11),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: !_esEmpaque ? AppColors.primary : Colors.transparent,
+                            borderRadius: BorderRadius.circular(11),
+                          ),
+                          alignment: Alignment.center,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '🍾 Por Unidad',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: !_esEmpaque ? Colors.white : AppColors.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                'Bs. ${widget.producto.precioVenta.toStringAsFixed(2)} c/u',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: !_esEmpaque ? Colors.white70 : AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Opción 2: Por Paquete / Caja
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _cambiarModo(ModoVenta.porEmpaqueMayorista),
+                        borderRadius: BorderRadius.circular(11),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _esEmpaque ? AppColors.secondary : Colors.transparent,
+                            borderRadius: BorderRadius.circular(11),
+                          ),
+                          alignment: Alignment.center,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '📦 Por ${widget.producto.nombreEmpaqueLegible} (${_udsPorEmpaque.toInt()} uds)',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: _esEmpaque ? Colors.white : AppColors.textPrimary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                'Bs. ${widget.producto.precioVentaEmpaqueEfectivo.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: _esEmpaque ? Colors.white70 : AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            // Tarjeta de estado de stock inteligente desglosado
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
@@ -201,21 +308,34 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.inventory_2_outlined, size: 24, color: AppColors.textSecondary),
+                  Icon(
+                    _esEmpaque ? Icons.inventory_2_outlined : Icons.shelves,
+                    size: 24,
+                    color: _esEmpaque ? AppColors.secondary : AppColors.textSecondary,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Stock en mostrador: ${_stockEnMostrador.toInt()} uds',
+                          'Stock disponible: ${widget.producto.stockLegibleDesglosado}',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
-                            color: _stockEnMostrador <= 0 ? AppColors.danger : AppColors.textPrimary,
+                            color: _stockTotalDisponible <= 0 ? AppColors.danger : AppColors.textPrimary,
                           ),
                         ),
-                        if (_tieneCajasEnAlmacen)
+                        if (_esEmpaque)
+                          Text(
+                            'Puedes vender hasta ${_maxDisponible.toInt()} ${widget.producto.nombreEmpaquePlural.toLowerCase()} cerrados.',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.secondary,
+                            ),
+                          )
+                        else if (_tieneCajasEnAlmacen)
                           Text(
                             '📦 ${widget.unidadesEnCajas.toInt()} uds en almacén (cajas) • Total: ${_stockTotalDisponible.toInt()} uds',
                             style: const TextStyle(
@@ -261,14 +381,16 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
 
                 // Entrada numérica central grande
                 Container(
-                  width: 130,
+                  width: 140,
                   height: 64,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: AppColors.background,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: _superaStockTotal ? AppColors.danger : AppColors.primary,
+                      color: _superaStockTotal
+                          ? AppColors.danger
+                          : (_esEmpaque ? AppColors.secondary : AppColors.primary),
                       width: 2.5,
                     ),
                   ),
@@ -293,7 +415,7 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
 
                 // Botón Aumentar
                 InkWell(
-                  onTap: _cantidad < _stockTotalDisponible
+                  onTap: _cantidad < _maxDisponible
                       ? () => _ajustarCantidad(_cantidad + 1)
                       : () => _mostrarAvisoStockMaximo(),
                   borderRadius: BorderRadius.circular(14),
@@ -301,19 +423,23 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
-                      color: _cantidad < _stockTotalDisponible
-                          ? AppColors.primary.withAlpha(20)
+                      color: _cantidad < _maxDisponible
+                          ? (_esEmpaque ? AppColors.secondary.withAlpha(20) : AppColors.primary.withAlpha(20))
                           : AppColors.surfaceMuted,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: _cantidad < _stockTotalDisponible ? AppColors.primary : AppColors.border,
+                        color: _cantidad < _maxDisponible
+                            ? (_esEmpaque ? AppColors.secondary : AppColors.primary)
+                            : AppColors.border,
                         width: 2,
                       ),
                     ),
                     child: Icon(
                       Icons.add,
                       size: 36,
-                      color: _cantidad < _stockTotalDisponible ? AppColors.primary : AppColors.textMuted,
+                      color: _cantidad < _maxDisponible
+                          ? (_esEmpaque ? AppColors.secondary : AppColors.primary)
+                          : AppColors.textMuted,
                     ),
                   ),
                 ),
@@ -322,14 +448,17 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
 
             const SizedBox(height: 14),
 
-            // Fila de Atajos Rápidos (1, 2, 3, 4, 6, 12 botellas)
+            // Fila de Atajos Rápidos adaptativa (Empaques vs Unidades)
             Wrap(
               spacing: 8,
               runSpacing: 8,
               alignment: WrapAlignment.center,
-              children: [1, 2, 3, 4, 6, 12].map((preset) {
+              children: (_esEmpaque ? [1, 2, 3, 5, 10] : [1, 2, 3, 4, 6, 12]).map((preset) {
                 final bool seleccionado = _cantidad == preset.toDouble();
-                final bool disponible = preset <= _stockTotalDisponible;
+                final bool disponible = preset <= _maxDisponible;
+                final etiqueta = _esEmpaque
+                    ? '$preset ${preset == 1 ? widget.producto.nombreEmpaqueCorto : widget.producto.nombreEmpaquePlural.toLowerCase()}'
+                    : '$preset uds';
 
                 return InkWell(
                   onTap: disponible ? () => _ajustarCantidad(preset.toDouble()) : null,
@@ -338,20 +467,20 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: seleccionado
-                          ? AppColors.primary
+                          ? (_esEmpaque ? AppColors.secondary : AppColors.primary)
                           : (disponible ? AppColors.surfaceMuted : AppColors.background),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: seleccionado
-                            ? AppColors.primary
+                            ? (_esEmpaque ? AppColors.secondary : AppColors.primary)
                             : (disponible ? AppColors.border : AppColors.border.withAlpha(60)),
                         width: seleccionado ? 2 : 1,
                       ),
                     ),
                     child: Text(
-                      '$preset uds',
+                      etiqueta,
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.bold,
                         color: seleccionado
                             ? Colors.white
@@ -365,7 +494,7 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
 
             const SizedBox(height: 16),
 
-            // Mensaje de Auto-Desempaque o Advertencia de Stock
+            // Mensajes Informativos (Empaque vs Auto-desempaque)
             if (_superaStockTotal)
               Container(
                 padding: const EdgeInsets.all(12),
@@ -380,7 +509,9 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'No puedes agregar más de ${_stockTotalDisponible.toInt()} unidades. No hay más stock en almacén.',
+                        _esEmpaque
+                            ? 'No hay suficiente stock para ${_cantidad.toInt()} ${widget.producto.nombreEmpaquePlural.toLowerCase()}. Máximo disponible: ${_maxDisponible.toInt()}.'
+                            : 'No puedes agregar más de ${_stockTotalDisponible.toInt()} unidades. No hay más stock en almacén.',
                         style: const TextStyle(
                           color: AppColors.danger,
                           fontSize: 14,
@@ -391,7 +522,7 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                   ],
                 ),
               )
-            else if (_requiereAutoDesempaque)
+            else if (_esEmpaque)
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -401,14 +532,14 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.unarchive_outlined, color: AppColors.secondary, size: 26),
+                    const Icon(Icons.inventory_2_outlined, color: AppColors.secondary, size: 24),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '📦 ¡Auto-Desempaque!: Al cobrar se abrirá $_cajasAAbrir caja(s) de almacén automáticamente (quedarán ${_unidadesRestantesProyectadas.toInt()} uds sueltas disponibles).',
+                        '📦 ${_cantidad.toInt()} ${widget.producto.nombreEmpaquePlural.toLowerCase()} = ${(_cantidad * _udsPorEmpaque).toInt()} unidades en total. Se descontará del inventario.',
                         style: const TextStyle(
                           color: AppColors.secondary,
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -444,18 +575,20 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
 
             const SizedBox(height: 14),
 
-            // Botón Masivo Confirmar Agregar al Ticket (60dp)
+            // Botón Masivo Confirmar Agregar al Ticket
             SizedBox(
               height: 60,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: esValido ? AppColors.primary : AppColors.surfaceMuted,
+                  backgroundColor: esValido
+                      ? (_esEmpaque ? AppColors.secondary : AppColors.primary)
+                      : AppColors.surfaceMuted,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   elevation: esValido ? 4 : 0,
                 ),
                 onPressed: esValido
                     ? () {
-                        widget.onConfirmar(_cantidad);
+                        widget.onConfirmar(_cantidad, _modoVenta);
                         Navigator.pop(context);
                       }
                     : null,
@@ -466,10 +599,12 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                 ),
                 label: Text(
                   esValido
-                      ? 'Agregar al Ticket (${_cantidad.toInt()} uds)'
+                      ? (_esEmpaque
+                          ? 'Agregar ${_cantidad.toInt()} ${widget.producto.nombreEmpaquePlural.toLowerCase()} (${(_cantidad * _udsPorEmpaque).toInt()} uds)'
+                          : 'Agregar al Ticket (${_cantidad.toInt()} uds)')
                       : 'Stock Insuficiente',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.bold,
                     color: esValido ? Colors.white : AppColors.textMuted,
                   ),

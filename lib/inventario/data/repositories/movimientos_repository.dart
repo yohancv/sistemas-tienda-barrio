@@ -1,12 +1,12 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/database/app_database.dart';
 import '../models/movimiento_inventario_model.dart';
 
 class MovimientosRepository {
-  final SupabaseClient _client;
+  final AppDatabase _db;
 
-  MovimientosRepository(this._client);
+  MovimientosRepository([AppDatabase? db]) : _db = db ?? AppDatabase.instance;
 
-  /// Ejecuta un desempaque mayorista de forma atómica en Supabase vía PostgreSQL RPC.
+  /// Ejecuta un desempaque mayorista de forma atómica en SQLite.
   /// Descuenta cajas, suma unidades sueltas y registra la auditoría inmutable de ambos movimientos.
   Future<Map<String, dynamic>> desempaquetarCaja({
     required String cajaId,
@@ -15,49 +15,175 @@ class MovimientosRepository {
     required String tenantId,
     String? motivo,
   }) async {
-    try {
-      final response = await _client.rpc(
-        'desempaquetar_producto',
-        params: {
-          'p_caja_id': cajaId,
-          'p_unidades_id': unidadesId,
-          'p_cantidad_cajas': cantidadCajas,
-          'p_tenant_id': tenantId,
-          'p_motivo': motivo,
-        },
+    if (cantidadCajas <= 0) {
+      throw Exception('La cantidad de cajas a desempaquetar debe ser mayor a 0');
+    }
+
+    final db = await _db.database;
+
+    return await db.transaction<Map<String, dynamic>>((txn) async {
+      // 1. Obtener producto caja
+      final cajas = await txn.query(
+        'productos',
+        where: 'id = ? AND tenant_id = ?',
+        whereArgs: [cajaId, tenantId],
       );
 
-      return Map<String, dynamic>.from(response as Map);
-    } catch (e) {
-      throw Exception('Error al ejecutar desempaque mayorista: $e');
-    }
+      if (cajas.isEmpty) {
+        throw Exception('Producto caja no encontrado');
+      }
+
+      final caja = cajas.first;
+      final stockCaja = (caja['stock_actual'] as num).toDouble();
+      final costoCaja = (caja['costo_mayorista'] as num).toDouble();
+      final factor = (caja['unidades_por_empaque'] as num?)?.toDouble() ?? 1.0;
+
+      if (stockCaja < cantidadCajas) {
+        throw Exception('Stock insuficiente de cajas (Disponible: $stockCaja, Solicitado: $cantidadCajas)');
+      }
+
+      // 2. Obtener producto unidades
+      final unidades = await txn.query(
+        'productos',
+        where: 'id = ? AND tenant_id = ?',
+        whereArgs: [unidadesId, tenantId],
+      );
+
+      if (unidades.isEmpty) {
+        throw Exception('Producto unidades destino no encontrado');
+      }
+
+      final unidad = unidades.first;
+      final stockUnidades = (unidad['stock_actual'] as num).toDouble();
+
+      final unidadesASumar = cantidadCajas * factor;
+      final costoTotal = costoCaja * cantidadCajas;
+      final costoUnitarioHijo = factor > 0 ? (costoCaja / factor) : 0.0;
+
+      final nuevoStockCaja = stockCaja - cantidadCajas;
+      final nuevoStockUnidades = stockUnidades + unidadesASumar;
+      final ahora = AppDatabase.ahora();
+
+      // 3. Descontar cajas y sumar unidades
+      await txn.update(
+        'productos',
+        {'stock_actual': nuevoStockCaja, 'updated_at': ahora},
+        where: 'id = ?',
+        whereArgs: [cajaId],
+      );
+
+      await txn.update(
+        'productos',
+        {'stock_actual': nuevoStockUnidades, 'updated_at': ahora},
+        where: 'id = ?',
+        whereArgs: [unidadesId],
+      );
+
+      // 4. Registrar auditoría inmutable vinculada
+      final salidaId = AppDatabase.nuevoId();
+      final entradaId = AppDatabase.nuevoId();
+
+      await txn.insert('movimientos_inventario', AppDatabase.aFila({
+        'id': salidaId,
+        'tenant_id': tenantId,
+        'producto_id': cajaId,
+        'tipo_movimiento': 'DESEMPAQUE_SALIDA',
+        'cantidad': cantidadCajas,
+        'costo_unitario': costoCaja,
+        'costo_total': costoTotal,
+        'motivo': motivo ?? 'Desempaque a unidades sueltas',
+        'referencia_id': entradaId,
+        'stock_anterior': stockCaja,
+        'stock_posterior': nuevoStockCaja,
+        'created_at': ahora,
+      }));
+
+      await txn.insert('movimientos_inventario', AppDatabase.aFila({
+        'id': entradaId,
+        'tenant_id': tenantId,
+        'producto_id': unidadesId,
+        'tipo_movimiento': 'DESEMPAQUE_ENTRADA',
+        'cantidad': unidadesASumar,
+        'costo_unitario': costoUnitarioHijo,
+        'costo_total': costoTotal,
+        'motivo': motivo ?? 'Entrada generada por desempaque de caja',
+        'referencia_id': salidaId,
+        'stock_anterior': stockUnidades,
+        'stock_posterior': nuevoStockUnidades,
+        'created_at': ahora,
+      }));
+
+      return {
+        'success': true,
+        'cantidad_cajas': cantidadCajas,
+        'unidades_sumadas': unidadesASumar,
+        'nuevo_stock_caja': nuevoStockCaja,
+        'nuevo_stock_unidades': nuevoStockUnidades,
+      };
+    });
   }
 
   /// Registra una merma o rotura de producto con su cálculo financiero de pérdida en Bs.
-  /// Descuenta el stock físico y guarda la auditoría inmutable con stock_anterior y stock_posterior.
   Future<Map<String, dynamic>> registrarMerma({
     required String productoId,
     required double cantidad,
-    required String tipoMerma, // 'MERMA_ROTURA', 'MERMA_VENCIMIENTO', 'MERMA_DETERIORO'
+    required String tipoMerma,
     required String tenantId,
     String? motivo,
   }) async {
-    try {
-      final response = await _client.rpc(
-        'registrar_merma',
-        params: {
-          'p_producto_id': productoId,
-          'p_cantidad': cantidad,
-          'p_tipo_merma': tipoMerma,
-          'p_motivo': motivo,
-          'p_tenant_id': tenantId,
-        },
+    if (cantidad <= 0) {
+      throw Exception('La cantidad de merma debe ser mayor a 0');
+    }
+
+    final db = await _db.database;
+
+    return await db.transaction<Map<String, dynamic>>((txn) async {
+      final prods = await txn.query(
+        'productos',
+        where: 'id = ? AND tenant_id = ?',
+        whereArgs: [productoId, tenantId],
       );
 
-      return Map<String, dynamic>.from(response as Map);
-    } catch (e) {
-      throw Exception('Error al registrar merma de inventario: $e');
-    }
+      if (prods.isEmpty) {
+        throw Exception('Producto no encontrado');
+      }
+
+      final prod = prods.first;
+      final stockActual = (prod['stock_actual'] as num).toDouble();
+      final costoUnitario = (prod['costo_mayorista'] as num).toDouble();
+      final costoTotal = costoUnitario * cantidad;
+      final nuevoStock = (stockActual - cantidad) < 0 ? 0.0 : (stockActual - cantidad);
+      final ahora = AppDatabase.ahora();
+
+      await txn.update(
+        'productos',
+        {'stock_actual': nuevoStock, 'updated_at': ahora},
+        where: 'id = ?',
+        whereArgs: [productoId],
+      );
+
+      final movId = AppDatabase.nuevoId();
+      await txn.insert('movimientos_inventario', AppDatabase.aFila({
+        'id': movId,
+        'tenant_id': tenantId,
+        'producto_id': productoId,
+        'tipo_movimiento': tipoMerma,
+        'cantidad': cantidad,
+        'costo_unitario': costoUnitario,
+        'costo_total': costoTotal,
+        'motivo': motivo ?? 'Registro de merma de inventario',
+        'stock_anterior': stockActual,
+        'stock_posterior': nuevoStock,
+        'created_at': ahora,
+      }));
+
+      return {
+        'success': true,
+        'cantidad_merma': cantidad,
+        'costo_perdida': costoTotal,
+        'nuevo_stock': nuevoStock,
+      };
+    });
   }
 
   /// Consulta el Kardex filtrable con JOIN al catálogo de productos
@@ -70,69 +196,84 @@ class MovimientosRepository {
     int limite = 100,
   }) async {
     try {
-      var query = _client
-          .from('movimientos_inventario')
-          .select('*, productos(nombre, codigo_barras)')
-          .eq('tenant_id', tenantId);
+      final db = await _db.database;
 
-      // Filtro por producto específico
+      final whereClauses = <String>['m.tenant_id = ?'];
+      final whereArgs = <dynamic>[tenantId];
+
       if (productoId != null && productoId.isNotEmpty) {
-        query = query.eq('producto_id', productoId);
+        whereClauses.add('m.producto_id = ?');
+        whereArgs.add(productoId);
       }
 
-      // Filtros de fecha
       if (fechaInicio != null) {
-        query = query.gte('created_at', fechaInicio.toIso8601String());
+        whereClauses.add('m.created_at >= ?');
+        whereArgs.add(fechaInicio.toIso8601String());
       }
       if (fechaFin != null) {
-        query = query.lte('created_at', fechaFin.toIso8601String());
+        whereClauses.add('m.created_at <= ?');
+        whereArgs.add(fechaFin.toIso8601String());
       }
 
-      // Filtros por grupo de tipo de movimiento
       if (filtroTipo != null && filtroTipo != 'TODOS') {
         switch (filtroTipo) {
           case 'VENTA':
-            query = query.eq('tipo_movimiento', 'VENTA');
+            whereClauses.add("m.tipo_movimiento = 'VENTA'");
             break;
           case 'MERMAS':
-            query = query.inFilter('tipo_movimiento', [
-              'MERMA_ROTURA',
-              'MERMA_VENCIMIENTO',
-              'MERMA_DETERIORO',
-            ]);
+            whereClauses.add("m.tipo_movimiento IN ('MERMA_ROTURA', 'MERMA_VENCIMIENTO', 'MERMA_DETERIORO')");
             break;
           case 'DESEMPAQUES':
-            query = query.inFilter('tipo_movimiento', [
-              'DESEMPAQUE_SALIDA',
-              'DESEMPAQUE_ENTRADA',
-            ]);
+            whereClauses.add("m.tipo_movimiento IN ('DESEMPAQUE_SALIDA', 'DESEMPAQUE_ENTRADA')");
             break;
           case 'AJUSTES':
-            query = query.inFilter('tipo_movimiento', [
-              'AJUSTE_POSITIVO',
-              'AJUSTE_NEGATIVO',
-              'AJUSTE_MANUAL',
-            ]);
+            whereClauses.add("m.tipo_movimiento IN ('AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO', 'AJUSTE_MANUAL')");
             break;
           case 'ENTRADAS':
-            query = query.inFilter('tipo_movimiento', [
-              'ENTRADA_COMPRA',
-              'DESEMPAQUE_ENTRADA',
-              'AJUSTE_POSITIVO',
-            ]);
+            whereClauses.add("m.tipo_movimiento IN ('ENTRADA_COMPRA', 'DESEMPAQUE_ENTRADA', 'AJUSTE_POSITIVO')");
             break;
           default:
-            query = query.eq('tipo_movimiento', filtroTipo);
+            whereClauses.add('m.tipo_movimiento = ?');
+            whereArgs.add(filtroTipo);
         }
       }
 
-      final response = await query
-          .order('created_at', ascending: false)
-          .limit(limite);
+      final sql = '''
+        SELECT 
+          m.*,
+          p.nombre AS prod_nombre,
+          p.codigo_barras AS prod_codigo_barras,
+          p.categoria AS prod_categoria
+        FROM movimientos_inventario m
+        LEFT JOIN productos p ON p.id = m.producto_id
+        WHERE ${whereClauses.join(' AND ')}
+        ORDER BY m.created_at DESC
+        LIMIT $limite
+      ''';
 
-      return (response as List<dynamic>)
-          .map((item) => MovimientoInventario.fromMap(item as Map<String, dynamic>))
-          .toList();
+      final rows = await db.rawQuery(sql, whereArgs);
+
+      return rows.map((r) {
+        final map = AppDatabase.aMapa(r);
+        return MovimientoInventario(
+          id: map['id'] as String,
+          tenantId: map['tenant_id'] as String,
+          productoId: map['producto_id'] as String,
+          tipoMovimiento: map['tipo_movimiento'] as String? ?? 'AJUSTE_MANUAL',
+          cantidad: (map['cantidad'] as num).toDouble(),
+          costoUnitario: (map['costo_unitario'] as num).toDouble(),
+          costoTotal: (map['costo_total'] as num).toDouble(),
+          motivo: map['motivo'] as String?,
+          referenciaId: map['referencia_id'] as String?,
+          stockAnterior: map['stock_anterior'] != null ? (map['stock_anterior'] as num).toDouble() : null,
+          stockPosterior: map['stock_posterior'] != null ? (map['stock_posterior'] as num).toDouble() : null,
+          usuarioId: map['usuario_id'] as String?,
+          createdAt: DateTime.parse(map['created_at'] as String),
+          nombreProducto: map['prod_nombre'] as String?,
+          codigoBarrasProducto: map['prod_codigo_barras'] as String?,
+          categoriaProducto: map['prod_categoria'] as String?,
+        );
+      }).toList();
     } catch (e, stack) {
       // ignore: avoid_print
       print('[Kardex Repository Error] Falló al consultar kardex: $e\n$stack');

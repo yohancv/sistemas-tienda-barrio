@@ -68,7 +68,7 @@ class Cliente {
       limiteCredito: _toDouble(map['limite_credito']),
       saldoActual: _toDouble(map['saldo_actual']),
       notas: map['notas'] as String?,
-      activo: map['activo'] as bool? ?? true,
+      activo: _toBool(map['activo'], defaultValue: true),
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'] as String)
           : DateTime.now(),
@@ -76,6 +76,17 @@ class Cliente {
           ? DateTime.parse(map['updated_at'] as String)
           : DateTime.now(),
     );
+  }
+
+  static bool _toBool(dynamic value, {bool defaultValue = true}) {
+    if (value == null) return defaultValue;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final v = value.toLowerCase().trim();
+      return v == 'true' || v == '1';
+    }
+    return defaultValue;
   }
 
   Cliente copyWith({

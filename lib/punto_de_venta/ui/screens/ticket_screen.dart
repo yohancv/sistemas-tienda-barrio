@@ -249,18 +249,40 @@ class _ItemTicketTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final double step = item.producto.esFraccionable ? 0.5 : 1.0;
-    final String cantidadFormateada = item.cantidad.toStringAsFixed(
-      item.producto.esFraccionable ? 2 : 0,
-    );
-    final String unidadTexto = item.producto.esFraccionable ? 'kg' : 'uds';
+    final bool esEmpaque = item.modoVenta == ModoVenta.porEmpaqueMayorista;
+    final bool esSuelta = item.modoVenta == ModoVenta.suelta;
+    final bool esFraccionable = item.producto.esFraccionable ||
+        item.modoVenta == ModoVenta.porPeso ||
+        item.modoVenta == ModoVenta.porDinero;
+
+    final double step = (esEmpaque || esSuelta || !esFraccionable) ? 1.0 : 0.5;
+
+    // Para venta suelta, la cantidad del usuario es cantidadSuelta (ej. 2 cigarros)
+    final double cantidadActual = esSuelta ? item.cantidadSuelta : item.cantidad;
+
+    final String cantidadFormateada = esFraccionable
+        ? cantidadActual.toStringAsFixed(2)
+        : cantidadActual.toInt().toString();
+
+    final String unidadTexto = esEmpaque
+        ? (item.cantidad == 1
+            ? item.producto.nombreEmpaqueCorto
+            : item.producto.nombreEmpaquePlural.toLowerCase())
+        : (esSuelta
+            ? item.producto.nombreUnidadSuelta
+            : (esFraccionable ? 'kg' : 'uds'));
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border, width: 1.5),
+        border: Border.all(
+          color: esEmpaque
+              ? AppColors.secondary
+              : (esSuelta ? const Color(0xFFD97706) : AppColors.border),
+          width: (esEmpaque || esSuelta) ? 2.0 : 1.5,
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -270,20 +292,67 @@ class _ItemTicketTile extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  item.producto.nombre,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  children: [
+                    if (esEmpaque) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        margin: const EdgeInsets.only(right: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.secondary.withAlpha(25),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '📦 ${item.producto.nombreEmpaqueLegible}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.secondary,
+                          ),
+                        ),
+                      ),
+                    ] else if (esSuelta) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        margin: const EdgeInsets.only(right: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withAlpha(35),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '🚬 Suelto',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFB45309),
+                          ),
+                        ),
+                      ),
+                    ],
+                    Expanded(
+                      child: Text(
+                        item.producto.nombre,
+                        style: const TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Unitario: Bs. ${item.producto.precioVenta.toStringAsFixed(2)}',
-                  style: const TextStyle(fontSize: 16, color: AppColors.textSecondary),
+                  esEmpaque
+                      ? '${item.producto.nombreEmpaqueLegible} (${item.producto.unidadesPorEmpaque.toInt()} uds): Bs. ${item.producto.precioVentaEmpaqueEfectivo.toStringAsFixed(2)}'
+                      : (esSuelta
+                          ? 'Suelto (${item.producto.nombreUnidadSuelta}): Bs. ${item.producto.precioVentaSuelta.toStringAsFixed(2)} c/u'
+                          : (esFraccionable
+                              ? 'Precio: Bs. ${item.producto.precioVenta.toStringAsFixed(2)} / ${item.producto.unidadMedida}'
+                              : 'Unitario: Bs. ${item.producto.precioVenta.toStringAsFixed(2)}')),
+                  style: const TextStyle(fontSize: 15, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -313,9 +382,9 @@ class _ItemTicketTile extends ConsumerWidget {
                 icon: const Icon(Icons.remove_circle, color: AppColors.danger),
                 tooltip: 'Reducir cantidad',
                 onPressed: () {
-                  ref.read(carritoProvider.notifier).ajustarCantidad(
-                        item.producto.id,
-                        item.cantidad - step,
+                  ref.read(carritoProvider.notifier).ajustarCantidadItem(
+                        item,
+                        cantidadActual - step,
                       );
                 },
               ),
@@ -338,7 +407,13 @@ class _ItemTicketTile extends ConsumerWidget {
                     ),
                     Text(
                       unidadTexto,
-                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: (esEmpaque || esSuelta) ? FontWeight.bold : FontWeight.normal,
+                        color: esEmpaque
+                            ? AppColors.secondary
+                            : (esSuelta ? const Color(0xFFD97706) : AppColors.textMuted),
+                      ),
                     ),
                   ],
                 ),
@@ -359,23 +434,63 @@ class _ItemTicketTile extends ConsumerWidget {
                   final double unidadesEnCajas = unidadesEnCajasMap[item.producto.id] ?? 0.0;
                   final double stockTotalDisponible = item.producto.stockActual + unidadesEnCajas;
 
-                  if (stockTotalDisponible > 0 && (item.cantidad + step) > stockTotalDisponible) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: AppColors.danger,
-                        content: Text(
-                          'Stock máximo alcanzado: Solo hay ${stockTotalDisponible.toInt()} unidades disponibles.',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                  if (esEmpaque) {
+                    final double udsPorEmpaque = item.producto.unidadesPorEmpaque > 0
+                        ? item.producto.unidadesPorEmpaque
+                        : 1.0;
+                    final double udsNecesarias = (item.cantidad + 1) * udsPorEmpaque;
+                    if (udsNecesarias > stockTotalDisponible && stockTotalDisponible > 0) {
+                      final maxEmpaques = (stockTotalDisponible ~/ udsPorEmpaque);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: AppColors.danger,
+                          content: Text(
+                            'Stock máximo alcanzado: Solo hay $maxEmpaques ${item.producto.nombreEmpaquePlural.toLowerCase()} disponibles (${stockTotalDisponible.toInt()} uds totales).',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          duration: const Duration(seconds: 2),
                         ),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                    return;
+                      );
+                      return;
+                    }
+                  } else if (esSuelta) {
+                    final double udsPorEmpaqueVenta = item.producto.unidadesEnEmpaqueVenta > 0
+                        ? item.producto.unidadesEnEmpaqueVenta
+                        : 1.0;
+                    final double fraccionNecesaria = (item.cantidadSuelta + 1) / udsPorEmpaqueVenta;
+                    if (fraccionNecesaria > stockTotalDisponible && stockTotalDisponible > 0) {
+                      final maxSueltas = (stockTotalDisponible * udsPorEmpaqueVenta).toInt();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: AppColors.danger,
+                          content: Text(
+                            'Stock máximo alcanzado: Solo hay $maxSueltas ${item.producto.nombreUnidadSuelta}s disponibles.',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                      return;
+                    }
+                  } else {
+                    if (stockTotalDisponible > 0 && (item.cantidad + step) > stockTotalDisponible) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: AppColors.danger,
+                          content: Text(
+                            'Stock máximo alcanzado: Solo hay ${stockTotalDisponible.toInt()} unidades disponibles.',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                      return;
+                    }
                   }
 
-                  ref.read(carritoProvider.notifier).ajustarCantidad(
-                        item.producto.id,
-                        item.cantidad + step,
+                  ref.read(carritoProvider.notifier).ajustarCantidadItem(
+                        item,
+                        cantidadActual + step,
                       );
                 },
               ),

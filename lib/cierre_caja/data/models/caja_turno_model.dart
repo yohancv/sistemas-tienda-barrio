@@ -14,6 +14,10 @@ class CajaTurnoModel {
   final double totalFiadosCobradosQr;
   final double totalSalidasManuales;
   final double totalEntradasManuales;
+  final double totalRetirosQr;
+  final double totalSalidasTienda;
+  final double totalSalidasPersonal;
+  final double saldoNetoQr;
   final double montoEsperadoEfectivo;
   final double? montoRealContado;
   final double? diferencia;
@@ -36,6 +40,10 @@ class CajaTurnoModel {
     this.totalFiadosCobradosQr = 0.0,
     this.totalSalidasManuales = 0.0,
     this.totalEntradasManuales = 0.0,
+    this.totalRetirosQr = 0.0,
+    this.totalSalidasTienda = 0.0,
+    this.totalSalidasPersonal = 0.0,
+    this.saldoNetoQr = 0.0,
     this.montoEsperadoEfectivo = 0.0,
     this.montoRealContado,
     this.diferencia,
@@ -74,6 +82,10 @@ class CajaTurnoModel {
       totalFiadosCobradosQr: _toDouble(map['total_fiados_cobrados_qr']),
       totalSalidasManuales: _toDouble(map['total_salidas_manuales']),
       totalEntradasManuales: _toDouble(map['total_entradas_manuales']),
+      totalRetirosQr: _toDouble(map['total_retiros_qr']),
+      totalSalidasTienda: _toDouble(map['total_salidas_tienda']),
+      totalSalidasPersonal: _toDouble(map['total_salidas_personal']),
+      saldoNetoQr: _toDouble(map['saldo_neto_qr']),
       montoEsperadoEfectivo: _toDouble(map['monto_esperado_efectivo']),
       montoRealContado: map['monto_real_contado'] != null
           ? _toDouble(map['monto_real_contado'])
@@ -103,6 +115,10 @@ class CajaTurnoModel {
       'total_fiados_cobrados_qr': totalFiadosCobradosQr,
       'total_salidas_manuales': totalSalidasManuales,
       'total_entradas_manuales': totalEntradasManuales,
+      'total_retiros_qr': totalRetirosQr,
+      'total_salidas_tienda': totalSalidasTienda,
+      'total_salidas_personal': totalSalidasPersonal,
+      'saldo_neto_qr': saldoNetoQr,
       'monto_esperado_efectivo': montoEsperadoEfectivo,
       if (montoRealContado != null) 'monto_real_contado': montoRealContado,
       if (diferencia != null) 'diferencia': diferencia,

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/config/supabase_client.dart';
-import 'inventario/ui/screens/catalogo_screen.dart';
+import 'core/ui/navigation/main_navigation_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,7 +37,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Punto de Venta',
+      title: 'LicorPOS • Tienda de Barrio',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -51,7 +51,7 @@ class MyApp extends StatelessWidget {
           },
         ),
       ),
-      home: const CatalogoScreen(),
+      home: const MainNavigationScreen(),
     );
   }
 }

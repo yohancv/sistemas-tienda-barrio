@@ -80,10 +80,21 @@ class ProveedorModel {
       telefono: map['telefono'] as String?,
       nitCi: map['nit_ci'] as String?,
       diasVisita: map['dias_visita'] as String?,
-      activo: map['activo'] as bool? ?? true,
+      activo: _toBool(map['activo'], defaultValue: true),
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'] as String)
           : DateTime.now(),
     );
+  }
+
+  static bool _toBool(dynamic value, {bool defaultValue = true}) {
+    if (value == null) return defaultValue;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final v = value.toLowerCase().trim();
+      return v == 'true' || v == '1';
+    }
+    return defaultValue;
   }
 }

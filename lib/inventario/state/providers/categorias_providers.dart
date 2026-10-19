@@ -3,9 +3,9 @@ import '../../../core/config/supabase_client.dart';
 import '../../data/models/categoria_model.dart';
 import '../../data/repositories/categorias_repository.dart';
 
-/// Proveedor del repositorio de categorías
+/// Proveedor del repositorio de categorías local (SQLite)
 final categoriasRepositoryProvider = Provider<CategoriasRepository>((ref) {
-  return CategoriasRepository(SupabaseConfig.client);
+  return CategoriasRepository();
 });
 
 /// Proveedor reactivo del árbol completo de categorías y subcategorías

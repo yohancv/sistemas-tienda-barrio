@@ -17,6 +17,7 @@ class DialogoTicketArqueo extends StatelessWidget {
     final dif = turno.diferencia ?? 0.0;
     final bool estaCuadrada = dif.abs() <= 1.0;
     final bool hayFaltante = dif < -1.0;
+    final double dineroRealTotal = (turno.montoRealContado ?? 0.0) + turno.saldoNetoQr;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -53,43 +54,35 @@ class DialogoTicketArqueo extends StatelessWidget {
               _FilaTicket(label: 'Cierre:', valor: _formatearFecha(turno.fechaCierre)),
               const Divider(height: 18),
 
-              // Desglose de Operaciones
+              // SECCIÓN 1: CAJÓN FÍSICO
+              const Text(
+                '💵 CAJÓN FÍSICO (EFECTIVO)',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+              ),
+              const SizedBox(height: 6),
               _FilaTicket(
                 label: 'Fondo Inicial:',
                 valor: 'Bs. ${turno.montoInicial.toStringAsFixed(2)}',
               ),
               _FilaTicket(
-                label: 'Ventas en Efectivo:',
+                label: 'Ventas Efectivo:',
                 valor: '+ Bs. ${turno.totalVentasEfectivo.toStringAsFixed(2)}',
                 colorValor: AppColors.success,
               ),
               _FilaTicket(
-                label: 'Ventas por QR (Banco):',
-                valor: 'Bs. ${turno.totalVentasQr.toStringAsFixed(2)}',
-                colorValor: Colors.blue[700],
-              ),
-              _FilaTicket(
-                label: 'Fiados Otorgados:',
-                valor: 'Bs. ${turno.totalFiadosOtorgados.toStringAsFixed(2)}',
-                colorValor: Colors.orange[800],
-              ),
-              _FilaTicket(
-                label: 'Fiados Cobrados (Efectivo):',
+                label: 'Abonos Fiados (Efectivo):',
                 valor: '+ Bs. ${turno.totalFiadosCobradosEfectivo.toStringAsFixed(2)}',
                 colorValor: AppColors.success,
               ),
               _FilaTicket(
-                label: 'Ingresos Manuales:',
+                label: 'Ingresos al Cajón:',
                 valor: '+ Bs. ${turno.totalEntradasManuales.toStringAsFixed(2)}',
               ),
               _FilaTicket(
-                label: 'Gastos / Salidas Manuales:',
+                label: 'Salidas del Cajón:',
                 valor: '- Bs. ${turno.totalSalidasManuales.toStringAsFixed(2)}',
                 colorValor: AppColors.danger,
               ),
-              const Divider(height: 20, thickness: 1.5),
-
-              // Comparativa y Resultado de Auditoría
               _FilaTicket(
                 label: 'EFECTIVO ESPERADO:',
                 valor: 'Bs. ${turno.montoEsperadoEfectivo.toStringAsFixed(2)}',
@@ -101,16 +94,16 @@ class DialogoTicketArqueo extends StatelessWidget {
                 esNegrita: true,
                 colorValor: AppColors.primary,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
 
               // Tarjeta de Descuadre
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
                   color: estaCuadrada
                       ? AppColors.success.withAlpha(25)
                       : (hayFaltante ? AppColors.danger.withAlpha(25) : AppColors.warning.withAlpha(25)),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: estaCuadrada
                         ? AppColors.success
@@ -124,7 +117,7 @@ class DialogoTicketArqueo extends StatelessWidget {
                     Text(
                       estaCuadrada ? 'CUADRE EXACTO' : (hayFaltante ? 'FALTANTE' : 'SOBRANTE'),
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: 13,
                         fontWeight: FontWeight.w900,
                         color: estaCuadrada
                             ? AppColors.success
@@ -134,7 +127,7 @@ class DialogoTicketArqueo extends StatelessWidget {
                     Text(
                       '${dif >= 0 ? '+' : ''}Bs. ${dif.toStringAsFixed(2)}',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.w900,
                         color: estaCuadrada
                             ? AppColors.success
@@ -144,17 +137,71 @@ class DialogoTicketArqueo extends StatelessWidget {
                   ],
                 ),
               ),
+              const Divider(height: 20),
+
+              // SECCIÓN 2: BANCO / QR
+              const Text(
+                '📱 BANCO / CUENTA QR',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue),
+              ),
+              const SizedBox(height: 6),
+              _FilaTicket(
+                label: 'Ventas por QR:',
+                valor: 'Bs. ${turno.totalVentasQr.toStringAsFixed(2)}',
+                colorValor: Colors.blue[700],
+              ),
+              _FilaTicket(
+                label: 'Abonos Fiados (QR):',
+                valor: 'Bs. ${turno.totalFiadosCobradosQr.toStringAsFixed(2)}',
+                colorValor: Colors.blue[700],
+              ),
+              _FilaTicket(
+                label: 'Retiros QR por Cajero ATM:',
+                valor: '- Bs. ${turno.totalRetirosQr.toStringAsFixed(2)}',
+                colorValor: Colors.blue[900],
+              ),
+              _FilaTicket(
+                label: 'SALDO NETO EN BANCO QR:',
+                valor: 'Bs. ${turno.saldoNetoQr.toStringAsFixed(2)}',
+                esNegrita: true,
+                colorValor: Colors.blue[800],
+              ),
+              const Divider(height: 20),
+
+              // SECCIÓN 3: CONTROL DE GASTOS Y SALUD
+              const Text(
+                '📊 CONTROL DE SALIDAS Y RENTABILIDAD',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: 6),
+              _FilaTicket(
+                label: 'Gastos Operativos Tienda:',
+                valor: 'Bs. ${turno.totalSalidasTienda.toStringAsFixed(2)}',
+                colorValor: AppColors.danger,
+              ),
+              _FilaTicket(
+                label: 'Retiros Personales del Dueño:',
+                valor: 'Bs. ${turno.totalSalidasPersonal.toStringAsFixed(2)}',
+                colorValor: Colors.orange[800],
+              ),
+              const Divider(height: 16),
+              _FilaTicket(
+                label: 'TOTAL DINERO REAL (Mano + Banco):',
+                valor: 'Bs. ${dineroRealTotal.toStringAsFixed(2)}',
+                esNegrita: true,
+                colorValor: AppColors.primary,
+              ),
 
               // Desglose de Denominaciones si existe
               if (turno.desgloseEfectivo != null && turno.desgloseEfectivo!.isNotEmpty) ...[
                 const SizedBox(height: 14),
                 const Text(
                   'Conteo de Denominaciones:',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMuted),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted),
                 ),
                 const SizedBox(height: 4),
                 Wrap(
-                  spacing: 8,
+                  spacing: 6,
                   runSpacing: 4,
                   children: turno.desgloseEfectivo!.entries
                       .where((e) => e.value > 0)
@@ -163,7 +210,7 @@ class DialogoTicketArqueo extends StatelessWidget {
                           labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                           label: Text(
                             '${e.value}x Bs. ${e.key}',
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                           ),
                           backgroundColor: AppColors.background,
                         ),
@@ -182,11 +229,11 @@ class DialogoTicketArqueo extends StatelessWidget {
                   ),
                   child: Text(
                     'Observaciones: ${turno.observacionesCierre!}',
-                    style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
+                    style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
                   ),
                 ),
               ],
-              const SizedBox(height: 22),
+              const SizedBox(height: 20),
 
               // Botón Cerrar
               SizedBox(
@@ -224,14 +271,14 @@ class _FilaTicket extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3.5),
+      padding: const EdgeInsets.symmetric(vertical: 3.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: esNegrita ? FontWeight.bold : FontWeight.normal,
               color: AppColors.textPrimary,
             ),
@@ -239,7 +286,7 @@ class _FilaTicket extends StatelessWidget {
           Text(
             valor,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: esNegrita ? FontWeight.bold : FontWeight.w600,
               color: colorValor ?? AppColors.textPrimary,
             ),

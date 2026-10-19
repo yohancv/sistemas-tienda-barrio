@@ -6,8 +6,13 @@ import '../../data/models/producto_model.dart';
 import '../../state/providers/inventario_providers.dart';
 import '../../state/providers/movimientos_providers.dart';
 
-enum ModoMovimiento { desempaque, merma }
-
+/// Pantalla dedicada al registro ágil de Mermas, Bajas y Pérdidas de Inventario:
+/// - Roturas de botellas / latas
+/// - Productos caducados o vencidos
+/// - Deterioro de empaque
+/// - Consumo propio / familia
+///
+/// El stock se descuenta en unidades reales y la pérdida financiera se audita en el Kardex.
 class MovimientosInventarioScreen extends ConsumerStatefulWidget {
   const MovimientosInventarioScreen({super.key});
 
@@ -18,16 +23,9 @@ class MovimientosInventarioScreen extends ConsumerStatefulWidget {
 
 class _MovimientosInventarioScreenState
     extends ConsumerState<MovimientosInventarioScreen> {
-  ModoMovimiento _modo = ModoMovimiento.desempaque;
-
-  // Estado para Desempaque
-  Producto? _cajaSeleccionada;
-  Producto? _destinoSeleccionado;
-  double _cantidadCajas = 1.0;
-
-  // Estado para Mermas
   Producto? _productoMerma;
   double _cantidadMerma = 1.0;
+  bool _esMermaPorEmpaque = false;
   String _tipoMerma = 'MERMA_ROTURA';
   final TextEditingController _motivoMermaController = TextEditingController();
 
@@ -37,32 +35,12 @@ class _MovimientosInventarioScreenState
     super.dispose();
   }
 
-  void _seleccionarCaja(Producto caja, List<Producto> todosLosProductos) {
-    setState(() {
-      _cajaSeleccionada = caja;
-      _cantidadCajas = 1.0;
-
-      // Buscar si tiene producto hijo pre-vinculado
-      if (caja.productoHijoId != null) {
-        _destinoSeleccionado = todosLosProductos.cast<Producto?>().firstWhere(
-              (p) => p?.id == caja.productoHijoId,
-              orElse: () => null,
-            );
-      } else {
-        // Sugerir producto con nombre similar o dejar nulo para que elija
-        _destinoSeleccionado = todosLosProductos.cast<Producto?>().firstWhere(
-              (p) =>
-                  p?.id != caja.id &&
-                  p?.nombre.toLowerCase().contains(caja.nombre
-                          .toLowerCase()
-                          .replaceAll('caja', '')
-                          .replaceAll('pack', '')
-                          .trim()) ==
-                      true,
-              orElse: () => null,
-            );
-      }
-    });
+  double get _unidadesRealesMerma {
+    if (_productoMerma == null) return 0.0;
+    if (_esMermaPorEmpaque && _productoMerma!.tieneEmpaqueMayorista) {
+      return _cantidadMerma * _productoMerma!.unidadesPorEmpaque;
+    }
+    return _cantidadMerma;
   }
 
   @override
@@ -71,9 +49,10 @@ class _MovimientosInventarioScreenState
     final operacionState = ref.watch(movimientosNotifierProvider);
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(
-          'Movimientos de Inventario',
+          'Mermas y Bajas',
           style: AppTypography.headlineSmall.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -83,15 +62,15 @@ class _MovimientosInventarioScreenState
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.history, size: 28, color: Colors.white),
-            tooltip: 'Historial de auditoría',
+            icon: const Icon(Icons.history, size: 26, color: Colors.white),
+            tooltip: 'Historial de mermas y auditoría',
             onPressed: () => _mostrarHistorial(context),
           ),
         ],
       ),
       body: productosAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(
+        error: (err, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Text(
@@ -120,16 +99,48 @@ class _MovimientosInventarioScreenState
                       esError: false,
                     ),
 
-                  // 1. Selector Superior Masivo de Modo (56dp)
-                  _buildSelectorModoMasivo(),
+                  // Tarjeta explicativa de inicio
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppColors.danger.withAlpha(20),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.remove_circle_outline_rounded,
+                            color: AppColors.danger,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Registra pérdidas por roturas, productos vencidos o consumo personal. El sistema ajustará el stock e incluirá la pérdida en el Kardex.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
-                  // 2. Contenido según el modo activo
-                  if (_modo == ModoMovimiento.desempaque)
-                    _buildSeccionDesempaque(productos)
-                  else
-                    _buildSeccionMerma(productos),
+                  // Sección principal de Merma
+                  _buildSeccionMerma(productos, operacionState),
                 ],
               ),
             ),
@@ -139,554 +150,22 @@ class _MovimientosInventarioScreenState
     );
   }
 
-  /// Selector de modo accesible estilo interruptor grande
-  Widget _buildSelectorModoMasivo() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border, width: 1.5),
-      ),
-      padding: const EdgeInsets.all(6),
-      child: Row(
-        children: [
-          Expanded(
-            child: SizedBox(
-              height: 56,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _modo == ModoMovimiento.desempaque
-                      ? AppColors.primary
-                      : Colors.transparent,
-                  elevation: _modo == ModoMovimiento.desempaque ? 2 : 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () {
-                  ref.read(movimientosNotifierProvider.notifier).limpiarMensajes();
-                  setState(() => _modo = ModoMovimiento.desempaque);
-                },
-                icon: Icon(
-                  Icons.unarchive,
-                  size: 24,
-                  color: _modo == ModoMovimiento.desempaque
-                      ? Colors.white
-                      : AppColors.textPrimary,
-                ),
-                label: Text(
-                  'Desempaque',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _modo == ModoMovimiento.desempaque
-                        ? Colors.white
-                        : AppColors.textPrimary,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: SizedBox(
-              height: 56,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _modo == ModoMovimiento.merma
-                      ? AppColors.danger
-                      : Colors.transparent,
-                  elevation: _modo == ModoMovimiento.merma ? 2 : 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () {
-                  ref.read(movimientosNotifierProvider.notifier).limpiarMensajes();
-                  setState(() => _modo = ModoMovimiento.merma);
-                },
-                icon: Icon(
-                  Icons.delete_sweep_outlined,
-                  size: 24,
-                  color: _modo == ModoMovimiento.merma
-                      ? Colors.white
-                      : AppColors.textPrimary,
-                ),
-                label: Text(
-                  'Roturas / Mermas',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _modo == ModoMovimiento.merma
-                        ? Colors.white
-                        : AppColors.textPrimary,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // =========================================================================
-  // SECCIÓN 1: DESEMPAQUE DE CAJAS
+  // SECCIÓN PRINCIPAL: REGISTRO DE MERMAS Y ROTURAS
   // =========================================================================
 
-  Widget _buildSeccionDesempaque(List<Producto> productos) {
-    final operacionState = ref.watch(movimientosNotifierProvider);
-    final cajas = productos
-        .where((p) =>
-            p.tieneEmpaqueMayorista ||
-            p.tipoEmpaque != 'UNIDAD' ||
-            p.unidadesPorEmpaque > 1)
-        .toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Paso 1: Elegir caja origen
-        const Text(
-          '1. SELECCIONA LA CAJA O PAQUETE A ABRIR:',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textMuted,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border, width: 1.5),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (_cajaSeleccionada == null)
-                const Text(
-                  'Ninguna caja seleccionada aún',
-                  style: TextStyle(fontSize: 16, color: AppColors.textMuted),
-                )
-              else ...[
-                Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withAlpha(20),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.inventory_2,
-                          color: AppColors.primary, size: 26),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _cajaSeleccionada!.nombre,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          Text(
-                            'Stock disponible: ${_cajaSeleccionada!.stockActual.toInt()} cajas • ${_cajaSeleccionada!.etiquetaEmpaque}',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.primary, width: 1.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onPressed: () => _mostrarDialogoSeleccionarCaja(cajas, productos),
-                  icon: const Icon(Icons.search, color: AppColors.primary),
-                  label: Text(
-                    _cajaSeleccionada == null
-                        ? 'Buscar y elegir caja'
-                        : 'Cambiar caja seleccionada',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // Paso 2: Producto destino que recibe las botellas
-        if (_cajaSeleccionada != null) ...[
-          const Text(
-            '2. PRODUCTO DESTINO (UNIDADES SUELTAS):',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textMuted,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: _destinoSeleccionado == null
-                    ? AppColors.warning
-                    : AppColors.border,
-                width: 1.5,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (_destinoSeleccionado == null)
-                  const Text(
-                    '⚠️ Selecciona la botella o unidad suelta que recibirá el stock',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.warning,
-                    ),
-                  )
-                else
-                  Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: AppColors.secondary.withAlpha(20),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.local_drink,
-                            color: AppColors.secondary, size: 26),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _destinoSeleccionado!.nombre,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            Text(
-                              'Stock actual: ${_destinoSeleccionado!.stockActual.toInt()} unidades sueltas',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: () => _mostrarDialogoSeleccionarDestino(productos),
-                  icon: const Icon(Icons.swap_horiz, size: 22),
-                  label: Text(
-                    _destinoSeleccionado == null
-                        ? 'Elegir unidad destino'
-                        : 'Cambiar unidad destino',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Paso 3: Cantidad de Cajas a abrir
-          const Text(
-            '3. ¿CUÁNTAS CAJAS DESEAS ABRIR?:',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textMuted,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.border, width: 1.5),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                SizedBox(
-                  width: 56,
-                  height: 56,
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      side: const BorderSide(color: AppColors.borderStrong, width: 2),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    onPressed: _cantidadCajas > 1
-                        ? () => setState(() => _cantidadCajas--)
-                        : null,
-                    child: const Icon(Icons.remove, size: 28),
-                  ),
-                ),
-                Column(
-                  children: [
-                    Text(
-                      '${_cantidadCajas.toInt()}',
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      _cantidadCajas == 1 ? 'Caja' : 'Cajas',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(
-                  width: 56,
-                  height: 56,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      padding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    onPressed: _cantidadCajas < _cajaSeleccionada!.stockActual
-                        ? () => setState(() => _cantidadCajas++)
-                        : null,
-                    child: const Icon(Icons.add, size: 28, color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Paso 4: Tarjeta de Simulación Antes vs Después
-          if (_destinoSeleccionado != null) ...[
-            _buildTarjetaSimulacionDesempaque(),
-            const SizedBox(height: 20),
-          ],
-
-          // Paso 5: Botón de Confirmación Masivo (60dp)
-          SizedBox(
-            height: 60,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: (_destinoSeleccionado != null &&
-                        _cajaSeleccionada!.stockActual >= _cantidadCajas)
-                    ? AppColors.primary
-                    : AppColors.surfaceMuted,
-                elevation: 3,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              onPressed: (_destinoSeleccionado != null &&
-                      _cajaSeleccionada!.stockActual >= _cantidadCajas &&
-                      !operacionState.isLoading)
-                  ? _confirmarDesempaque
-                  : null,
-              icon: operacionState.isLoading
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2.5),
-                    )
-                  : const Icon(Icons.check_circle_outline,
-                      size: 28, color: Colors.white),
-              label: Text(
-                operacionState.isLoading
-                    ? 'Procesando desempaque...'
-                    : 'Confirmar Desempaque (${_cantidadCajas.toInt()} Caja${_cantidadCajas > 1 ? 's' : ''})',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  /// Tarjeta de previsualización que muestra exactamente cómo cambiará el stock
-  Widget _buildTarjetaSimulacionDesempaque() {
-    final unidadesPorCaja = _cajaSeleccionada!.unidadesPorEmpaque > 0
-        ? _cajaSeleccionada!.unidadesPorEmpaque
-        : 1.0;
-    final totalUnidadesSumar = _cantidadCajas * unidadesPorCaja;
-
-    final stockCajaAntes = _cajaSeleccionada!.stockActual.toInt();
-    final stockCajaDespues = stockCajaAntes - _cantidadCajas.toInt();
-
-    final stockUnidadesAntes = _destinoSeleccionado!.stockActual.toInt();
-    final stockUnidadesDespues = stockUnidadesAntes + totalUnidadesSumar.toInt();
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withAlpha(12),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.primary.withAlpha(80), width: 1.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '🔄 VISTA PREVIA DEL CAMBIO DE INVENTARIO:',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: AppColors.primary,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '📦 ${_cajaSeleccionada!.nombre}',
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.bold),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      '$stockCajaAntes  ➔  $stockCajaDespues cajas (-${_cantidadCajas.toInt()})',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.danger,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.arrow_forward, color: AppColors.primary),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '🍺 ${_destinoSeleccionado!.nombre}',
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.bold),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      '$stockUnidadesAntes  ➔  $stockUnidadesDespues uds (+${totalUnidadesSumar.toInt()})',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.success,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _confirmarDesempaque() async {
-    final notifier = ref.read(movimientosNotifierProvider.notifier);
-    final exito = await notifier.desempaquetar(
-      caja: _cajaSeleccionada!,
-      unidadesDestino: _destinoSeleccionado!,
-      cantidadCajas: _cantidadCajas,
-    );
-
-    if (exito && mounted) {
-      setState(() {
-        _cajaSeleccionada = null;
-        _destinoSeleccionado = null;
-        _cantidadCajas = 1.0;
-      });
-    }
-  }
-
-  // =========================================================================
-  // SECCIÓN 2: REGISTRO DE MERMAS Y ROTURAS
-  // =========================================================================
-
-  Widget _buildSeccionMerma(List<Producto> productos) {
-    final operacionState = ref.watch(movimientosNotifierProvider);
-
+  Widget _buildSeccionMerma(
+    List<Producto> productos,
+    MovimientoOperacionState operacionState,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Paso 1: Elegir producto roto o vencido
         const Text(
-          '1. SELECCIONA EL PRODUCTO CON ROTURA O MERMA:',
+          '1. SELECCIONA EL PRODUCTO DAÑADO O VENCIDO:',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: FontWeight.w800,
             color: AppColors.textMuted,
             letterSpacing: 0.5,
@@ -695,32 +174,41 @@ class _MovimientosInventarioScreenState
         const SizedBox(height: 8),
 
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border, width: 1.5),
+            border: Border.all(
+              color: _productoMerma != null ? AppColors.danger.withAlpha(120) : AppColors.border,
+              width: 1.5,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (_productoMerma == null)
-                const Text(
-                  'Ningún producto seleccionado aún',
-                  style: TextStyle(fontSize: 16, color: AppColors.textMuted),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                  child: Text(
+                    'Ningún producto seleccionado aún.',
+                    style: TextStyle(fontSize: 15, color: AppColors.textMuted),
+                  ),
                 )
               else
                 Row(
                   children: [
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
                         color: AppColors.danger.withAlpha(20),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.broken_image,
-                          color: AppColors.danger, size: 26),
+                      alignment: Alignment.center,
+                      child: Text(
+                        Producto.emojiCategoria(_productoMerma!.categoria),
+                        style: const TextStyle(fontSize: 24),
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -730,16 +218,25 @@ class _MovimientosInventarioScreenState
                           Text(
                             _productoMerma!.nombre,
                             style: const TextStyle(
-                              fontSize: 18,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: AppColors.textPrimary,
                             ),
                           ),
+                          const SizedBox(height: 2),
                           Text(
-                            'Stock: ${_productoMerma!.stockActual.toStringAsFixed(_productoMerma!.esFraccionable ? 2 : 0)} • Costo: Bs. ${_productoMerma!.costoMayorista.toStringAsFixed(2)} c/u',
+                            'Stock actual: ${_productoMerma!.stockLegibleDesglosado}',
                             style: const TextStyle(
-                              fontSize: 14,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
                               color: AppColors.textSecondary,
+                            ),
+                          ),
+                          Text(
+                            'Costo: Bs. ${_productoMerma!.costoMayorista.toStringAsFixed(2)} / unidad',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textMuted,
                             ),
                           ),
                         ],
@@ -750,24 +247,31 @@ class _MovimientosInventarioScreenState
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
-                height: 48,
+                height: 46,
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.danger, width: 1.5),
+                    side: BorderSide(
+                      color: _productoMerma == null ? AppColors.primary : AppColors.danger,
+                      width: 1.5,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   onPressed: () => _mostrarDialogoSeleccionarMerma(productos),
-                  icon: const Icon(Icons.search, color: AppColors.danger),
+                  icon: Icon(
+                    Icons.search,
+                    color: _productoMerma == null ? AppColors.primary : AppColors.danger,
+                    size: 20,
+                  ),
                   label: Text(
                     _productoMerma == null
                         ? 'Buscar y elegir producto'
-                        : 'Cambiar producto',
-                    style: const TextStyle(
-                      fontSize: 16,
+                        : 'Cambiar de producto',
+                    style: TextStyle(
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.danger,
+                      color: _productoMerma == null ? AppColors.primary : AppColors.danger,
                     ),
                   ),
                 ),
@@ -776,14 +280,97 @@ class _MovimientosInventarioScreenState
           ),
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
 
         if (_productoMerma != null) ...[
+          // Selector de modalidad si el producto tiene empaque (Caja vs Unidad)
+          if (_productoMerma!.tieneEmpaqueMayorista) ...[
+            const Text(
+              'PRESENTACIÓN DE LA MERMA:',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textMuted,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _esMermaPorEmpaque = false;
+                          _cantidadMerma = 1.0;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: !_esMermaPorEmpaque ? AppColors.danger : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '🥤 Unidades Sueltas',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: !_esMermaPorEmpaque ? Colors.white : AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _esMermaPorEmpaque = true;
+                          _cantidadMerma = 1.0;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _esMermaPorEmpaque ? AppColors.danger : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '📦 ${_productoMerma!.nombreEmpaqueLegible} Completo (x${_productoMerma!.unidadesPorEmpaque.toInt()}u)',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: _esMermaPorEmpaque ? Colors.white : AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+          ],
+
           // Paso 2: Cantidad dañada
-          const Text(
-            '2. CANTIDAD DAÑADA / ROTA:',
-            style: TextStyle(
-              fontSize: 14,
+          Text(
+            _esMermaPorEmpaque
+                ? '2. CANTIDAD DE ${_productoMerma!.nombreEmpaquePlural.toUpperCase()} A DAR DE BAJA:'
+                : '2. CANTIDAD DE UNIDADES A DAR DE BAJA:',
+            style: const TextStyle(
+              fontSize: 13,
               fontWeight: FontWeight.w800,
               color: AppColors.textMuted,
               letterSpacing: 0.5,
@@ -802,12 +389,12 @@ class _MovimientosInventarioScreenState
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 SizedBox(
-                  width: 56,
-                  height: 56,
+                  width: 52,
+                  height: 52,
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       padding: EdgeInsets.zero,
-                      side: const BorderSide(color: AppColors.borderStrong, width: 2),
+                      side: const BorderSide(color: AppColors.border, width: 1.5),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -815,21 +402,32 @@ class _MovimientosInventarioScreenState
                     onPressed: _cantidadMerma > 1
                         ? () => setState(() => _cantidadMerma--)
                         : null,
-                    child: const Icon(Icons.remove, size: 28),
+                    child: const Icon(Icons.remove, size: 24),
                   ),
                 ),
-                Text(
-                  _cantidadMerma.toStringAsFixed(
-                      _productoMerma!.esFraccionable ? 2 : 0),
-                  style: const TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.textPrimary,
-                  ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _cantidadMerma.toStringAsFixed(
+                          (!_esMermaPorEmpaque && _productoMerma!.esFraccionable) ? 2 : 0),
+                      style: const TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      _esMermaPorEmpaque
+                          ? '${_unidadesRealesMerma.toInt()} unidades en total'
+                          : (_productoMerma!.esFraccionable ? _productoMerma!.unidadMedida : 'unidades sueltas'),
+                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    ),
+                  ],
                 ),
                 SizedBox(
-                  width: 56,
-                  height: 56,
+                  width: 52,
+                  height: 52,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.danger,
@@ -838,23 +436,24 @@ class _MovimientosInventarioScreenState
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    onPressed: _cantidadMerma < _productoMerma!.stockActual
+                    onPressed: (_unidadesRealesMerma + (_esMermaPorEmpaque ? _productoMerma!.unidadesPorEmpaque : 1.0)) <=
+                            _productoMerma!.stockActual
                         ? () => setState(() => _cantidadMerma++)
                         : null,
-                    child: const Icon(Icons.add, size: 28, color: Colors.white),
+                    child: const Icon(Icons.add, size: 24, color: Colors.white),
                   ),
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
 
-          // Paso 3: Motivo de la merma con chips grandes
+          // Paso 3: Motivo de la merma
           const Text(
-            '3. MOTIVO DE LA MERMA:',
+            '3. MOTIVO DE LA BAJA:',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w800,
               color: AppColors.textMuted,
               letterSpacing: 0.5,
@@ -862,54 +461,72 @@ class _MovimientosInventarioScreenState
           ),
           const SizedBox(height: 8),
 
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               _buildChipMotivo('💥 Rotura', 'MERMA_ROTURA'),
-              const SizedBox(width: 8),
               _buildChipMotivo('⏳ Vencido', 'MERMA_VENCIMIENTO'),
-              const SizedBox(width: 8),
               _buildChipMotivo('📦 Deterioro', 'MERMA_DETERIORO'),
+              _buildChipMotivo('🏠 Consumo Propio', 'AJUSTE_NEGATIVO'),
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
-          // Paso 4: Pérdida financiera estimada
+          // Observación opcional
+          TextField(
+            controller: _motivoMermaController,
+            decoration: InputDecoration(
+              hintText: 'Detalle o nota opcional (ej. se cayó al acomodar la vitrina)',
+              prefixIcon: const Icon(Icons.edit_note, size: 20),
+              filled: true,
+              fillColor: AppColors.surface,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.border),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          // Paso 4: Pérdida financiera calculada
           _buildTarjetaPerdidaFinanciera(),
 
           const SizedBox(height: 20),
 
-          // Paso 5: Botón de Confirmación Masivo (60dp)
+          // Paso 5: Botón de Confirmación
           SizedBox(
-            height: 60,
+            height: 54,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: _productoMerma!.stockActual >= _cantidadMerma
+                backgroundColor: _productoMerma!.stockActual >= _unidadesRealesMerma
                     ? AppColors.danger
                     : AppColors.surfaceMuted,
-                elevation: 3,
+                elevation: 2,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              onPressed: (_productoMerma!.stockActual >= _cantidadMerma &&
+              onPressed: (_productoMerma!.stockActual >= _unidadesRealesMerma &&
                       !operacionState.isLoading)
                   ? _confirmarMerma
                   : null,
               icon: operacionState.isLoading
                   ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2.5),
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                     )
-                  : const Icon(Icons.delete_forever, size: 28, color: Colors.white),
+                  : const Icon(Icons.delete_outline, size: 24, color: Colors.white),
               label: Text(
                 operacionState.isLoading
-                    ? 'Registrando merma...'
-                    : 'Dar de Baja Merma (-${_cantidadMerma.toInt()})',
+                    ? 'Procesando baja...'
+                    : 'Confirmar Baja (-${_unidadesRealesMerma.toInt()} uds)',
                 style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
@@ -923,48 +540,42 @@ class _MovimientosInventarioScreenState
 
   Widget _buildChipMotivo(String label, String valor) {
     final seleccionado = _tipoMerma == valor;
-    return Expanded(
-      child: SizedBox(
-        height: 52,
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            padding: EdgeInsets.zero,
-            backgroundColor:
-                seleccionado ? AppColors.danger : AppColors.surfaceMuted,
-            elevation: seleccionado ? 2 : 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: BorderSide(
-                color: seleccionado ? AppColors.danger : AppColors.border,
-                width: seleccionado ? 2 : 1,
-              ),
-            ),
-          ),
-          onPressed: () => setState(() => _tipoMerma = valor),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: seleccionado ? Colors.white : AppColors.textPrimary,
-            ),
-          ),
+    return ChoiceChip(
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.bold,
+          color: seleccionado ? Colors.white : AppColors.textPrimary,
         ),
       ),
+      selected: seleccionado,
+      selectedColor: AppColors.danger,
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: seleccionado ? AppColors.danger : AppColors.border,
+          width: 1.2,
+        ),
+      ),
+      onSelected: (val) {
+        if (val) setState(() => _tipoMerma = valor);
+      },
     );
   }
 
   Widget _buildTarjetaPerdidaFinanciera() {
     final costoUnitario = _productoMerma!.costoMayorista;
-    final totalPerdida = _cantidadMerma * costoUnitario;
-    final stockRestante = _productoMerma!.stockActual - _cantidadMerma;
+    final totalPerdida = _unidadesRealesMerma * costoUnitario;
+    final stockRestante = _productoMerma!.stockActual - _unidadesRealesMerma;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.danger.withAlpha(12),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.danger.withAlpha(80), width: 1.5),
+        border: Border.all(color: AppColors.danger.withAlpha(70), width: 1.5),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -974,12 +585,13 @@ class _MovimientosInventarioScreenState
             children: [
               const Text(
                 'Pérdida Financiera:',
-                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
+              const SizedBox(height: 2),
               Text(
                 'Bs. ${totalPerdida.toStringAsFixed(2)}',
                 style: const TextStyle(
-                  fontSize: 26,
+                  fontSize: 24,
                   fontWeight: FontWeight.w900,
                   color: AppColors.danger,
                 ),
@@ -991,10 +603,11 @@ class _MovimientosInventarioScreenState
             children: [
               const Text(
                 'Stock posterior:',
-                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
+              const SizedBox(height: 2),
               Text(
-                '${stockRestante.toStringAsFixed(_productoMerma!.esFraccionable ? 2 : 0)} unidades',
+                '${stockRestante.toStringAsFixed(_productoMerma!.esFraccionable ? 2 : 0)} uds',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -1010,246 +623,143 @@ class _MovimientosInventarioScreenState
 
   void _confirmarMerma() async {
     final notifier = ref.read(movimientosNotifierProvider.notifier);
+    final detalle = _motivoMermaController.text.trim();
+    final motivoFinal = detalle.isNotEmpty ? detalle : null;
+
     final exito = await notifier.registrarMerma(
       producto: _productoMerma!,
-      cantidad: _cantidadMerma,
+      cantidad: _unidadesRealesMerma,
       tipoMerma: _tipoMerma,
+      motivo: motivoFinal,
     );
 
     if (exito && mounted) {
+      _motivoMermaController.clear();
       setState(() {
         _productoMerma = null;
         _cantidadMerma = 1.0;
+        _esMermaPorEmpaque = false;
       });
     }
   }
 
   // =========================================================================
-  // DIÁLOGOS DE SELECCIÓN TÁCTIL
+  // MODAL DE BÚSQUEDA Y SELECCIÓN DE PRODUCTO CON FILTRO RÁPIDO
   // =========================================================================
-
-  void _mostrarDialogoSeleccionarCaja(
-      List<Producto> cajas, List<Producto> todosLosProductos) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          padding: const EdgeInsets.all(20),
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Selecciona una Caja o Paquete',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (cajas.isEmpty)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(32.0),
-                    child: Text(
-                      'No hay productos registrados con presentación de caja o mayorista.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16, color: AppColors.textMuted),
-                    ),
-                  ),
-                )
-              else
-                Expanded(
-                  child: ListView.separated(
-                    itemCount: cajas.length,
-                    separatorBuilder: (_, index) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final c = cajas[index];
-                      return ListTile(
-                        contentPadding:
-                            const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                        leading: CircleAvatar(
-                          backgroundColor: AppColors.primary.withAlpha(20),
-                          child: const Icon(Icons.inventory_2,
-                              color: AppColors.primary),
-                        ),
-                        title: Text(
-                          c.nombre,
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Text(
-                          'Stock: ${c.stockActual.toInt()} cajas • ${c.etiquetaEmpaque}',
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                        onTap: () {
-                          _seleccionarCaja(c, todosLosProductos);
-                          Navigator.pop(context);
-                        },
-                      );
-                    },
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _mostrarDialogoSeleccionarDestino(List<Producto> productos) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          padding: const EdgeInsets.all(20),
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Selecciona la Botella / Unidad Destino',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: productos.length,
-                  separatorBuilder: (_, index) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final p = productos[index];
-                    return ListTile(
-                      contentPadding:
-                          const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                      leading: CircleAvatar(
-                        backgroundColor: AppColors.secondary.withAlpha(20),
-                        child: const Icon(Icons.local_drink,
-                            color: AppColors.secondary),
-                      ),
-                      title: Text(
-                        p.nombre,
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(
-                        'Stock actual: ${p.stockActual.toInt()} unidades',
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                      onTap: () {
-                        setState(() => _destinoSeleccionado = p);
-                        Navigator.pop(context);
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
   void _mostrarDialogoSeleccionarMerma(List<Producto> productos) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          padding: const EdgeInsets.all(20),
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder: (ctx) {
+        String query = '';
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filtrados = productos.where((p) {
+              if (query.isEmpty) return true;
+              final n = p.nombre.toLowerCase();
+              final c = (p.categoria ?? '').toLowerCase();
+              final b = (p.codigoBarras ?? '').toLowerCase();
+              return n.contains(query) || c.contains(query) || b.contains(query);
+            }).toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.8,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Selecciona el Producto Roto / Dañado',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Selecciona el Producto',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
+                  const SizedBox(height: 8),
+                  // Buscador rápido
+                  TextField(
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar por nombre, categoría o código...',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      filled: true,
+                      fillColor: AppColors.background,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: (val) {
+                      setModalState(() => query = val.toLowerCase().trim());
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: filtrados.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'No se encontraron productos',
+                              style: TextStyle(color: AppColors.textMuted),
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: filtrados.length,
+                            separatorBuilder: (_, index) => const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final p = filtrados[index];
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                                leading: CircleAvatar(
+                                  backgroundColor: AppColors.danger.withAlpha(20),
+                                  child: Text(
+                                    Producto.emojiCategoria(p.categoria),
+                                    style: const TextStyle(fontSize: 20),
+                                  ),
+                                ),
+                                title: Text(
+                                  p.nombre,
+                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                ),
+                                subtitle: Text(
+                                  'Stock: ${p.stockLegibleDesglosado}  •  Costo: Bs. ${p.costoMayorista.toStringAsFixed(2)}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                onTap: () {
+                                  setState(() {
+                                    _productoMerma = p;
+                                    _cantidadMerma = 1.0;
+                                    _esMermaPorEmpaque = false;
+                                  });
+                                  Navigator.pop(context);
+                                },
+                              );
+                            },
+                          ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: productos.length,
-                  separatorBuilder: (_, index) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final p = productos[index];
-                    return ListTile(
-                      contentPadding:
-                          const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                      leading: CircleAvatar(
-                        backgroundColor: AppColors.danger.withAlpha(20),
-                        child: const Icon(Icons.broken_image,
-                            color: AppColors.danger),
-                      ),
-                      title: Text(
-                        p.nombre,
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(
-                        'Stock: ${p.stockActual.toStringAsFixed(p.esFraccionable ? 2 : 0)} • Costo: Bs. ${p.costoMayorista.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                      onTap: () {
-                        setState(() {
-                          _productoMerma = p;
-                          _cantidadMerma = 1.0;
-                        });
-                        Navigator.pop(context);
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
   // =========================================================================
-  // HISTORIAL DE AUDITORÍA DE MOVIMIENTOS
+  // HISTORIAL DE AUDITORÍA
   // =========================================================================
 
   void _mostrarHistorial(BuildContext context) {
@@ -1275,9 +785,8 @@ class _MovimientosInventarioScreenState
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        '📜 Historial Inmutable de Auditoría',
-                        style: TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.bold),
+                        '📜 Historial de Auditoría',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close),
@@ -1288,16 +797,14 @@ class _MovimientosInventarioScreenState
                   const SizedBox(height: 12),
                   Expanded(
                     child: historialAsync.when(
-                      loading: () =>
-                          const Center(child: CircularProgressIndicator()),
+                      loading: () => const Center(child: CircularProgressIndicator()),
                       error: (e, _) => Center(child: Text('Error: $e')),
                       data: (movimientos) {
                         if (movimientos.isEmpty) {
                           return const Center(
                             child: Text(
                               'Aún no hay movimientos registrados.',
-                              style: TextStyle(
-                                  fontSize: 16, color: AppColors.textMuted),
+                              style: TextStyle(fontSize: 15, color: AppColors.textMuted),
                             ),
                           );
                         }
@@ -1309,27 +816,24 @@ class _MovimientosInventarioScreenState
                             final m = movimientos[index];
                             final esMerma = m.esMerma;
                             return ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 6, horizontal: 2),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
                               leading: CircleAvatar(
                                 backgroundColor: esMerma
                                     ? AppColors.danger.withAlpha(20)
                                     : AppColors.primary.withAlpha(20),
                                 child: Icon(
-                                  esMerma ? Icons.warning : Icons.sync_alt,
-                                  color: esMerma
-                                      ? AppColors.danger
-                                      : AppColors.primary,
+                                  esMerma ? Icons.warning_rounded : Icons.sync_alt,
+                                  color: esMerma ? AppColors.danger : AppColors.primary,
+                                  size: 20,
                                 ),
                               ),
                               title: Text(
                                 m.etiquetaTipo,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 16),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                               ),
                               subtitle: Text(
-                                '${m.createdAt.day}/${m.createdAt.month} ${m.createdAt.hour}:${m.createdAt.minute.toString().padLeft(2, '0')} • ${m.motivo ?? ''}',
-                                style: const TextStyle(fontSize: 13),
+                                '${m.createdAt.day}/${m.createdAt.month} ${m.createdAt.hour}:${m.createdAt.minute.toString().padLeft(2, '0')} • ${m.motivo ?? 'Sin observación'}',
+                                style: const TextStyle(fontSize: 12),
                               ),
                               trailing: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1339,17 +843,15 @@ class _MovimientosInventarioScreenState
                                     '${m.esEntrada ? '+' : '-'}${m.cantidad.toInt()} uds',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w900,
-                                      fontSize: 16,
-                                      color: m.esEntrada
-                                          ? AppColors.success
-                                          : AppColors.danger,
+                                      fontSize: 14,
+                                      color: m.esEntrada ? AppColors.success : AppColors.danger,
                                     ),
                                   ),
                                   if (m.costoTotal > 0)
                                     Text(
                                       'Bs. ${m.costoTotal.toStringAsFixed(2)}',
                                       style: const TextStyle(
-                                        fontSize: 13,
+                                        fontSize: 11,
                                         fontWeight: FontWeight.w600,
                                         color: AppColors.textMuted,
                                       ),
@@ -1371,15 +873,12 @@ class _MovimientosInventarioScreenState
     );
   }
 
-  Widget _buildAlertaMensaje(
-      {required String mensaje, required bool esError}) {
+  Widget _buildAlertaMensaje({required String mensaje, required bool esError}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: esError
-            ? AppColors.danger.withAlpha(15)
-            : AppColors.success.withAlpha(15),
+        color: esError ? AppColors.danger.withAlpha(15) : AppColors.success.withAlpha(15),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: esError ? AppColors.danger : AppColors.success,
@@ -1391,14 +890,14 @@ class _MovimientosInventarioScreenState
           Icon(
             esError ? Icons.error_outline : Icons.check_circle_outline,
             color: esError ? AppColors.danger : AppColors.success,
-            size: 26,
+            size: 22,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               mensaje,
               style: TextStyle(
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: FontWeight.bold,
                 color: esError ? AppColors.danger : AppColors.success,
               ),

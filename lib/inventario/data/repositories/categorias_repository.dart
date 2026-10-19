@@ -1,23 +1,23 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/database/app_database.dart';
 import '../models/categoria_model.dart';
 
 class CategoriasRepository {
-  final SupabaseClient _client;
+  final AppDatabase _db;
 
-  CategoriasRepository(this._client);
+  CategoriasRepository([AppDatabase? db]) : _db = db ?? AppDatabase.instance;
 
   /// Obtiene todas las categorías y subcategorías organizadas en árbol (Padre -> Subcategorías)
   Future<List<CategoriaModel>> obtenerArbolCategorias(String tenantId) async {
-    final response = await _client
-        .from('categorias')
-        .select()
-        .eq('tenant_id', tenantId)
-        .order('orden', ascending: true)
-        .order('nombre', ascending: true);
+    final db = await _db.database;
+    final rows = await db.query(
+      'categorias',
+      where: 'tenant_id = ?',
+      whereArgs: [tenantId],
+      orderBy: 'orden ASC, nombre ASC',
+    );
 
-    final List<dynamic> data = response as List<dynamic>;
-    final List<CategoriaModel> todas = data
-        .map((item) => CategoriaModel.fromMap(item as Map<String, dynamic>))
+    final List<CategoriaModel> todas = rows
+        .map((item) => CategoriaModel.fromMap(AppDatabase.aMapa(item)))
         .toList();
 
     // Separar principales y subcategorías
@@ -39,73 +39,85 @@ class CategoriasRepository {
 
   /// Obtiene solo las categorías principales (Nivel 1)
   Future<List<CategoriaModel>> obtenerCategoriasPrincipales(String tenantId) async {
-    final response = await _client
-        .from('categorias')
-        .select()
-        .eq('tenant_id', tenantId)
-        .isFilter('parent_id', null)
-        .order('orden', ascending: true)
-        .order('nombre', ascending: true);
+    final db = await _db.database;
+    final rows = await db.query(
+      'categorias',
+      where: 'tenant_id = ? AND (parent_id IS NULL OR parent_id = "")',
+      whereArgs: [tenantId],
+      orderBy: 'orden ASC, nombre ASC',
+    );
 
-    return (response as List<dynamic>)
-        .map((item) => CategoriaModel.fromMap(item as Map<String, dynamic>))
+    return rows
+        .map((item) => CategoriaModel.fromMap(AppDatabase.aMapa(item)))
         .toList();
   }
 
   /// Obtiene las subcategorías de una categoría padre dada
   Future<List<CategoriaModel>> obtenerSubcategoriasDePadre(String tenantId, String parentId) async {
-    final response = await _client
-        .from('categorias')
-        .select()
-        .eq('tenant_id', tenantId)
-        .eq('parent_id', parentId)
-        .order('orden', ascending: true)
-        .order('nombre', ascending: true);
+    final db = await _db.database;
+    final rows = await db.query(
+      'categorias',
+      where: 'tenant_id = ? AND parent_id = ?',
+      whereArgs: [tenantId, parentId],
+      orderBy: 'orden ASC, nombre ASC',
+    );
 
-    return (response as List<dynamic>)
-        .map((item) => CategoriaModel.fromMap(item as Map<String, dynamic>))
+    return rows
+        .map((item) => CategoriaModel.fromMap(AppDatabase.aMapa(item)))
         .toList();
   }
 
   /// Registra una nueva categoría o subcategoría
   Future<CategoriaModel> crearCategoria(CategoriaModel categoria) async {
-    final map = categoria.toMap();
-    map.remove('id');
-    map.remove('created_at');
-    map.remove('updated_at');
+    final db = await _db.database;
+    final id = categoria.id.isNotEmpty ? categoria.id : AppDatabase.nuevoId();
+    final ahora = AppDatabase.ahora();
 
-    final response = await _client
-        .from('categorias')
-        .insert(map)
-        .select()
-        .single();
+    final row = AppDatabase.aFila({
+      'id': id,
+      'tenant_id': categoria.tenantId,
+      'nombre': categoria.nombre,
+      'parent_id': categoria.parentId,
+      'icono': categoria.icono,
+      'orden': categoria.orden,
+      'created_at': ahora,
+      'updated_at': ahora,
+    });
 
-    return CategoriaModel.fromMap(response);
+    await db.insert('categorias', row);
+    return categoria.copyWith(id: id);
   }
 
   /// Actualiza nombre, icono u orden de una categoría existente
   Future<CategoriaModel> actualizarCategoria(CategoriaModel categoria) async {
-    final map = categoria.toMap();
-    map.remove('created_at');
-    map['updated_at'] = DateTime.now().toUtc().toIso8601String();
+    final db = await _db.database;
+    final ahora = AppDatabase.ahora();
 
-    final response = await _client
-        .from('categorias')
-        .update(map)
-        .eq('id', categoria.id)
-        .eq('tenant_id', categoria.tenantId)
-        .select()
-        .single();
+    final row = AppDatabase.aFila({
+      'nombre': categoria.nombre,
+      'parent_id': categoria.parentId,
+      'icono': categoria.icono,
+      'orden': categoria.orden,
+      'updated_at': ahora,
+    });
 
-    return CategoriaModel.fromMap(response);
+    await db.update(
+      'categorias',
+      row,
+      where: 'id = ? AND tenant_id = ?',
+      whereArgs: [categoria.id, categoria.tenantId],
+    );
+
+    return categoria;
   }
 
-  /// Elimina una categoría o subcategoría (si es principal, cascade elimina sus subcategorías)
+  /// Elimina una categoría o subcategoría (cascade elimina subcategorías)
   Future<void> eliminarCategoria(String id, String tenantId) async {
-    await _client
-        .from('categorias')
-        .delete()
-        .eq('id', id)
-        .eq('tenant_id', tenantId);
+    final db = await _db.database;
+    await db.delete(
+      'categorias',
+      where: 'id = ? AND tenant_id = ?',
+      whereArgs: [id, tenantId],
+    );
   }
 }

@@ -17,6 +17,7 @@ class ItemCompraModel {
   final double unidadesPorEmpaque;
   final double costoAnterior;
   final double precioVentaActual;
+  final bool esPorEmpaque;
 
   const ItemCompraModel({
     this.id,
@@ -32,11 +33,17 @@ class ItemCompraModel {
     this.unidadesPorEmpaque = 1.0,
     this.costoAnterior = 0.0,
     this.precioVentaActual = 0.0,
+    this.esPorEmpaque = false,
   });
 
   /// Crea un ítem de compra a partir de un Producto del catálogo
-  factory ItemCompraModel.desdeProducto(Producto producto, {double cantidad = 1.0}) {
+  factory ItemCompraModel.desdeProducto(
+    Producto producto, {
+    double cantidad = 1.0,
+    bool? esPorEmpaque,
+  }) {
     final costo = producto.costoMayorista > 0 ? producto.costoMayorista : 0.0;
+    final porEmpaque = esPorEmpaque ?? (producto.tieneEmpaqueMayorista || producto.unidadesPorEmpaque > 1);
     return ItemCompraModel(
       productoId: producto.id,
       cantidad: cantidad,
@@ -49,7 +56,64 @@ class ItemCompraModel {
       unidadesPorEmpaque: producto.unidadesPorEmpaque,
       costoAnterior: costo,
       precioVentaActual: producto.precioVenta,
+      esPorEmpaque: porEmpaque,
     );
+  }
+
+  /// Indica si el producto se maneja por empaque cerrado (caja, fardo, paquete)
+  bool get tieneEmpaqueMayorista => unidadesPorEmpaque > 1;
+
+  /// Cantidad en empaques/bultos cerrados
+  double get cantidadEmpaques =>
+      unidadesPorEmpaque > 0 ? (cantidad / unidadesPorEmpaque) : cantidad;
+
+  /// Costo del empaque completo (costoUnitario * unidadesPorEmpaque)
+  double get costoPorEmpaque =>
+      costoUnitario * (unidadesPorEmpaque > 0 ? unidadesPorEmpaque : 1.0);
+
+  /// Nombre del empaque legible
+  String get nombreEmpaqueLegible {
+    switch (tipoEmpaque.toUpperCase()) {
+      case 'FARDO': return 'Fardo';
+      case 'CAJA': return 'Caja';
+      case 'PAQUETE': return 'Paquete';
+      case 'BOLSA': return 'Bolsa';
+      case 'TIRA': return 'Tira';
+      case 'SIXPACK': return 'Sixpack';
+      case 'DISPLAY': return 'Display';
+      case 'BIDON': return 'Bidón';
+      default: return tipoEmpaque;
+    }
+  }
+
+  /// Nombre plural del empaque legible
+  String get nombreEmpaquePlural {
+    switch (tipoEmpaque.toUpperCase()) {
+      case 'FARDO': return 'Fardos';
+      case 'CAJA': return 'Cajas';
+      case 'PAQUETE': return 'Paquetes';
+      case 'BOLSA': return 'Bolsas';
+      case 'TIRA': return 'Tiras';
+      case 'SIXPACK': return 'Sixpacks';
+      case 'DISPLAY': return 'Displays';
+      case 'BIDON': return 'Bidones';
+      default: return '${tipoEmpaque}s';
+    }
+  }
+
+  /// Nombre abreviado del tipo de empaque
+  String get nombreEmpaqueCorto {
+    switch (tipoEmpaque.toUpperCase()) {
+      case 'FARDO': return 'Fardo';
+      case 'CAJA': return 'Caja';
+      case 'PAQUETE': return 'Paq';
+      case 'BOLSA': return 'Bolsa';
+      case 'TIRA': return 'Tira';
+      case 'SIXPACK': return 'Six';
+      case 'DISPLAY': return 'Disp';
+      case 'BIDON': return 'Bidón';
+      default: return 'Paq';
+    }
   }
 
   /// Indica si el costo subió respecto al costo histórico registrado
@@ -94,6 +158,7 @@ class ItemCompraModel {
     double? unidadesPorEmpaque,
     double? costoAnterior,
     double? precioVentaActual,
+    bool? esPorEmpaque,
   }) {
     final cant = cantidad ?? this.cantidad;
     final costo = costoUnitario ?? this.costoUnitario;
@@ -111,6 +176,7 @@ class ItemCompraModel {
       unidadesPorEmpaque: unidadesPorEmpaque ?? this.unidadesPorEmpaque,
       costoAnterior: costoAnterior ?? this.costoAnterior,
       precioVentaActual: precioVentaActual ?? this.precioVentaActual,
+      esPorEmpaque: esPorEmpaque ?? this.esPorEmpaque,
     );
   }
 
@@ -162,6 +228,7 @@ class ItemCompraModel {
       unidadesPorEmpaque: udsEmpaque,
       costoAnterior: costo,
       precioVentaActual: pVenta,
+      esPorEmpaque: udsEmpaque > 1,
     );
   }
 

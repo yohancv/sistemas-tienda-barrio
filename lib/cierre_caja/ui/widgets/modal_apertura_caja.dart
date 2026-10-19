@@ -17,7 +17,18 @@ class _ModalAperturaCajaState extends ConsumerState<ModalAperturaCaja> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _montoController.addListener(_onMontoChanged);
+  }
+
+  void _onMontoChanged() {
+    setState(() {});
+  }
+
+  @override
   void dispose() {
+    _montoController.removeListener(_onMontoChanged);
     _montoController.dispose();
     super.dispose();
   }
@@ -84,6 +95,8 @@ class _ModalAperturaCajaState extends ConsumerState<ModalAperturaCaja> {
   @override
   Widget build(BuildContext context) {
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final ultimoTurnoAsync = ref.watch(ultimoTurnoCerradoProvider);
+    final montoIngresado = double.tryParse(_montoController.text.replaceAll(',', '.'));
 
     return Padding(
       padding: EdgeInsets.only(bottom: keyboardHeight),
@@ -140,12 +153,143 @@ class _ModalAperturaCajaState extends ConsumerState<ModalAperturaCaja> {
                   ),
                 ],
               ),
-              const Divider(height: 30),
+              const Divider(height: 24),
+
+              // TARJETA INTELIGENTE DEL TURNO ANTERIOR
+              ultimoTurnoAsync.maybeWhen(
+                data: (ultimoTurno) {
+                  if (ultimoTurno == null) return const SizedBox.shrink();
+                  final ultimoMonto =
+                      ultimoTurno.montoRealContado ?? ultimoTurno.montoEsperadoEfectivo;
+                  if (ultimoMonto <= 0) return const SizedBox.shrink();
+
+                  final diferencia = montoIngresado != null
+                      ? ((ultimoMonto - montoIngresado) * 100).round() / 100.0
+                      : 0.0;
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.blue[200]!),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.history_toggle_off, color: Colors.blue, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Turno anterior cerró con: Bs. ${ultimoMonto.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.blue[900],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Botones de acción rápida basados en el turno anterior
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  side: BorderSide(color: Colors.blue[300]!),
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: () {
+                                  _montoController.text = ultimoMonto.toStringAsFixed(2);
+                                  setState(() => _error = null);
+                                },
+                                child: Text(
+                                  'Dejar todo (Bs. ${ultimoMonto.toStringAsFixed(0)})',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue[900],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  side: BorderSide(color: Colors.blue[300]!),
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: () {
+                                  _montoController.text = '100.00';
+                                  setState(() => _error = null);
+                                },
+                                child: const Text(
+                                  'Solo sencillo (Bs. 100)',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        // Nota explicativa en tiempo real
+                        if (montoIngresado != null) ...[
+                          const SizedBox(height: 8),
+                          if (diferencia > 0) ...[
+                            Text(
+                              '💡 Si dejas Bs. ${montoIngresado.toStringAsFixed(2)}, te estás llevando Bs. ${diferencia.toStringAsFixed(2)} a tu casa/bolsillo.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.blueGrey[800],
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ] else if (diferencia == 0) ...[
+                            const Text(
+                              '👌 Estás dejando exactamente todo el dinero del cierre en el cajón.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.success,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ] else ...[
+                            Text(
+                              '➕ Estás agregando Bs. ${(-diferencia).toStringAsFixed(2)} extra de tu bolsillo para cambio.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.blue[800],
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ],
+                    ),
+                  );
+                },
+                orElse: () => const SizedBox.shrink(),
+              ),
 
               // Campo de Monto Inicial Grande
               const Text(
                 'Fondo Inicial en Efectivo (Bs.)',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -191,7 +335,7 @@ class _ModalAperturaCajaState extends ConsumerState<ModalAperturaCaja> {
               // Botones de sugerencias rápidas
               const Text(
                 'Sugerencias rápidas:',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.textMuted),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textMuted),
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -211,11 +355,11 @@ class _ModalAperturaCajaState extends ConsumerState<ModalAperturaCaja> {
                   ),
                 ],
               ),
-              const SizedBox(height: 26),
+              const SizedBox(height: 24),
 
               // Botón de Confirmación
               SizedBox(
-                height: 58,
+                height: 56,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
@@ -232,7 +376,7 @@ class _ModalAperturaCajaState extends ConsumerState<ModalAperturaCaja> {
                       : const Icon(Icons.lock_open, color: Colors.white, size: 26),
                   label: Text(
                     _isProcessing ? 'Iniciando turno...' : 'INICIAR TURNO DE CAJA',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                 ),
               ),
@@ -266,7 +410,7 @@ class _ChipMonto extends StatelessWidget {
       label: Text(
         label,
         style: TextStyle(
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: FontWeight.bold,
           color: esNeutral ? AppColors.textPrimary : AppColors.primary,
         ),

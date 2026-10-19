@@ -4,9 +4,9 @@ import '../../../cierre_caja/state/providers/caja_providers.dart';
 import '../../data/models/cliente_model.dart';
 import '../../data/repositories/clientes_repository.dart';
 
-/// Proveedor del repositorio de clientes inyectando SupabaseClient
+/// Proveedor del repositorio de clientes local (SQLite)
 final clientesRepositoryProvider = Provider<ClientesRepository>((ref) {
-  return ClientesRepository(SupabaseConfig.client);
+  return ClientesRepository();
 });
 
 /// Proveedor del término de búsqueda de clientes reactivo
@@ -50,6 +50,9 @@ final totalDeudaCalleProvider = Provider<double>((ref) {
     orElse: () => 0.0,
   );
 });
+
+/// Alias para total de dinero fiado en la calle
+final totalDineroEnLaCalleProvider = totalDeudaCalleProvider;
 
 /// Total de personas que deben actualmente en la tienda
 final conteoDeudoresProvider = Provider<int>((ref) {

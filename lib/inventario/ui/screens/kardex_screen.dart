@@ -82,8 +82,8 @@ class _KardexScreenState extends ConsumerState<KardexScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.inventory_2_outlined, color: Colors.white),
-            tooltip: 'Desempaque de Cajas',
+            icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.white),
+            tooltip: 'Registrar Merma o Baja',
             onPressed: () {
               Navigator.push(
                 context,
@@ -178,6 +178,15 @@ class _KardexScreenState extends ConsumerState<KardexScreen> {
                         ),
                         const SizedBox(width: 6),
                         _ChipTipo(
+                          label: '🚚 Entradas / Compras',
+                          tipo: 'ENTRADAS',
+                          seleccionado: filtro.filtroTipo == 'ENTRADAS',
+                          onTap: () => ref
+                              .read(kardexFiltroProvider.notifier)
+                              .cambiarTipo('ENTRADAS'),
+                        ),
+                        const SizedBox(width: 6),
+                        _ChipTipo(
                           label: '💥 Mermas / Bajas',
                           tipo: 'MERMAS',
                           seleccionado: filtro.filtroTipo == 'MERMAS',
@@ -187,30 +196,12 @@ class _KardexScreenState extends ConsumerState<KardexScreen> {
                         ),
                         const SizedBox(width: 6),
                         _ChipTipo(
-                          label: '📦 Desempaques',
-                          tipo: 'DESEMPAQUES',
-                          seleccionado: filtro.filtroTipo == 'DESEMPAQUES',
-                          onTap: () => ref
-                              .read(kardexFiltroProvider.notifier)
-                              .cambiarTipo('DESEMPAQUES'),
-                        ),
-                        const SizedBox(width: 6),
-                        _ChipTipo(
                           label: '⚙️ Ajustes',
                           tipo: 'AJUSTES',
                           seleccionado: filtro.filtroTipo == 'AJUSTES',
                           onTap: () => ref
                               .read(kardexFiltroProvider.notifier)
                               .cambiarTipo('AJUSTES'),
-                        ),
-                        const SizedBox(width: 6),
-                        _ChipTipo(
-                          label: '🚚 Entradas',
-                          tipo: 'ENTRADAS',
-                          seleccionado: filtro.filtroTipo == 'ENTRADAS',
-                          onTap: () => ref
-                              .read(kardexFiltroProvider.notifier)
-                              .cambiarTipo('ENTRADAS'),
                         ),
                       ],
                     ),

@@ -3,9 +3,9 @@ import '../../../core/config/supabase_client.dart';
 import '../../data/models/producto_model.dart';
 import '../../data/repositories/inventario_repository.dart';
 
-/// Proveedor del repositorio de inventario inyectando el cliente global de Supabase
+/// Proveedor del repositorio de inventario local (SQLite)
 final inventarioRepositoryProvider = Provider<InventarioRepository>((ref) {
-  return InventarioRepository(SupabaseConfig.client);
+  return InventarioRepository();
 });
 
 /// Proveedor del texto de búsqueda reactivo

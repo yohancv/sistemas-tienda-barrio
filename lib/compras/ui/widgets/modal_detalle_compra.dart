@@ -228,7 +228,9 @@ class ModalDetalleCompra extends ConsumerWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '${item.cantidad.toStringAsFixed(0)} ${item.tipoEmpaque != 'UNIDAD' ? item.tipoEmpaque.toLowerCase() : 'uds'}  x  Bs. ${item.costoUnitario.toStringAsFixed(2)}',
+                                  item.tieneEmpaqueMayorista
+                                      ? '${item.cantidadEmpaques.toStringAsFixed(item.cantidadEmpaques % 1 == 0 ? 0 : 1)} ${item.nombreEmpaquePlural} (${item.cantidad.toInt()} uds)  x  Bs. ${item.costoPorEmpaque.toStringAsFixed(2)}'
+                                      : '${item.cantidad.toStringAsFixed(0)} uds  x  Bs. ${item.costoUnitario.toStringAsFixed(2)}',
                                   style: const TextStyle(
                                     fontSize: 13,
                                     color: AppColors.textSecondary,

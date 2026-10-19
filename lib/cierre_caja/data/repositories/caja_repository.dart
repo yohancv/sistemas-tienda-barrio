@@ -1,29 +1,28 @@
-import 'dart:convert';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/database/app_database.dart';
 import '../models/caja_turno_model.dart';
 import '../models/movimiento_caja_model.dart';
 import '../models/resumen_caja_model.dart';
 
 class CajaRepository {
-  final SupabaseClient _client;
+  final AppDatabase _db;
 
-  CajaRepository(this._client);
+  CajaRepository([AppDatabase? db]) : _db = db ?? AppDatabase.instance;
 
   /// Obtiene el turno de caja abierto actualmente para el tenant
   Future<CajaTurnoModel?> obtenerTurnoActivo(String tenantId) async {
     try {
-      final response = await _client
-          .from('cajas_turnos')
-          .select()
-          .eq('tenant_id', tenantId)
-          .eq('estado', 'ABIERTA')
-          .order('fecha_apertura', ascending: false)
-          .limit(1)
-          .maybeSingle();
+      final db = await _db.database;
+      final rows = await db.query(
+        'cajas_turnos',
+        where: 'tenant_id = ? AND estado = "ABIERTA"',
+        whereArgs: [tenantId],
+        orderBy: 'fecha_apertura DESC',
+        limit: 1,
+      );
 
-      if (response == null) return null;
-      return CajaTurnoModel.fromMap(response);
-    } catch (e) {
+      if (rows.isEmpty) return null;
+      return CajaTurnoModel.fromMap(AppDatabase.aMapa(rows.first));
+    } catch (_) {
       return null;
     }
   }
@@ -34,131 +33,158 @@ class CajaRepository {
     required double montoInicial,
     String? usuarioId,
   }) async {
-    try {
-      // Verificar si ya hay una caja abierta para evitar duplicar turnos
-      final turnoExistente = await obtenerTurnoActivo(tenantId);
-      if (turnoExistente != null) {
-        throw Exception('Ya existe un turno de caja abierto iniciado el ${turnoExistente.fechaApertura}');
-      }
-
-      final payload = {
-        'tenant_id': tenantId,
-        'monto_inicial': montoInicial,
-        'monto_esperado_efectivo': montoInicial,
-        'estado': 'ABIERTA',
-        'usuario_id': ?usuarioId,
-      };
-
-      final response = await _client
-          .from('cajas_turnos')
-          .insert(payload)
-          .select()
-          .single();
-
-      return CajaTurnoModel.fromMap(response);
-    } catch (e) {
-      throw Exception('Error al abrir turno de caja: $e');
+    final turnoExistente = await obtenerTurnoActivo(tenantId);
+    if (turnoExistente != null) {
+      throw Exception('Ya existe un turno de caja abierto iniciado el ${turnoExistente.fechaApertura}');
     }
+
+    final db = await _db.database;
+    final id = AppDatabase.nuevoId();
+    final ahora = AppDatabase.ahora();
+
+    final payload = {
+      'id': id,
+      'tenant_id': tenantId,
+      'monto_inicial': montoInicial,
+      'monto_esperado_efectivo': montoInicial,
+      'total_ventas_efectivo': 0.0,
+      'total_ventas_qr': 0.0,
+      'total_fiados_otorgados': 0.0,
+      'total_fiados_cobrados_efectivo': 0.0,
+      'total_fiados_cobrados_qr': 0.0,
+      'total_salidas_manuales': 0.0,
+      'total_entradas_manuales': 0.0,
+      'total_retiros_qr': 0.0,
+      'total_salidas_tienda': 0.0,
+      'total_salidas_personal': 0.0,
+      'saldo_neto_qr': 0.0,
+      'estado': 'ABIERTA',
+      'fecha_apertura': ahora,
+      'created_at': ahora,
+      'usuario_id': ?usuarioId,
+    };
+
+    await db.insert('cajas_turnos', AppDatabase.aFila(payload));
+    return CajaTurnoModel.fromMap(payload);
   }
 
   /// Calcula el resumen financiero consolidado del turno
   Future<ResumenCajaModel> obtenerResumenTurno(String turnoId, String tenantId) async {
-    try {
-      // 1. Intentar por RPC de base de datos (óptimo y atómico)
-      final rpcRes = await _client.rpc(
-        'fn_resumen_turno_caja',
-        params: {
-          'p_turno_id': turnoId,
-          'p_tenant_id': tenantId,
-        },
-      );
+    final db = await _db.database;
 
-      final Map<String, dynamic> data = rpcRes is String
-          ? jsonDecode(rpcRes)
-          : Map<String, dynamic>.from(rpcRes as Map);
+    final turnos = await db.query(
+      'cajas_turnos',
+      where: 'id = ? AND tenant_id = ?',
+      whereArgs: [turnoId, tenantId],
+    );
 
-      return ResumenCajaModel.fromMap(data);
-    } catch (e) {
-      // 2. Fallback en caso de que la función RPC no esté creada aún
-      return await _calcularResumenFallback(turnoId, tenantId);
+    if (turnos.isEmpty) {
+      throw Exception('Turno de caja no encontrado');
     }
-  }
 
-  /// Cálculo directo de respaldo en caso de que la RPC no se haya ejecutado aún
-  Future<ResumenCajaModel> _calcularResumenFallback(String turnoId, String tenantId) async {
-    final turnoData = await _client
-        .from('cajas_turnos')
-        .select()
-        .eq('id', turnoId)
-        .single();
+    final turno = CajaTurnoModel.fromMap(AppDatabase.aMapa(turnos.first));
+    final fechaInicio = turno.fechaApertura.toIso8601String();
+    final fechaFin = (turno.fechaCierre ?? DateTime.now()).toIso8601String();
 
-    final turno = CajaTurnoModel.fromMap(turnoData);
+    // 1. Movimientos de caja (Efectivo y QR)
+    final movsData = await db.query(
+      'movimientos_caja',
+      where: 'turno_id = ?',
+      whereArgs: [turnoId],
+    );
 
-    // Movimientos de caja
-    final movsData = await _client
-        .from('movimientos_caja')
-        .select('tipo, monto')
-        .eq('turno_id', turnoId);
+    double totalEntradasCaja = 0.0;
+    double totalSalidasCaja = 0.0;
+    double totalEntradasQr = 0.0;
+    double totalRetirosQr = 0.0;
+    double totalSalidasTienda = 0.0;
+    double totalSalidasPersonal = 0.0;
+    double totalMercaderiaFutura = 0.0;
 
-    double totalEntradas = 0.0;
-    double totalSalidas = 0.0;
-    for (final row in (movsData as List<dynamic>)) {
-      final tipo = row['tipo'];
+    for (final row in movsData) {
+      final tipo = row['tipo'] as String;
       final monto = (row['monto'] as num).toDouble();
-      if (tipo == 'ENTRADA') totalEntradas += monto;
-      if (tipo == 'SALIDA') totalSalidas += monto;
+      final origen = row['origen_dinero'] as String? ?? 'EFECTIVO_CAJA';
+      final categoria = row['categoria'] as String? ?? 'GASTO_TIENDA';
+
+      if (origen == 'EFECTIVO_CAJA') {
+        if (tipo == 'ENTRADA') totalEntradasCaja += monto;
+        if (tipo == 'SALIDA') totalSalidasCaja += monto;
+      } else if (origen == 'BANCO_QR') {
+        if (tipo == 'ENTRADA') totalEntradasQr += monto;
+        if (tipo == 'SALIDA') totalRetirosQr += monto;
+      }
+
+      if (tipo == 'SALIDA') {
+        if (categoria == 'RETIRO_PERSONAL' || categoria == 'AHORRO') {
+          totalSalidasPersonal += monto;
+        } else if (categoria == 'MERCADERIA_FUTURA') {
+          totalMercaderiaFutura += monto;
+        } else if (categoria == 'GASTO_TIENDA' || categoria == 'PAGO_AYUDANTE' || categoria == 'OTRO') {
+          totalSalidasTienda += monto;
+        }
+      }
     }
 
-    // Pagos ventas
-    final pagosData = await _client
-        .from('pagos_ventas')
-        .select('metodo, monto, created_at')
-        .eq('tenant_id', tenantId)
-        .gte('created_at', turno.fechaApertura.toIso8601String());
+    // 2. Ventas Efectivo y QR
+    final sqlPagos = '''
+      SELECT pv.metodo, SUM(pv.monto) as total
+      FROM pagos_ventas pv
+      JOIN ventas v ON v.id = pv.venta_id
+      WHERE pv.tenant_id = ?
+        AND (v.caja_turno_id = ? OR (v.caja_turno_id IS NULL AND v.fecha_venta >= ? AND v.fecha_venta <= ?))
+      GROUP BY pv.metodo
+    ''';
 
+    final pagosRes = await db.rawQuery(sqlPagos, [tenantId, turnoId, fechaInicio, fechaFin]);
     double ventasEfectivo = 0.0;
     double ventasQr = 0.0;
-    for (final row in (pagosData as List<dynamic>)) {
-      final metodo = row['metodo'];
-      final monto = (row['monto'] as num).toDouble();
-      if (metodo == 'EFECTIVO') ventasEfectivo += monto;
-      if (metodo == 'QR') ventasQr += monto;
+
+    for (final r in pagosRes) {
+      final metodo = r['metodo'] as String?;
+      final total = (r['total'] as num?)?.toDouble() ?? 0.0;
+      if (metodo == 'EFECTIVO') ventasEfectivo = total;
+      if (metodo == 'QR') ventasQr = total;
     }
 
-    // Abonos deuda
-    final abonosData = await _client
-        .from('abonos_deuda')
-        .select('metodo_pago, monto, fecha_abono')
-        .eq('tenant_id', tenantId)
-        .gte('fecha_abono', turno.fechaApertura.toIso8601String());
+    // 3. Fiados Otorgados
+    final sqlFiados = '''
+      SELECT COALESCE(SUM(total_venta), 0) as total
+      FROM ventas
+      WHERE tenant_id = ?
+        AND metodo_pago = 'CREDITO_FIADO'
+        AND (caja_turno_id = ? OR (caja_turno_id IS NULL AND fecha_venta >= ? AND fecha_venta <= ?))
+    ''';
+    final fiadosRes = await db.rawQuery(sqlFiados, [tenantId, turnoId, fechaInicio, fechaFin]);
+    final double fiadosOtorgados = (fiadosRes.first['total'] as num?)?.toDouble() ?? 0.0;
 
+    // 4. Fiados Cobrados (Abonos)
+    final sqlAbonos = '''
+      SELECT metodo_pago, COALESCE(SUM(monto), 0) as total
+      FROM abonos_deuda
+      WHERE tenant_id = ?
+        AND (caja_turno_id = ? OR (caja_turno_id IS NULL AND fecha_abono >= ? AND fecha_abono <= ?))
+      GROUP BY metodo_pago
+    ''';
+    final abonosRes = await db.rawQuery(sqlAbonos, [tenantId, turnoId, fechaInicio, fechaFin]);
     double fiadosCobradosEfectivo = 0.0;
     double fiadosCobradosQr = 0.0;
-    for (final row in (abonosData as List<dynamic>)) {
-      final metodo = row['metodo_pago'];
-      final monto = (row['monto'] as num).toDouble();
-      if (metodo == 'EFECTIVO') fiadosCobradosEfectivo += monto;
-      if (metodo == 'QR' || metodo == 'TRANSFERENCIA') fiadosCobradosQr += monto;
+
+    for (final r in abonosRes) {
+      final metodo = r['metodo_pago'] as String?;
+      final total = (r['total'] as num?)?.toDouble() ?? 0.0;
+      if (metodo == 'EFECTIVO') fiadosCobradosEfectivo += total;
+      if (metodo == 'QR' || metodo == 'TRANSFERENCIA') fiadosCobradosQr += total;
     }
 
-    // Fiados otorgados
-    final ventasFiadas = await _client
-        .from('ventas')
-        .select('total_venta, fecha_venta')
-        .eq('tenant_id', tenantId)
-        .eq('metodo_pago', 'CREDITO_FIADO')
-        .gte('fecha_venta', turno.fechaApertura.toIso8601String());
-
-    double fiadosOtorgados = 0.0;
-    for (final row in (ventasFiadas as List<dynamic>)) {
-      fiadosOtorgados += (row['total_venta'] as num).toDouble();
-    }
-
-    final esperado = turno.montoInicial +
+    // 5. Cálculos finales
+    final double esperadoEfectivo = turno.montoInicial +
         ventasEfectivo +
         fiadosCobradosEfectivo +
-        totalEntradas -
-        totalSalidas;
+        totalEntradasCaja -
+        totalSalidasCaja;
+
+    final double saldoNetoQr = (ventasQr + fiadosCobradosQr + totalEntradasQr) - totalRetirosQr;
 
     return ResumenCajaModel(
       turnoId: turnoId,
@@ -170,52 +196,79 @@ class CajaRepository {
       totalFiadosOtorgados: fiadosOtorgados,
       totalFiadosCobradosEfectivo: fiadosCobradosEfectivo,
       totalFiadosCobradosQr: fiadosCobradosQr,
-      totalEntradasManuales: totalEntradas,
-      totalSalidasManuales: totalSalidas,
-      montoEsperadoEfectivo: (esperado * 100).round() / 100.0,
+      totalEntradasManuales: totalEntradasCaja,
+      totalSalidasManuales: totalSalidasCaja,
+      totalRetirosQr: totalRetirosQr,
+      totalSalidasTienda: totalSalidasTienda,
+      totalSalidasPersonal: totalSalidasPersonal,
+      totalMercaderiaFutura: totalMercaderiaFutura,
+      saldoNetoQr: (saldoNetoQr * 100).round() / 100.0,
+      montoEsperadoEfectivo: (esperadoEfectivo * 100).round() / 100.0,
     );
   }
 
-  /// Registra una entrada o salida manual de efectivo en la caja
+  /// Registra una entrada o salida manual (efectivo o QR)
   Future<MovimientoCajaModel> registrarMovimientoManual({
     required String tenantId,
     required String turnoId,
     required String tipo,
     required double monto,
     required String motivo,
+    String origenDinero = 'EFECTIVO_CAJA',
+    String categoria = 'GASTO_TIENDA',
   }) async {
-    try {
-      final payload = {
-        'tenant_id': tenantId,
-        'turno_id': turnoId,
-        'tipo': tipo,
-        'monto': monto,
-        'motivo': motivo,
-      };
+    final db = await _db.database;
+    final id = AppDatabase.nuevoId();
+    final ahora = AppDatabase.ahora();
 
-      final response = await _client
-          .from('movimientos_caja')
-          .insert(payload)
-          .select()
-          .single();
+    final payload = {
+      'id': id,
+      'tenant_id': tenantId,
+      'turno_id': turnoId,
+      'tipo': tipo,
+      'monto': monto,
+      'motivo': motivo,
+      'origen_dinero': origenDinero,
+      'categoria': categoria,
+      'created_at': ahora,
+    };
 
-      return MovimientoCajaModel.fromMap(response);
-    } catch (e) {
-      throw Exception('Error al registrar movimiento de caja: $e');
+    await db.insert('movimientos_caja', AppDatabase.aFila(payload));
+
+    // Si se retira dinero de QR/Banco con fin de "CAMBIO_SENCILLO" para el cajón,
+    // inyectamos automáticamente una entrada en efectivo a la caja
+    if (origenDinero == 'BANCO_QR' && categoria == 'CAMBIO_SENCILLO' && tipo == 'SALIDA') {
+      try {
+        await db.insert('movimientos_caja', AppDatabase.aFila({
+          'id': AppDatabase.nuevoId(),
+          'tenant_id': tenantId,
+          'turno_id': turnoId,
+          'tipo': 'ENTRADA',
+          'monto': monto,
+          'motivo': 'Sencillo ingresado al cajón (Retiro de Banco QR)',
+          'origen_dinero': 'EFECTIVO_CAJA',
+          'categoria': 'CAMBIO_SENCILLO',
+          'created_at': ahora,
+        }));
+      } catch (_) {}
     }
+
+    return MovimientoCajaModel.fromMap(payload);
   }
 
   /// Lista los movimientos manuales registrados durante el turno
   Future<List<MovimientoCajaModel>> obtenerMovimientosTurno(String turnoId) async {
     try {
-      final response = await _client
-          .from('movimientos_caja')
-          .select()
-          .eq('turno_id', turnoId)
-          .order('created_at', ascending: false);
+      final db = await _db.database;
+      final rows = await db.query(
+        'movimientos_caja',
+        where: 'turno_id = ?',
+        whereArgs: [turnoId],
+        orderBy: 'created_at DESC',
+      );
 
-      return (response as List<dynamic>)
-          .map((m) => MovimientoCajaModel.fromMap(m as Map<String, dynamic>))
+      return rows
+          .map((m) => MovimientoCajaModel.fromMap(AppDatabase.aMapa(m)))
           .toList();
     } catch (_) {
       return [];
@@ -230,39 +283,46 @@ class CajaRepository {
     Map<String, int>? desglose,
     String? observaciones,
   }) async {
-    try {
-      final double diferencia =
-          ((montoContado - resumen.montoEsperadoEfectivo) * 100).round() / 100.0;
+    final db = await _db.database;
+    final double diferencia = ((montoContado - resumen.montoEsperadoEfectivo) * 100).round() / 100.0;
+    final ahora = AppDatabase.ahora();
 
-      final payload = {
-        'fecha_cierre': DateTime.now().toIso8601String(),
-        'total_ventas_efectivo': resumen.totalVentasEfectivo,
-        'total_ventas_qr': resumen.totalVentasQr,
-        'total_fiados_otorgados': resumen.totalFiadosOtorgados,
-        'total_fiados_cobrados_efectivo': resumen.totalFiadosCobradosEfectivo,
-        'total_fiados_cobrados_qr': resumen.totalFiadosCobradosQr,
-        'total_entradas_manuales': resumen.totalEntradasManuales,
-        'total_salidas_manuales': resumen.totalSalidasManuales,
-        'monto_esperado_efectivo': resumen.montoEsperadoEfectivo,
-        'monto_real_contado': montoContado,
-        'diferencia': diferencia,
-        'desglose_efectivo': ?desglose,
-        if (observaciones != null && observaciones.trim().isNotEmpty)
-          'observaciones_cierre': observaciones.trim(),
-        'estado': 'CERRADA',
-      };
+    final payload = {
+      'fecha_cierre': ahora,
+      'total_ventas_efectivo': resumen.totalVentasEfectivo,
+      'total_ventas_qr': resumen.totalVentasQr,
+      'total_fiados_otorgados': resumen.totalFiadosOtorgados,
+      'total_fiados_cobrados_efectivo': resumen.totalFiadosCobradosEfectivo,
+      'total_fiados_cobrados_qr': resumen.totalFiadosCobradosQr,
+      'total_entradas_manuales': resumen.totalEntradasManuales,
+      'total_salidas_manuales': resumen.totalSalidasManuales,
+      'total_retiros_qr': resumen.totalRetirosQr,
+      'total_salidas_tienda': resumen.totalSalidasTienda,
+      'total_salidas_personal': resumen.totalSalidasPersonal,
+      'saldo_neto_qr': resumen.saldoNetoQr,
+      'monto_esperado_efectivo': resumen.montoEsperadoEfectivo,
+      'monto_real_contado': montoContado,
+      'diferencia': diferencia,
+      'desglose_efectivo': desglose,
+      if (observaciones != null && observaciones.trim().isNotEmpty)
+        'observaciones_cierre': observaciones.trim(),
+      'estado': 'CERRADA',
+    };
 
-      final response = await _client
-          .from('cajas_turnos')
-          .update(payload)
-          .eq('id', turnoId)
-          .select()
-          .single();
+    await db.update(
+      'cajas_turnos',
+      AppDatabase.aFila(payload),
+      where: 'id = ?',
+      whereArgs: [turnoId],
+    );
 
-      return CajaTurnoModel.fromMap(response);
-    } catch (e) {
-      throw Exception('Error al cerrar turno de caja: $e');
-    }
+    final rows = await db.query(
+      'cajas_turnos',
+      where: 'id = ?',
+      whereArgs: [turnoId],
+    );
+
+    return CajaTurnoModel.fromMap(AppDatabase.aMapa(rows.first));
   }
 
   /// Obtiene los turnos históricos cerrados
@@ -271,18 +331,39 @@ class CajaRepository {
     int limite = 20,
   }) async {
     try {
-      final response = await _client
-          .from('cajas_turnos')
-          .select()
-          .eq('tenant_id', tenantId)
-          .order('fecha_apertura', ascending: false)
-          .limit(limite);
+      final db = await _db.database;
+      final rows = await db.query(
+        'cajas_turnos',
+        where: 'tenant_id = ?',
+        whereArgs: [tenantId],
+        orderBy: 'fecha_apertura DESC',
+        limit: limite,
+      );
 
-      return (response as List<dynamic>)
-          .map((m) => CajaTurnoModel.fromMap(m as Map<String, dynamic>))
+      return rows
+          .map((m) => CajaTurnoModel.fromMap(AppDatabase.aMapa(m)))
           .toList();
     } catch (_) {
       return [];
+    }
+  }
+
+  /// Obtiene el último turno cerrado
+  Future<CajaTurnoModel?> obtenerUltimoTurnoCerrado(String tenantId) async {
+    try {
+      final db = await _db.database;
+      final rows = await db.query(
+        'cajas_turnos',
+        where: 'tenant_id = ? AND estado = "CERRADA"',
+        whereArgs: [tenantId],
+        orderBy: 'fecha_cierre DESC',
+        limit: 1,
+      );
+
+      if (rows.isEmpty) return null;
+      return CajaTurnoModel.fromMap(AppDatabase.aMapa(rows.first));
+    } catch (_) {
+      return null;
     }
   }
 }

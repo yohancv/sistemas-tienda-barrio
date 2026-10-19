@@ -14,7 +14,7 @@ import '../../../inventario/state/providers/inventario_providers.dart';
 import '../../../inventario/state/providers/movimientos_providers.dart';
 import '../../../cierre_caja/state/providers/caja_providers.dart';
 
-enum MetodoPagoCobro { efectivo, qr, fiado }
+enum MetodoPagoCobro { efectivo, qr, mixto, fiado }
 
 class CobroScreen extends ConsumerStatefulWidget {
   final double totalAPagar;
@@ -33,12 +33,24 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
   Cliente? _clienteSeleccionado;
   bool _isProcessing = false;
 
+  late final TextEditingController _montoEfectivoMixtoController;
+  late final TextEditingController _billeteEntregadoMixtoController;
+
   @override
   void initState() {
     super.initState();
+    _montoEfectivoMixtoController = TextEditingController();
+    _billeteEntregadoMixtoController = TextEditingController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(efectivoRecibidoProvider.notifier).corregir();
     });
+  }
+
+  @override
+  void dispose() {
+    _montoEfectivoMixtoController.dispose();
+    _billeteEntregadoMixtoController.dispose();
+    super.dispose();
   }
 
   void _abrirCrearNuevoCliente() async {
@@ -191,6 +203,12 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
         metodoBD = 'QR';
         montoRecibidoVenta = widget.totalAPagar;
         vueltoVenta = 0.0;
+      } else if (_metodo == MetodoPagoCobro.mixto) {
+        metodoBD = 'MIXTO';
+        final efectivoCobrado = double.tryParse(_montoEfectivoMixtoController.text.trim()) ?? 0.0;
+        final billete = double.tryParse(_billeteEntregadoMixtoController.text.trim()) ?? efectivoCobrado;
+        montoRecibidoVenta = billete > efectivoCobrado ? billete : efectivoCobrado;
+        vueltoVenta = billete > efectivoCobrado ? ((billete - efectivoCobrado) * 100).round() / 100.0 : 0.0;
       } else if (_metodo == MetodoPagoCobro.fiado) {
         metodoBD = 'CREDITO_FIADO';
         montoRecibidoVenta = 0.0;
@@ -212,28 +230,52 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
         fechaVenta: DateTime.now(),
       );
 
-      // 2. Construir detalles de venta con costo congelado
+      // 2. Construir detalles de venta con costo congelado y descuento real de inventario
       final detalles = itemsCarrito.map((item) {
+        final cantInventario = item.descuentoInventario;
+        final precioUnitarioEfectivo = cantInventario > 0
+            ? ((item.subtotal / cantInventario) * 100).round() / 100.0
+            : item.producto.precioVenta;
         return DetalleVenta(
           productoId: item.producto.id,
-          cantidad: item.cantidad,
-          precioUnitario: item.producto.precioVenta,
+          cantidad: cantInventario,
+          precioUnitario: precioUnitarioEfectivo,
           costoUnitario: item.producto.costoMayorista,
           subtotal: item.subtotal,
         );
       }).toList();
 
-      // 3. Construir desglose de pago
-      final pagos = [
-        PagoVenta(
-          tenantId: tenantId,
-          metodo: _metodo == MetodoPagoCobro.fiado
-              ? 'FIADO'
-              : (_metodo == MetodoPagoCobro.qr ? 'QR' : 'EFECTIVO'),
-          monto: widget.totalAPagar,
-          createdAt: DateTime.now(),
-        ),
-      ];
+      // 3. Construir desglose de pago (Soporte exacto para pagos divididos en pagos_ventas)
+      final List<PagoVenta> pagos;
+      if (_metodo == MetodoPagoCobro.mixto) {
+        final efectivoCobrado = double.tryParse(_montoEfectivoMixtoController.text.trim()) ?? 0.0;
+        final saldoQrCobrado = ((widget.totalAPagar - efectivoCobrado) * 100).round() / 100.0;
+        pagos = [
+          PagoVenta(
+            tenantId: tenantId,
+            metodo: 'EFECTIVO',
+            monto: efectivoCobrado,
+            createdAt: DateTime.now(),
+          ),
+          PagoVenta(
+            tenantId: tenantId,
+            metodo: 'QR',
+            monto: saldoQrCobrado > 0 ? saldoQrCobrado : 0.0,
+            createdAt: DateTime.now(),
+          ),
+        ];
+      } else {
+        pagos = [
+          PagoVenta(
+            tenantId: tenantId,
+            metodo: _metodo == MetodoPagoCobro.fiado
+                ? 'FIADO'
+                : (_metodo == MetodoPagoCobro.qr ? 'QR' : 'EFECTIVO'),
+            monto: widget.totalAPagar,
+            createdAt: DateTime.now(),
+          ),
+        ];
+      }
 
       // 4. Guardar en Supabase y descontar stock (y actualizar saldo de cliente automáticamente vía trigger)
       await ref.read(ventaRepositoryProvider).registrarTransaccionCompleta(
@@ -312,6 +354,25 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
             ] else if (_metodo == MetodoPagoCobro.qr) ...[
               const Text('Método: Pago QR / Transferencia',
                   style: TextStyle(fontSize: 18, color: AppColors.secondary, fontWeight: FontWeight.bold)),
+            ] else if (_metodo == MetodoPagoCobro.mixto) ...[
+              const Text('Método: Pago Mixto (Efectivo + QR)',
+                  style: TextStyle(fontSize: 18, color: AppColors.primary, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Text('• En Efectivo: Bs. ${(double.tryParse(_montoEfectivoMixtoController.text) ?? 0).toStringAsFixed(2)}',
+                  style: const TextStyle(fontSize: 16)),
+              Text('• Por QR: Bs. ${(widget.totalAPagar - (double.tryParse(_montoEfectivoMixtoController.text) ?? 0)).toStringAsFixed(2)}',
+                  style: const TextStyle(fontSize: 16, color: AppColors.secondary, fontWeight: FontWeight.bold)),
+              if (vuelto > 0) ...[
+                const Divider(height: 20, thickness: 1.5),
+                Text(
+                  'VUELTO EN EFECTIVO: Bs. ${vuelto.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.success,
+                  ),
+                ),
+              ],
             ] else ...[
               Text('Vecino: ${_clienteSeleccionado!.nombre}',
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -358,11 +419,21 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
           orElse: () => <Cliente>[],
         );
 
+    final double montoEfectivoMixto = double.tryParse(_montoEfectivoMixtoController.text.trim()) ?? 0.0;
+    final double saldoQrMixto = widget.totalAPagar - montoEfectivoMixto;
+    final double billeteEntregadoMixto = double.tryParse(_billeteEntregadoMixtoController.text.trim()) ?? montoEfectivoMixto;
+    final bool saldoSuficienteMixto = montoEfectivoMixto > 0 &&
+        montoEfectivoMixto < widget.totalAPagar &&
+        saldoQrMixto > 0 &&
+        billeteEntregadoMixto >= montoEfectivoMixto;
+
     final bool puedeConfirmar = _metodo == MetodoPagoCobro.efectivo
         ? saldoSuficienteEfectivo
         : (_metodo == MetodoPagoCobro.qr
             ? true
-            : (_clienteSeleccionado != null));
+            : (_metodo == MetodoPagoCobro.mixto
+                ? saldoSuficienteMixto
+                : (_clienteSeleccionado != null)));
 
     return Scaffold(
       appBar: AppBar(
@@ -376,16 +447,18 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // 1. Selector Superior de Método de Pago Masivo (52dp)
+            // 1. Selector Superior de Método de Pago Masivo (4 opciones)
             Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
               color: AppColors.surface,
               child: Row(
                 children: [
                   _buildBotonMetodo('💵 Efectivo', MetodoPagoCobro.efectivo),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   _buildBotonMetodo('📱 QR', MetodoPagoCobro.qr),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
+                  _buildBotonMetodo('🔀 Mixto', MetodoPagoCobro.mixto),
+                  const SizedBox(width: 6),
                   _buildBotonMetodo('📝 Fiado', MetodoPagoCobro.fiado),
                 ],
               ),
@@ -397,7 +470,9 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
                   ? _buildVistaEfectivo(efectivoRecibido, diferencia, saldoSuficienteEfectivo)
                   : (_metodo == MetodoPagoCobro.qr
                       ? _buildVistaQR()
-                      : _buildVistaFiado(clientes)),
+                      : (_metodo == MetodoPagoCobro.mixto
+                          ? _buildVistaMixto()
+                          : _buildVistaFiado(clientes))),
             ),
           ],
         ),
@@ -445,10 +520,10 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
     final seleccionado = _metodo == metodo;
     return Expanded(
       child: SizedBox(
-        height: 50,
+        height: 48,
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
-            padding: EdgeInsets.zero,
+            padding: const EdgeInsets.symmetric(horizontal: 2),
             backgroundColor: seleccionado ? AppColors.primary : AppColors.surfaceMuted,
             elevation: seleccionado ? 2 : 0,
             shape: RoundedRectangleBorder(
@@ -462,13 +537,207 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
           onPressed: () => setState(() => _metodo = metodo),
           child: Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 13,
               fontWeight: FontWeight.bold,
               color: seleccionado ? Colors.white : AppColors.textPrimary,
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // --- Vista Pago Mixto (Efectivo + QR) ---
+  Widget _buildVistaMixto() {
+    final double total = widget.totalAPagar;
+    final double efectivoACobrar = double.tryParse(_montoEfectivoMixtoController.text.trim()) ?? 0.0;
+    final double saldoQr = (total - efectivoACobrar) > 0 ? (total - efectivoACobrar) : 0.0;
+    final double billeteEntregado = double.tryParse(_billeteEntregadoMixtoController.text.trim()) ?? efectivoACobrar;
+    final double vuelto = (billeteEntregado - efectivoACobrar) > 0 ? (billeteEntregado - efectivoACobrar) : 0.0;
+    final bool valido = efectivoACobrar > 0 && efectivoACobrar < total;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Banner Resumen Total
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withAlpha(15),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.primary.withAlpha(60)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('TOTAL DE LA CUENTA:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                Text('Bs. ${total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.primary)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Bloque 1: Parte en Efectivo
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.success.withAlpha(120), width: 1.5),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 6, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.attach_money, color: AppColors.success, size: 24),
+                    SizedBox(width: 6),
+                    Text('1. Parte pagada en Efectivo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.success)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _montoEfectivoMixtoController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.success),
+                  decoration: const InputDecoration(
+                    labelText: 'Monto a pagar en Efectivo (Bs.) *',
+                    hintText: 'Ej. 20.00',
+                    prefixText: 'Bs. ',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 8),
+
+                // Atajos rápidos de importe
+                Row(
+                  children: [
+                    const Text('Atajos: ', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                    ActionChip(
+                      label: const Text('Mitad (50%)', style: TextStyle(fontSize: 12)),
+                      onPressed: () {
+                        final mitad = (total / 2.0);
+                        _montoEfectivoMixtoController.text = mitad.toStringAsFixed(2);
+                        setState(() {});
+                      },
+                    ),
+                    const SizedBox(width: 6),
+                    if (total > 10)
+                      ActionChip(
+                        label: const Text('Bs. 10', style: TextStyle(fontSize: 12)),
+                        onPressed: () {
+                          _montoEfectivoMixtoController.text = '10.00';
+                          setState(() {});
+                        },
+                      ),
+                    const SizedBox(width: 6),
+                    if (total > 20)
+                      ActionChip(
+                        label: const Text('Bs. 20', style: TextStyle(fontSize: 12)),
+                        onPressed: () {
+                          _montoEfectivoMixtoController.text = '20.00';
+                          setState(() {});
+                        },
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Campo Billete entregado
+                TextField(
+                  controller: _billeteEntregadoMixtoController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: 'Billete recibido (Opcional para vuelto)',
+                    hintText: efectivoACobrar > 0 ? 'Ej. ${efectivoACobrar.toStringAsFixed(0)}' : 'Ej. 50',
+                    prefixText: 'Bs. ',
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                if (vuelto > 0) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withAlpha(20),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Vuelto en efectivo a entregar:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        Text('Bs. ${vuelto.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.success)),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Bloque 2: Saldo restante por QR
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.blue.shade700.withAlpha(120), width: 1.5),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 6, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.qr_code_2, color: Colors.blue.shade700, size: 26),
+                    const SizedBox(width: 8),
+                    Text('2. Saldo restante por QR', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text('El cliente debe escanear el QR por:', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Bs. ${saldoQr.toStringAsFixed(2)}',
+                        style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.blue.shade800),
+                      ),
+                      if (!valido && efectivoACobrar >= total) ...[
+                        const SizedBox(height: 4),
+                        const Text('⚠️ El efectivo ya cubre todo el total. Usa la pestaña "Efectivo".', style: TextStyle(color: AppColors.danger, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ] else if (!valido) ...[
+                        const SizedBox(height: 4),
+                        const Text('Ingresa el monto en efectivo para calcular el QR restante.', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

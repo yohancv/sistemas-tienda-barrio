@@ -5,6 +5,8 @@ class MovimientoCajaModel {
   final String tipo; // 'ENTRADA' o 'SALIDA'
   final double monto;
   final String motivo;
+  final String origenDinero; // 'EFECTIVO_CAJA' o 'BANCO_QR'
+  final String categoria; // 'GASTO_TIENDA', 'RETIRO_PERSONAL', 'MERCADERIA_FUTURA', 'AHORRO', 'PAGO_AYUDANTE', 'CAMBIO_SENCILLO', 'OTRO'
   final DateTime createdAt;
 
   const MovimientoCajaModel({
@@ -14,11 +16,38 @@ class MovimientoCajaModel {
     required this.tipo,
     required this.monto,
     required this.motivo,
+    this.origenDinero = 'EFECTIVO_CAJA',
+    this.categoria = 'GASTO_TIENDA',
     required this.createdAt,
   });
 
   bool get esEntrada => tipo == 'ENTRADA';
   bool get esSalida => tipo == 'SALIDA';
+
+  bool get esOrigenEfectivo => origenDinero == 'EFECTIVO_CAJA';
+  bool get esOrigenBancoQr => origenDinero == 'BANCO_QR';
+
+  String get etiquetaOrigen => esOrigenBancoQr ? '📱 QR / Banco' : '💵 Cajón Físico';
+
+  String get etiquetaCategoria {
+    switch (categoria) {
+      case 'MERCADERIA_FUTURA':
+        return '📦 Mercadería Futura';
+      case 'RETIRO_PERSONAL':
+        return '💰 Retiro Personal';
+      case 'AHORRO':
+        return '🏦 Ahorro';
+      case 'PAGO_AYUDANTE':
+        return '🧑‍🤝‍🧑 Pago a Ayudante';
+      case 'CAMBIO_SENCILLO':
+        return '💵 Sencillo para Cajón';
+      case 'GASTO_TIENDA':
+        return '🧹 Gasto Tienda';
+      case 'OTRO':
+      default:
+        return '📝 Otro Concepto';
+    }
+  }
 
   factory MovimientoCajaModel.fromMap(Map<String, dynamic> map) {
     return MovimientoCajaModel(
@@ -28,6 +57,8 @@ class MovimientoCajaModel {
       tipo: map['tipo'] as String,
       monto: _toDouble(map['monto']),
       motivo: map['motivo'] as String? ?? '',
+      origenDinero: map['origen_dinero'] as String? ?? 'EFECTIVO_CAJA',
+      categoria: map['categoria'] as String? ?? 'GASTO_TIENDA',
       createdAt: DateTime.parse(map['created_at'] as String),
     );
   }
@@ -40,6 +71,8 @@ class MovimientoCajaModel {
       'tipo': tipo,
       'monto': monto,
       'motivo': motivo,
+      'origen_dinero': origenDinero,
+      'categoria': categoria,
       'created_at': createdAt.toIso8601String(),
     };
   }

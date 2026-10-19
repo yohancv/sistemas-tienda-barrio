@@ -440,67 +440,339 @@ class _VistaCajaAbierta extends ConsumerWidget {
                     totalFiadosCobradosQr: 0,
                     totalEntradasManuales: 0,
                     totalSalidasManuales: 0,
+                    totalRetirosQr: 0,
+                    totalSalidasTienda: 0,
+                    totalSalidasPersonal: 0,
+                    totalMercaderiaFutura: 0,
+                    saldoNetoQr: 0,
                     montoEsperadoEfectivo: turno.montoInicial,
                   );
 
+                  final tieneBuenMargen = r.balanceOperativoTienda >= r.totalSalidasPersonal;
+
                   return Column(
                     children: [
-                      // Tarjeta Gigante: Efectivo Estimado en el Cajón
-                      Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [AppColors.primary, AppColors.primary.withAlpha(220)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(18),
-                          boxShadow: [
-                            BoxShadow(color: AppColors.primary.withAlpha(80), blurRadius: 12, offset: const Offset(0, 4)),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'EFECTIVO TEÓRICO EN CAJÓN',
-                                  style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                      // ==========================================
+                      // 1. LAS 2 BILLETERAS PRINCIPALES DEL NEGOCIO
+                      // ==========================================
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // BILLETERA 1: CAJÓN FÍSICO (EFECTIVO)
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [AppColors.primary, AppColors.primary.withAlpha(220)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                 ),
-                                IconButton(
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  icon: Icon(
-                                    mostrarEfectivo ? Icons.visibility : Icons.visibility_off,
-                                    color: Colors.white70,
-                                    size: 20,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.primary.withAlpha(60),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
                                   ),
-                                  onPressed: onToggleEfectivo,
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Row(
+                                        children: [
+                                          Icon(Icons.point_of_sale, color: Colors.white70, size: 16),
+                                          SizedBox(width: 6),
+                                          Text(
+                                            'CAJÓN FÍSICO',
+                                            style: TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      IconButton(
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        icon: Icon(
+                                          mostrarEfectivo ? Icons.visibility : Icons.visibility_off,
+                                          color: Colors.white70,
+                                          size: 18,
+                                        ),
+                                        onPressed: onToggleEfectivo,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    mostrarEfectivo
+                                        ? 'Bs. ${r.montoEsperadoEfectivo.toStringAsFixed(2)}'
+                                        : 'Bs. ••••••',
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w900,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Efectivo contante en gaveta',
+                                    style: TextStyle(color: Colors.white.withAlpha(180), fontSize: 10),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+
+                          // BILLETERA 2: BANCO / QR (SALDO DISPONIBLE)
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Colors.blue[800]!, Colors.blue[600]!],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.blue.withAlpha(60),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.account_balance_wallet, color: Colors.white70, size: 16),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'BANCO / QR',
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    mostrarEfectivo
+                                        ? 'Bs. ${r.saldoNetoQr.toStringAsFixed(2)}'
+                                        : 'Bs. ••••••',
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w900,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Cobrado QR menos cajero ATM',
+                                    style: TextStyle(color: Colors.white.withAlpha(180), fontSize: 10),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      // BANNER CONSOLIDADO: TOTAL DINERO DISPONIBLE
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.savings_outlined, color: AppColors.primary, size: 18),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Dinero Total en Mano + Banco:',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 6),
                             Text(
-                              mostrarEfectivo ? 'Bs. ${r.montoEsperadoEfectivo.toStringAsFixed(2)}' : 'Bs. ••••••',
-                              style: const TextStyle(
-                                fontSize: 34,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Fondo (Bs. ${r.montoInicial.toStringAsFixed(2)}) + Ventas Efectivo (Bs. ${r.totalVentasEfectivo.toStringAsFixed(2)}) + Abonos (Bs. ${r.totalFiadosCobradosEfectivo.toStringAsFixed(2)}) - Gastos (Bs. ${r.totalSalidasManuales.toStringAsFixed(2)})',
-                              style: const TextStyle(color: Colors.white60, fontSize: 11),
+                              mostrarEfectivo
+                                  ? 'Bs. ${r.totalDineroDisponible.toStringAsFixed(2)}'
+                                  : 'Bs. ••••••',
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.primary),
                             ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 14),
 
-                      // Tarjetas en Grid de Ingresos
+                      // ==========================================
+                      // 2. TARJETA DE SALUD FINANCIERA DEL DÍA
+                      // "¿Tu negocio realmente está ganando dinero?"
+                      // ==========================================
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: tieneBuenMargen
+                                ? AppColors.success.withAlpha(80)
+                                : Colors.amber.withAlpha(120),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 6, offset: const Offset(0, 2)),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: tieneBuenMargen
+                                      ? AppColors.success.withAlpha(30)
+                                      : Colors.amber.withAlpha(40),
+                                  child: Icon(
+                                    tieneBuenMargen ? Icons.trending_up : Icons.info_outline,
+                                    size: 16,
+                                    color: tieneBuenMargen ? AppColors.success : Colors.orange[800],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  '¿Cómo va el negocio hoy?',
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                ),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: tieneBuenMargen
+                                        ? AppColors.success.withAlpha(20)
+                                        : Colors.amber.withAlpha(25),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    tieneBuenMargen ? '🟢 Tienda Saludable' : '🟡 Cuidado con Retiros',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: tieneBuenMargen ? AppColors.success : Colors.orange[900],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 18),
+
+                            // Fila 1: Total cobrado
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Total Ingresos Cobrados:', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                                Text('Bs. ${r.totalIngresosDia.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+
+                            // Fila 2: Gastos de tienda
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Gastos Tienda (Luz, bolsas, etc.):', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                                Text('- Bs. ${r.totalSalidasTienda.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.danger)),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+
+                            // Fila 3: Apartado mercadería futura
+                            if (r.totalMercaderiaFutura > 0) ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('Apartado para Proveedores:', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                                  Text('Bs. ${r.totalMercaderiaFutura.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue)),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                            ],
+
+                            // Fila 4: Margen Operativo Limpio
+                            Container(
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppColors.background,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Margen Operativo de Tienda:',
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                  ),
+                                  Text(
+                                    'Bs. ${r.balanceOperativoTienda.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w900,
+                                      color: r.balanceOperativoTienda >= 0 ? AppColors.success : AppColors.danger,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Fila 5: Retiros Personales del Dueño
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Retiros Personales (Gastos de casa):', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                                Text('Bs. ${r.totalSalidasPersonal.toStringAsFixed(2)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.orange[800])),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+
+                            // Consejo en vivo
+                            Text(
+                              tieneBuenMargen
+                                  ? 'Tus ingresos cubren los gastos del negocio y tus retiros personales.'
+                                  : 'Has retirado Bs. ${(r.totalSalidasPersonal - r.balanceOperativoTienda).toStringAsFixed(2)} más de lo generado hoy. Cuida no comerte el capital de mercadería.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: tieneBuenMargen ? Colors.grey[700] : Colors.orange[900],
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Tarjetas en Grid de Operaciones
                       Row(
                         children: [
                           Expanded(
@@ -511,7 +783,7 @@ class _VistaCajaAbierta extends ConsumerWidget {
                               color: AppColors.success,
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: _CardMetrica(
                               titulo: 'Ventas por QR',
@@ -523,7 +795,7 @@ class _VistaCajaAbierta extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
 
                       Row(
                         children: [
@@ -536,25 +808,25 @@ class _VistaCajaAbierta extends ConsumerWidget {
                               color: Colors.orange[800]!,
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: _CardMetrica(
                               titulo: 'Fiados Cobrados',
-                              subtitulo: '(Efectivo sumado)',
-                              valor: 'Bs. ${r.totalFiadosCobradosEfectivo.toStringAsFixed(2)}',
+                              subtitulo: '(Efectivo + QR)',
+                              valor: 'Bs. ${(r.totalFiadosCobradosEfectivo + r.totalFiadosCobradosQr).toStringAsFixed(2)}',
                               icono: Icons.task_alt,
                               color: AppColors.success,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
 
-                      // Tarjeta Gastos / Salidas Manuales
+                      // Tarjeta Retiros y Salidas Totales
                       _CardMetrica(
-                        titulo: 'Gastos y Salidas del Cajón',
-                        subtitulo: 'Compras menores de mostrador (pan, hielo, etc.)',
-                        valor: '- Bs. ${r.totalSalidasManuales.toStringAsFixed(2)}',
+                        titulo: 'Salidas y Retiros del Turno',
+                        subtitulo: 'Cajón: Bs. ${r.totalSalidasManuales.toStringAsFixed(2)} | QR ATM: Bs. ${r.totalRetirosQr.toStringAsFixed(2)}',
+                        valor: '- Bs. ${r.totalSalidasGlobales.toStringAsFixed(2)}',
                         icono: Icons.shopping_basket_outlined,
                         color: AppColors.danger,
                       ),
@@ -562,9 +834,9 @@ class _VistaCajaAbierta extends ConsumerWidget {
                   );
                 },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
-              // Botón Acción Rápida: Entrada / Salida Manual
+              // Botón Acción Rápida: Entrada / Salida Manual (Caja o QR)
               SizedBox(
                 height: 52,
                 child: OutlinedButton.icon(
@@ -575,16 +847,16 @@ class _VistaCajaAbierta extends ConsumerWidget {
                   onPressed: onRegistrarMovimiento,
                   icon: const Icon(Icons.add_shopping_cart, color: AppColors.primary),
                   label: const Text(
-                    'REGISTRAR GASTO / ENTRADA MANUAL',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.primary),
+                    'REGISTRAR RETIRO O INGRESO (CAJA / QR)',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary),
                   ),
                 ),
               ),
               const SizedBox(height: 24),
 
-              // Historial de Movimientos Manuales del Turno
+              // Historial de Movimientos Manuales del Turno con tags de Origen y Categoría
               const Text(
-                'Gastos y Movimientos de este turno',
+                'Retiros y Movimientos de este turno',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
@@ -600,7 +872,10 @@ class _VistaCajaAbierta extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Center(
-                        child: Text('No hay gastos ni salidas manuales registradas en este turno.', style: TextStyle(color: AppColors.textMuted)),
+                        child: Text(
+                          'No hay gastos ni retiros registrados en este turno.',
+                          style: TextStyle(color: AppColors.textMuted),
+                        ),
                       ),
                     );
                   }
@@ -621,20 +896,65 @@ class _VistaCajaAbierta extends ConsumerWidget {
                         ),
                         child: Row(
                           children: [
-                            Icon(
-                              m.esSalida ? Icons.arrow_upward : Icons.arrow_downward,
-                              color: m.esSalida ? AppColors.danger : AppColors.success,
-                              size: 22,
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundColor: m.esSalida
+                                  ? (m.esOrigenBancoQr ? Colors.blue.withAlpha(30) : AppColors.danger.withAlpha(25))
+                                  : AppColors.success.withAlpha(25),
+                              child: Icon(
+                                m.esSalida ? Icons.arrow_upward : Icons.arrow_downward,
+                                color: m.esSalida
+                                    ? (m.esOrigenBancoQr ? Colors.blue[800] : AppColors.danger)
+                                    : AppColors.success,
+                                size: 18,
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(m.motivo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                                   Text(
-                                    '${m.createdAt.hour.toString().padLeft(2, '0')}:${m.createdAt.minute.toString().padLeft(2, '0')}',
-                                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                    m.motivo,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Wrap(
+                                    spacing: 6,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: m.esOrigenBancoQr ? Colors.blue[50] : Colors.green[50],
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          m.etiquetaOrigen,
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: m.esOrigenBancoQr ? Colors.blue[800] : Colors.green[800],
+                                          ),
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.background,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          m.etiquetaCategoria,
+                                          style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                                        ),
+                                      ),
+                                      Text(
+                                        '${m.createdAt.hour.toString().padLeft(2, '0')}:${m.createdAt.minute.toString().padLeft(2, '0')}',
+                                        style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -751,6 +1071,11 @@ class _VistaArqueoConteo extends ConsumerWidget {
               totalFiadosCobradosQr: 0,
               totalEntradasManuales: 0,
               totalSalidasManuales: 0,
+              totalRetirosQr: 0,
+              totalSalidasTienda: 0,
+              totalSalidasPersonal: 0,
+              totalMercaderiaFutura: 0,
+              saldoNetoQr: 0,
               montoEsperadoEfectivo: turno.montoInicial,
             );
 
@@ -763,22 +1088,54 @@ class _VistaArqueoConteo extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Instrucción Conteo Ciego
+                  // Banner informativo de Banco / QR
                   Container(
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.blue[50],
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.blue[200]!),
                     ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.qr_code_2, color: Colors.blue, size: 28),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Saldo en Banco / QR (Verificar en tu App Bancaria):',
+                                style: TextStyle(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                'Bs. ${r.saldoNetoQr.toStringAsFixed(2)} neto disponible',
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.blue[900]),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Instrucción Conteo Ciego para el Cajón Físico
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
                     child: const Row(
                       children: [
-                        Icon(Icons.info_outline, color: Colors.blue),
+                        Icon(Icons.point_of_sale, color: AppColors.primary),
                         SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             'Cuenta los billetes y monedas que tienes físicamente en la gaveta sin mirar el esperado:',
-                            style: TextStyle(fontSize: 13, color: Colors.blueGrey, fontWeight: FontWeight.w600),
+                            style: TextStyle(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
                           ),
                         ),
                       ],
@@ -908,6 +1265,8 @@ class _VistaArqueoConteo extends ConsumerWidget {
                             ],
                           ),
                           const Divider(height: 24),
+
+                          // Efectivo en Cajón
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -929,20 +1288,47 @@ class _VistaArqueoConteo extends ConsumerWidget {
                               ),
                             ],
                           ),
-                          const Divider(height: 20),
+                          const Divider(height: 16),
+
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('DIFERENCIA:', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                              const Text('DIFERENCIA EFECTIVO:', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                               Text(
                                 '${dif >= 0 ? '+' : ''}Bs. ${dif.toStringAsFixed(2)}',
                                 style: TextStyle(
-                                  fontSize: 22,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.w900,
                                   color: estaCuadrada
                                       ? AppColors.success
                                       : (hayFaltante ? AppColors.danger : AppColors.warning),
                                 ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 18),
+
+                          // Billetera Banco / QR
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Saldo Neto en Banco / QR:', style: TextStyle(fontSize: 13, color: Colors.blueGrey)),
+                              Text(
+                                'Bs. ${r.saldoNetoQr.toStringAsFixed(2)}',
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blue),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+
+                          // Gran Total Dinero Real al Cierre
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Total Real (Efectivo + Banco):', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                              Text(
+                                'Bs. ${(granTotalContado + r.saldoNetoQr).toStringAsFixed(2)}',
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.primary),
                               ),
                             ],
                           ),

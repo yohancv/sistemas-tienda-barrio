@@ -165,6 +165,77 @@ class Producto {
     return '${_nombreEmpaque(tipoEmpaque)} de $uds';
   }
 
+  /// Nombre legible del tipo de empaque (singular)
+  String get nombreEmpaqueLegible => _nombreEmpaque(tipoEmpaque);
+
+  /// Nombre legible del tipo de empaque (plural)
+  String get nombreEmpaquePlural => _nombreEmpaquePlural(tipoEmpaque);
+
+  /// Nombre corto o abreviado del tipo de empaque (ej. "paq", "caja", "fardo")
+  String get nombreEmpaqueCorto => _nombreEmpaqueCorto(tipoEmpaque);
+
+  /// Cantidad de empaques enteros/completos que se tienen en stock
+  int get empaquesCompletos {
+    if (!tieneEmpaqueMayorista || unidadesPorEmpaque <= 0) return 0;
+    return stockActual ~/ unidadesPorEmpaque;
+  }
+
+  /// Unidades sueltas restantes que no completan un empaque
+  double get unidadesSueltasRestantes {
+    if (!tieneEmpaqueMayorista || unidadesPorEmpaque <= 0) return stockActual;
+    return stockActual % unidadesPorEmpaque;
+  }
+
+  /// Precio de venta efectivo por empaque cerrado (si no tiene configurado uno especial, calcula unidades * precioVenta)
+  double get precioVentaEmpaqueEfectivo {
+    if (precioEmpaqueMayorista != null && precioEmpaqueMayorista! > 0) {
+      return precioEmpaqueMayorista!;
+    }
+    return ((unidadesPorEmpaque * precioVenta) * 100).round() / 100.0;
+  }
+
+  /// Indica si el producto permite venta directa por empaque/caja en mostrador.
+  /// Requiere que tenga empaque mayorista Y que explícitamente se le haya asignado
+  /// un precio de venta para caja/paquete (ej. cerveza o fardos de soda).
+  /// Si se deja vacío (null o 0), el producto solo se vende por unidad en mostrador (ej. chicles, caramelos, galletas).
+  bool get permiteVentaEmpaque =>
+      tieneEmpaqueMayorista &&
+      precioEmpaqueMayorista != null &&
+      precioEmpaqueMayorista! > 0;
+
+  /// Retorna el stock formateado de forma humana e inteligente para no hacer cálculos mentales.
+  /// Ejemplos:
+  /// - "9 paq + 11 uds (227 total)"
+  /// - "20 paq (480 uds)"
+  /// - "11 uds sueltas"
+  /// - "17 uds" (si no tiene empaque)
+  /// - "4.42 kg" (si es fraccionable)
+  String get stockLegibleDesglosado {
+    if (esFraccionable) {
+      return '${stockActual.toStringAsFixed(2)} $unidadMedida';
+    }
+    if (!tieneEmpaqueMayorista) {
+      return '${stockActual.toStringAsFixed(0)} uds';
+    }
+
+    final totalInt = stockActual.toInt();
+    if (stockActual <= 0) {
+      return '0 uds';
+    }
+
+    final bultos = empaquesCompletos;
+    final sueltas = unidadesSueltasRestantes.toInt();
+    final tipoCorto = nombreEmpaqueCorto;
+
+    if (bultos > 0 && sueltas == 0) {
+      return '$bultos $tipoCorto ($totalInt uds)';
+    } else if (bultos > 0 && sueltas > 0) {
+      return '$bultos $tipoCorto + $sueltas uds ($totalInt total)';
+    } else {
+      return '$sueltas uds sueltas';
+    }
+  }
+
   /// Nombre legible del tipo de empaque
   static String _nombreEmpaque(String tipo) {
     switch (tipo) {
@@ -184,6 +255,46 @@ class Producto {
         return 'Libra';
       default:
         return 'Unidad';
+    }
+  }
+
+  /// Nombre plural del tipo de empaque
+  static String _nombreEmpaquePlural(String tipo) {
+    switch (tipo) {
+      case 'CAJA':
+        return 'Cajas';
+      case 'PAQUETE':
+        return 'Paquetes';
+      case 'FARDO':
+        return 'Fardos';
+      case 'BOLSA':
+        return 'Bolsas';
+      case 'TIRA':
+        return 'Tiras';
+      case 'KILO':
+        return 'Kilos';
+      case 'LIBRA':
+        return 'Libras';
+      default:
+        return 'Unidades';
+    }
+  }
+
+  /// Abreviación corta del tipo de empaque
+  static String _nombreEmpaqueCorto(String tipo) {
+    switch (tipo) {
+      case 'CAJA':
+        return 'caja';
+      case 'PAQUETE':
+        return 'paq';
+      case 'FARDO':
+        return 'fardo';
+      case 'BOLSA':
+        return 'bolsa';
+      case 'TIRA':
+        return 'tira';
+      default:
+        return 'paq';
     }
   }
 
@@ -289,7 +400,7 @@ class Producto {
       stockMinimo: _toDouble(map['stock_minimo']),
       costoMayorista: _toDouble(map['costo_mayorista']),
       precioVenta: _toDouble(map['precio_venta']),
-      estadoActivo: map['estado_activo'] as bool? ?? true,
+      estadoActivo: _toBool(map['estado_activo'], defaultValue: true),
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'] as String)
           : DateTime.now(),
@@ -304,7 +415,7 @@ class Producto {
       precioEmpaqueMayorista: map['precio_empaque_mayorista'] != null
           ? _toDouble(map['precio_empaque_mayorista'])
           : null,
-      permiteVentaSuelta: map['permite_venta_suelta'] as bool? ?? false,
+      permiteVentaSuelta: _toBool(map['permite_venta_suelta'], defaultValue: false),
       nombreUnidadSuelta: map['nombre_unidad_suelta'] as String? ?? 'unidad',
       unidadesEnEmpaqueVenta: map['unidades_en_empaque_venta'] != null
           ? _toDouble(map['unidades_en_empaque_venta'])
@@ -317,7 +428,18 @@ class Producto {
     );
   }
 
-  /// Conversor seguro de valores numéricos de Supabase (PostgreSQL NUMERIC)
+  static bool _toBool(dynamic value, {bool defaultValue = false}) {
+    if (value == null) return defaultValue;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final v = value.toLowerCase().trim();
+      return v == 'true' || v == '1';
+    }
+    return defaultValue;
+  }
+
+  /// Conversor seguro de valores numéricos de Supabase/SQLite
   static double _toDouble(dynamic value) {
     if (value == null) return 0.0;
     if (value is num) return value.toDouble();

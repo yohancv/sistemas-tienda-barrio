@@ -67,6 +67,7 @@ class _FormularioProductoScreenState
   late final TextEditingController _precioEmpaqueMayoristaController; // Opcional, ej. Bs. 140
   late final TextEditingController _stockEmpaquesController; // Cajas cerradas en almacén
   String _tipoEmpaque = 'CAJA';
+  bool _vendePorCajaEntera = false;
 
   // Específico para Modo Suelto 3 Niveles (Cigarros / Blísters)
   late final TextEditingController _nombreUnidadSueltaController; // ej. 'cigarro', 'pastilla'
@@ -76,11 +77,8 @@ class _FormularioProductoScreenState
   // Estado del formulario
   bool _guardando = false;
 
-  // FocusNodes y validación de código de barras
-  late final FocusNode _codigoBarrasFocusNode;
+  // FocusNodes
   late final FocusNode _nombreFocusNode;
-  Producto? _productoConflicto;
-  bool _verificandoCodigo = false;
 
   // Snapshot inicial para detección de cambios sin guardar (PopScope)
   late final String _inicialNombre;
@@ -114,12 +112,18 @@ class _FormularioProductoScreenState
     _precioVentaController = TextEditingController(
       text: p != null ? p.precioVenta.toStringAsFixed(2) : '',
     );
+    double stockSueltoInicial = p?.stockActual ?? 0.0;
+    double stockEmpaquesInicial = 0.0;
+
+    if (p != null && p.tieneEmpaqueMayorista && p.unidadesPorEmpaque > 0) {
+      stockEmpaquesInicial = p.empaquesCompletos.toDouble();
+      stockSueltoInicial = p.unidadesSueltasRestantes;
+    }
+
     _stockActualController = TextEditingController(
-      text: p != null
-          ? (p.stockActual.truncateToDouble() == p.stockActual
-              ? p.stockActual.toInt().toString()
-              : p.stockActual.toStringAsFixed(2))
-          : '0',
+      text: stockSueltoInicial.truncateToDouble() == stockSueltoInicial
+          ? stockSueltoInicial.toInt().toString()
+          : stockSueltoInicial.toStringAsFixed(2),
     );
     _stockMinimoController = TextEditingController(
       text: p != null
@@ -141,8 +145,11 @@ class _FormularioProductoScreenState
           ? p.precioEmpaqueMayorista!.toStringAsFixed(2)
           : '',
     );
-    _stockEmpaquesController = TextEditingController(text: '0');
+    _stockEmpaquesController = TextEditingController(
+      text: stockEmpaquesInicial.toInt().toString(),
+    );
     _tipoEmpaque = p != null && p.tipoEmpaque != 'UNIDAD' ? p.tipoEmpaque : 'CAJA';
+    _vendePorCajaEntera = p != null && p.precioEmpaqueMayorista != null && p.precioEmpaqueMayorista! > 0;
 
     // Suelto 3 Niveles (Cigarros)
     _nombreUnidadSueltaController = TextEditingController(
@@ -186,7 +193,6 @@ class _FormularioProductoScreenState
       _stockMinimoController.text = '2'; // Sugerencia inicial amigable (2 cajas)
     }
 
-    _codigoBarrasFocusNode = FocusNode();
     _nombreFocusNode = FocusNode();
 
     // Snapshot para detectar cambios
@@ -219,7 +225,6 @@ class _FormularioProductoScreenState
     _nombreUnidadSueltaController.dispose();
     _unidadesEnEmpaqueVentaController.dispose();
     _precioVentaSueltaController.dispose();
-    _codigoBarrasFocusNode.dispose();
     _nombreFocusNode.dispose();
     super.dispose();
   }
@@ -241,52 +246,7 @@ class _FormularioProductoScreenState
         _proveedorSeleccionadoId != _inicialProveedor;
   }
 
-  Future<void> _verificarCodigoBarras(String codigo) async {
-    if (codigo.trim().isEmpty) {
-      setState(() {
-        _productoConflicto = null;
-        _verificandoCodigo = false;
-      });
-      return;
-    }
-
-    setState(() => _verificandoCodigo = true);
-
-    final conflicto = await ref
-        .read(productoOperacionProvider.notifier)
-        .verificarCodigoBarras(
-          codigo,
-          excluirProductoId: widget.productoParaEditar?.id,
-        );
-
-    if (!mounted) return;
-    setState(() {
-      _productoConflicto = conflicto;
-      _verificandoCodigo = false;
-    });
-  }
-
-  void _onCodigoBarrasSubmitted(String valor) {
-    _verificarCodigoBarras(valor);
-    if (_productoConflicto == null) {
-      _nombreFocusNode.requestFocus();
-    }
-  }
-
   void _guardar() async {
-    if (_productoConflicto != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: AppColors.danger,
-          content: Text(
-            'El código de barras "${_codigoBarrasController.text}" ya pertenece a "${_productoConflicto!.nombre}".',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
-      );
-      return;
-    }
-
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _guardando = true);
@@ -331,8 +291,12 @@ class _FormularioProductoScreenState
           costoMayorista = costoPorEmpaque > 0 ? (costoPorEmpaque / unidadesPorEmpaque) : _parse(_costoMayoristaController);
 
           precioVenta = _parse(_precioVentaController);
-          final pEmpaque = _parse(_precioEmpaqueMayoristaController);
-          precioEmpaqueMayorista = pEmpaque > 0 ? pEmpaque : null;
+          if (_vendePorCajaEntera) {
+            final pEmpaque = _parse(_precioEmpaqueMayoristaController);
+            precioEmpaqueMayorista = pEmpaque > 0 ? pEmpaque : null;
+          } else {
+            precioEmpaqueMayorista = null;
+          }
 
           final cajasAlmacen = _parse(_stockEmpaquesController);
           stockActual = _parse(_stockActualController) + (cajasAlmacen * unidadesPorEmpaque);
@@ -577,76 +541,13 @@ class _FormularioProductoScreenState
                         ),
                         const SizedBox(height: 14),
 
-                        // Código de barras con botón generador y pistola
-                        TextFormField(
-                          controller: _codigoBarrasController,
-                          focusNode: _codigoBarrasFocusNode,
-                          style: const TextStyle(fontSize: 16),
-                          textInputAction: TextInputAction.next,
-                          onFieldSubmitted: _onCodigoBarrasSubmitted,
-                          onChanged: (val) {
-                            setState(() {});
-                            Future.delayed(const Duration(milliseconds: 500), () {
-                              if (mounted && _codigoBarrasController.text == val) {
-                                _verificarCodigoBarras(val);
-                              }
-                            });
-                          },
-                          decoration: InputDecoration(
-                            labelText: 'Código de Barras (Opcional)',
-                            hintText: 'Ej. 777123456789',
-                            prefixIcon: const Icon(Icons.qr_code_scanner, color: AppColors.textSecondary),
-                            border: const OutlineInputBorder(),
-                            suffixIcon: _verificandoCodigo
-                                ? const Padding(
-                                    padding: EdgeInsets.all(12),
-                                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                                  )
-                                : IconButton(
-                                    icon: const Icon(Icons.auto_fix_high, color: AppColors.primary),
-                                    tooltip: 'Generar código rápido',
-                                    onPressed: () {
-                                      final cod = DateTime.now().millisecondsSinceEpoch.toString().substring(3);
-                                      _codigoBarrasController.text = cod;
-                                      _verificarCodigoBarras(cod);
-                                      setState(() {});
-                                    },
-                                  ),
-                          ),
-                        ),
-
-                        if (_productoConflicto != null) ...[
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppColors.warning.withAlpha(25),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppColors.warning, width: 1.5),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 26),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    'Código ya registrado en "${_productoConflicto!.nombre}"',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.warning),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 14),
-
                         // Descripción opcional
                         TextFormField(
                           controller: _descripcionController,
                           maxLines: 2,
                           decoration: const InputDecoration(
                             labelText: 'Descripción o Ubicación (Opcional)',
-                            hintText: 'Ej. Heladera del fondo, anaquel 2...',
+                            hintText: 'Ej. Heladera del fondo, anaquel 2, vitrina...',
                             prefixIcon: Icon(Icons.description_outlined, color: AppColors.textSecondary),
                             border: OutlineInputBorder(),
                           ),
@@ -889,8 +790,8 @@ class _FormularioProductoScreenState
                                   width: cardWidth,
                                   modo: ModoVentaUi.paqueteCaja,
                                   icono: '📦',
-                                  titulo: 'Paquete / Caja',
-                                  subtitulo: 'Cervezas, fardos, galletas, chicles',
+                                  titulo: 'Paquetes, Cajas y Tiras',
+                                  subtitulo: 'Cervezas, sodas, velas, platos, galletas',
                                   colorActivo: AppColors.secondary,
                                 ),
                                 _buildModoButton(
@@ -1190,9 +1091,10 @@ class _FormularioProductoScreenState
                   decoration: const InputDecoration(labelText: 'Tipo de Empaque', border: OutlineInputBorder()),
                   items: const [
                     DropdownMenuItem(value: 'CAJA', child: Text('Caja')),
-                    DropdownMenuItem(value: 'FARDO', child: Text('Fardo')),
                     DropdownMenuItem(value: 'PAQUETE', child: Text('Paquete')),
+                    DropdownMenuItem(value: 'FARDO', child: Text('Fardo')),
                     DropdownMenuItem(value: 'BOLSA', child: Text('Bolsa')),
+                    DropdownMenuItem(value: 'TIRA', child: Text('Tira')),
                   ],
                   onChanged: (val) => setState(() => _tipoEmpaque = val ?? 'CAJA'),
                 ),
@@ -1204,7 +1106,7 @@ class _FormularioProductoScreenState
                   controller: _unidadesPorEmpaqueController,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'Uds por Paquete *',
+                    labelText: 'Uds por Paquete/Caja *',
                     hintText: 'Ej. 24',
                     border: OutlineInputBorder(),
                   ),
@@ -1246,7 +1148,7 @@ class _FormularioProductoScreenState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Te sale por lata/ud:', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                      const Text('Te sale por unidad:', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                       const SizedBox(height: 2),
                       Text(
                         'Bs. ${costoUnitarioAuto.toStringAsFixed(2)}',
@@ -1260,39 +1162,257 @@ class _FormularioProductoScreenState
           ),
           const SizedBox(height: 12),
 
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _precioVentaController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.success),
-                  decoration: const InputDecoration(
-                    labelText: 'Venta por Unidad *',
-                    hintText: 'Ej. 8.00',
-                    prefixText: 'Bs. ',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (_) => setState(() {}),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+          // Selector de modalidad de venta al público en mostrador
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.point_of_sale, size: 20, color: AppColors.primary),
+                    SizedBox(width: 8),
+                    Text(
+                      '¿Cómo se venderá este producto en mostrador?',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextFormField(
-                  controller: _precioEmpaqueMayoristaController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Venta Paquete (Opcional)',
-                    hintText: 'Ej. 150.00',
-                    prefixText: 'Bs. ',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (_) => setState(() {}),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    // Opción 1: Solo por Unidad
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _vendePorCajaEntera = false;
+                            _precioEmpaqueMayoristaController.clear();
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: !_vendePorCajaEntera
+                                ? AppColors.primary.withAlpha(20)
+                                : AppColors.surface,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: !_vendePorCajaEntera ? AppColors.primary : AppColors.border,
+                              width: !_vendePorCajaEntera ? 2 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    !_vendePorCajaEntera
+                                        ? Icons.radio_button_checked
+                                        : Icons.radio_button_off,
+                                    size: 18,
+                                    color: !_vendePorCajaEntera
+                                        ? AppColors.primary
+                                        : AppColors.textMuted,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    '🍬 Solo por Unidad',
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Ej. Chicles, golosinas, fósforos. Se compra en caja pero solo se vende suelto.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: !_vendePorCajaEntera
+                                      ? AppColors.textPrimary
+                                      : AppColors.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // Opción 2: Dual (Unidad y Caja entera)
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _vendePorCajaEntera = true;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: _vendePorCajaEntera
+                                ? AppColors.secondary.withAlpha(20)
+                                : AppColors.surface,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: _vendePorCajaEntera ? AppColors.secondary : AppColors.border,
+                              width: _vendePorCajaEntera ? 2 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    _vendePorCajaEntera
+                                        ? Icons.radio_button_checked
+                                        : Icons.radio_button_off,
+                                    size: 18,
+                                    color: _vendePorCajaEntera
+                                        ? AppColors.secondary
+                                        : AppColors.textMuted,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    '📦 Unidad y Caja',
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Ej. Cervezas o sodas. Se puede vender por botella o la caja completa.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: _vendePorCajaEntera
+                                      ? AppColors.textPrimary
+                                      : AppColors.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+          const SizedBox(height: 12),
+
+          // Campos de Precio según modalidad
+          if (!_vendePorCajaEntera) ...[
+            TextFormField(
+              controller: _precioVentaController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.success),
+              decoration: const InputDecoration(
+                labelText: 'Precio de Venta por Unidad *',
+                hintText: 'Ej. 0.50 o 1.00',
+                prefixText: 'Bs. ',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (_) => setState(() {}),
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withAlpha(15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.primary.withAlpha(50)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 16, color: AppColors.primary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      precioVentaUnidad > 0
+                          ? 'En el Punto de Venta se venderá directo por unidad a Bs. ${precioVentaUnidad.toStringAsFixed(2)}. Sin botones de caja.'
+                          : 'En el Punto de Venta se venderá directo por unidad suelta.',
+                      style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextFormField(
+                        controller: _precioVentaController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.success),
+                        decoration: const InputDecoration(
+                          labelText: 'Venta por Unidad *',
+                          hintText: 'Ej. 7.00',
+                          prefixText: 'Bs. ',
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (_) => setState(() {}),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextFormField(
+                        controller: _precioEmpaqueMayoristaController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.secondary),
+                        decoration: InputDecoration(
+                          labelText: 'Venta por ${_tipoEmpaque.toLowerCase() == 'caja' ? 'Caja' : _tipoEmpaque.toLowerCase() == 'paquete' ? 'Paquete' : 'Empaque'}',
+                          hintText: 'Ej. 160.00',
+                          prefixText: 'Bs. ',
+                          border: const OutlineInputBorder(),
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      if (precioVentaUnidad > 0 && unidades > 0) ...[
+                        const SizedBox(height: 4),
+                        InkWell(
+                          onTap: () {
+                            final sugerido = ((precioVentaUnidad * unidades) * 100).round() / 100.0;
+                            setState(() {
+                              _precioEmpaqueMayoristaController.text = sugerido.toStringAsFixed(2);
+                            });
+                          },
+                          child: Text(
+                            '💡 Sugerir: Bs. ${(precioVentaUnidad * unidades).toStringAsFixed(2)}',
+                            style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 12),
 
           // Calculadora de ganancia
@@ -1301,7 +1421,7 @@ class _FormularioProductoScreenState
             margen: margenUnidad,
             textoPersonalizado: 'Ganancia por unidad suelta:',
           ),
-          if (precioVentaPaquete > 0 && costoPaquete > 0) ...[
+          if (_vendePorCajaEntera && precioVentaPaquete > 0 && costoPaquete > 0) ...[
             const SizedBox(height: 6),
             Text(
               '📦 Si vendes el paquete entero ganas: Bs. ${(precioVentaPaquete - costoPaquete).toStringAsFixed(2)}',
@@ -1310,36 +1430,83 @@ class _FormularioProductoScreenState
           ],
           const SizedBox(height: 14),
 
-          // Stock en Mostrador y en Almacén
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _stockActualController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Unidades en mostrador *',
-                    hintText: 'Ej. 6',
-                    suffixText: 'uds',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+          // Sección de Stock Dual Inteligente: Paquetes cerrados + Sueltas
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceMuted,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.inventory_2_outlined, size: 20, color: AppColors.secondary),
+                    SizedBox(width: 8),
+                    Text(
+                      '¿Cuánto stock tienes hoy en tu tienda?',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextFormField(
-                  controller: _stockEmpaquesController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'En almacén',
-                    hintText: 'Ej. 2',
-                    suffixText: _tipoEmpaque.toLowerCase() == 'caja' ? 'cajas' : '${_tipoEmpaque.toLowerCase()}s',
-                    border: const OutlineInputBorder(),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _stockEmpaquesController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Paquetes / ${_tipoEmpaque.toLowerCase()}s',
+                          hintText: 'Ej. 9',
+                          suffixText: _tipoEmpaque.toLowerCase() == 'caja' ? 'cajas' : '${_tipoEmpaque.toLowerCase()}s',
+                          border: const OutlineInputBorder(),
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _stockActualController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: '+ Unidades sueltas',
+                          hintText: 'Ej. 11',
+                          suffixText: 'uds',
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (_) => setState(() {}),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withAlpha(20),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.secondary.withAlpha(60)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle_outline, size: 16, color: AppColors.secondary),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Total en inventario: ${((_parse(_stockEmpaquesController) * (unidades > 0 ? unidades : 1)) + _parse(_stockActualController)).toInt()} unidades (${_parse(_stockEmpaquesController).toInt()} ${_tipoEmpaque.toLowerCase()}s de ${unidades.toInt()} + ${_parse(_stockActualController).toInt()} sueltas)',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.secondary),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 14),
 
