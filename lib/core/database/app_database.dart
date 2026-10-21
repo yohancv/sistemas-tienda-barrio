@@ -166,6 +166,17 @@ class AppDatabase {
     _abriendo = null;
   }
 
+  /// Elimina por completo la base de datos local y la vuelve a crear limpia
+  /// (0 productos, 0 clientes, 0 ventas) con únicamente las categorías base.
+  Future<void> recrearBaseDeDatosLimpia() async {
+    final factory = obtenerDatabaseFactory();
+    final ruta = await obtenerRutaBaseDatos(AppConfig.nombreBaseDatos);
+    await cerrar();
+    await factory.deleteDatabase(ruta);
+    _columnasAseguradas = false;
+    await database;
+  }
+
   // ---------------------------------------------------------------------------
   // ESQUEMA
   // ---------------------------------------------------------------------------

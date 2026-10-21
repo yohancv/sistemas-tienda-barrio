@@ -5,8 +5,10 @@ import '../../../cierre_caja/state/providers/caja_providers.dart';
 import '../../../cuentas_por_cobrar/state/providers/clientes_providers.dart';
 import '../../../inventario/state/providers/categorias_providers.dart';
 import '../../../inventario/state/providers/inventario_providers.dart';
+import '../../../punto_de_venta/state/providers/carrito_providers.dart';
 import '../../backup/backup_providers.dart';
 import '../../backup/backup_service.dart';
+import '../../database/app_database.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/theme_provider.dart';
 import '../../utils/app_haptics.dart';
@@ -25,6 +27,7 @@ class _CentroRespaldosScreenState extends ConsumerState<CentroRespaldosScreen> {
   bool _restaurando = false;
   bool _fusionando = false;
   bool _exportandoCsv = false;
+  bool _restableciendo = false;
 
   @override
   Widget build(BuildContext context) {
@@ -152,6 +155,11 @@ class _CentroRespaldosScreenState extends ConsumerState<CentroRespaldosScreen> {
 
             // 6. Tarjeta de Exportación a Excel (CSV)
             _buildCardExcelCsv(esOscuro, surfaceColor, cardBorder, textPrimary, textSecondary, textMuted),
+
+            const SizedBox(height: 16),
+
+            // 7. Tarjeta de Preparación de Tienda Limpia (Entrega a Cliente)
+            _buildCardLimpiarParaEntrega(esOscuro, surfaceColor, cardBorder, textPrimary, textSecondary, textMuted),
           ],
         ),
       ),
@@ -1123,6 +1131,156 @@ class _CentroRespaldosScreenState extends ConsumerState<CentroRespaldosScreen> {
       }
     } finally {
       if (mounted) setState(() => _exportandoCsv = false);
+    }
+  }
+
+  /// Tarjeta para vaciar la base de datos y preparar la tienda 100% limpia para el cliente
+  Widget _buildCardLimpiarParaEntrega(
+    bool esOscuro,
+    Color surfaceColor,
+    Color cardBorder,
+    Color textPrimary,
+    Color textSecondary,
+    Color textMuted,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: esOscuro ? Colors.red.shade900 : Colors.red.shade200, width: 1.2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withAlpha(esOscuro ? 40 : 20),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.cleaning_services_rounded, color: Colors.redAccent, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Preparar Tienda para Entrega',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Restablece la app a cero (0 productos, 0 clientes y 0 deudas).',
+                      style: TextStyle(fontSize: 12.5, color: textMuted),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.redAccent, width: 1.4),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: _restableciendo ? null : _confirmarLimpiezaTienda,
+              icon: _restableciendo
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.redAccent))
+                  : const Icon(Icons.restart_alt_rounded, color: Colors.redAccent, size: 22),
+              label: Text(
+                _restableciendo ? 'Limpiando base de datos...' : 'Limpiar Todo y Empezar en Cero',
+                style: const TextStyle(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmarLimpiezaTienda() async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 28),
+            SizedBox(width: 8),
+            Text('¿Restablecer a Cero?'),
+          ],
+        ),
+        content: const Text(
+          'Esta acción borrará todos los productos, clientes, deudas y ventas de prueba.\n\n'
+          'Se conservarán únicamente las categorías base (Abarrotes, Bebidas, etc.) para que tu cliente comience a cargar su inventario real.',
+          style: TextStyle(fontSize: 14.5, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sí, Limpiar Todo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true || !mounted) return;
+
+    setState(() => _restableciendo = true);
+
+    try {
+      await AppDatabase.instance.recrearBaseDeDatosLimpia();
+
+      // Refrescar todos los providers activos
+      ref.invalidate(resumenBaseDatosProvider);
+      ref.invalidate(productosListProvider);
+      ref.invalidate(clientesListProvider);
+      ref.invalidate(carritoProvider);
+      ref.invalidate(cajaTurnoActivaProvider);
+      ref.invalidate(resumenCajaTurnoProvider);
+      ref.invalidate(categoriasPrincipalesProvider);
+      ref.invalidate(arbolCategoriasProvider);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.success,
+          content: Text('¡Base de datos limpia con éxito! La tienda está en blanco y lista para el cliente.'),
+          duration: Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.danger,
+          content: Text('Error al limpiar la base de datos: $e'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _restableciendo = false);
+      }
     }
   }
 }
