@@ -12,7 +12,7 @@ class BalanceWhatsAppFormatter {
   ];
 
   /// Genera un resumen limpio y formal del balance para compartir por WhatsApp
-  static String formatearMensajeBalance(DashboardReporteCompleto data, {String nombreTienda = 'Licorería & Tienda de Barrio'}) {
+  static String formatearMensajeBalance(DashboardReporteCompleto data, {String nombreTienda = 'Tienda de Barrio'}) {
     final f = data.financiero;
     final now = DateTime.now();
 

@@ -18,7 +18,7 @@ class OpcionesCobroWhatsApp {
     this.tono = TonoCobro.amable,
     this.incluirProductos = true,
     this.incluirOpcionQr = true,
-    this.nombreTienda = 'Licorería & Tienda de Barrio',
+    this.nombreTienda = 'Tienda de Barrio',
   });
 
   OpcionesCobroWhatsApp copyWith({
@@ -175,7 +175,7 @@ class CobroWhatsAppFormatter {
   /// Envía recordatorio rápido manteniendo compatibilidad con código antiguo
   static Future<bool> enviarRecordatorio({
     required Cliente cliente,
-    String nombreTienda = 'Licorería & Tienda de Barrio',
+    String nombreTienda = 'Tienda de Barrio',
   }) async {
     final mensaje = formatearMensajeCobro(
       cliente: cliente,

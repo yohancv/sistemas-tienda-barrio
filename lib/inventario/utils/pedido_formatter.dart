@@ -8,7 +8,7 @@ class PedidoFormatter {
   static String formatearPedido({
     required List<ItemReposicion> items,
     required double totalInversion,
-    String nombreTienda = 'Licorería & Tienda Familiar',
+    String nombreTienda = 'Tienda de Barrio',
   }) {
     final now = DateTime.now();
     final fechaStr =

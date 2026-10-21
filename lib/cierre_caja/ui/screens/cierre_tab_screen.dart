@@ -446,29 +446,31 @@ class _CierreTabScreenState extends ConsumerState<CierreTabScreen> {
 
     return Row(
       children: [
-        // Avatar naranja con ícono de licor
+        // Avatar elegante con ícono de tienda
         Container(
           width: 46,
           height: 46,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFFF8A00), Color(0xFFE52E71)],
+            gradient: LinearGradient(
+              colors: esOscuro
+                  ? const [Color(0xFF0284C7), Color(0xFF0369A1)]
+                  : const [AppColors.primary, Color(0xFF1D4ED8)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFFF8A00).withValues(alpha: 0.35),
-                blurRadius: 4,
+                color: (esOscuro ? const Color(0xFF0284C7) : AppColors.primary).withAlpha(60),
+                blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
             ],
           ),
-          child: const Icon(Icons.wine_bar_rounded, color: Colors.white, size: 26),
+          child: const Icon(Icons.storefront_rounded, color: Colors.white, size: 26),
         ),
         const SizedBox(width: 12),
-        // Nombre de tienda y badge
+        // Nombre de tienda y badge de estado
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -477,12 +479,12 @@ class _CierreTabScreenState extends ConsumerState<CierreTabScreen> {
                 children: [
                   Flexible(
                     child: Text(
-                      'Licorería & Tienda de Barrio',
+                      'Mi Tienda de Barrio',
                       style: TextStyle(
                         color: textPrimary,
                         fontSize: 16.5,
                         fontWeight: FontWeight.bold,
-                        letterSpacing: 0.3,
+                        letterSpacing: 0.2,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -492,18 +494,22 @@ class _CierreTabScreenState extends ConsumerState<CierreTabScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
-                      color: esOscuro ? const Color(0xFF332308) : const Color(0xFFFEF3C7),
+                      color: cajaAbierta
+                          ? (esOscuro ? const Color(0xFF064E3B) : const Color(0xFFECFDF5))
+                          : (esOscuro ? const Color(0xFF450A0A) : const Color(0xFFFEF2F2)),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: esOscuro
-                            ? const Color(0xFFFFB800).withValues(alpha: 0.5)
-                            : const Color(0xFFFDE68A),
+                        color: cajaAbierta
+                            ? (esOscuro ? const Color(0xFF059669) : const Color(0xFFA7F3D0))
+                            : (esOscuro ? const Color(0xFFDC2626) : const Color(0xFFFECACA)),
                       ),
                     ),
                     child: Text(
-                      'DON LUCHO',
+                      cajaAbierta ? 'ACTIVO' : 'CERRADO',
                       style: TextStyle(
-                        color: esOscuro ? const Color(0xFFFFB800) : const Color(0xFFB45309),
+                        color: cajaAbierta
+                            ? (esOscuro ? const Color(0xFF34D399) : const Color(0xFF047857))
+                            : (esOscuro ? const Color(0xFFF87171) : const Color(0xFFB91C1C)),
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.6,
@@ -587,7 +593,7 @@ class _CierreTabScreenState extends ConsumerState<CierreTabScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
-                  Icons.storefront_rounded,
+                  Icons.point_of_sale_rounded,
                   color: esOscuro ? const Color(0xFF8B5CF6) : const Color(0xFF7C3AED),
                   size: 22,
                 ),
@@ -598,7 +604,7 @@ class _CierreTabScreenState extends ConsumerState<CierreTabScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Caja Continua & Finanzas',
+                      'Control Diario de Caja',
                       style: TextStyle(
                         color: textPrimary,
                         fontSize: 15,
@@ -606,7 +612,7 @@ class _CierreTabScreenState extends ConsumerState<CierreTabScreen> {
                       ),
                     ),
                     Text(
-                      'Control diario de efectivo físico y cobros QR para el dueño',
+                      'Corte del día, retiros del dueño y efectivo en cajón',
                       style: TextStyle(color: textMuted, fontSize: 12),
                     ),
                   ],

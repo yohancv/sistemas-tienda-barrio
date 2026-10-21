@@ -51,7 +51,7 @@ class MyApp extends ConsumerWidget {
     );
 
     return MaterialApp(
-      title: 'LicorPOS • Tienda de Barrio',
+      title: 'Tienda de Barrio • POS',
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,
       theme: AppTheme.lightTheme.copyWith(pageTransitionsTheme: pageTransitions),

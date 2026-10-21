@@ -50,7 +50,7 @@ class _ModalCobroWhatsAppState extends ConsumerState<ModalCobroWhatsApp> {
       tono: _tono,
       incluirProductos: _incluirProductos,
       incluirOpcionQr: _incluirQr,
-      nombreTienda: 'Licorería & Tienda de Barrio',
+      nombreTienda: 'Tienda de Barrio',
     );
 
     return CobroWhatsAppFormatter.formatearMensajeCobro(

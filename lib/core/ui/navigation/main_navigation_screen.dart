@@ -142,15 +142,15 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   String _tituloPorTab(int index) {
     switch (index) {
       case 0:
-        return 'LicorPOS • Ventas';
+        return 'Punto de Venta';
       case 1:
         return 'Control de Inventario';
       case 2:
         return 'Cuentas por Cobrar (Fiados)';
       case 3:
-        return 'Arqueo & Finanzas';
+        return 'Caja & Finanzas';
       default:
-        return 'LicorPOS';
+        return 'Punto de Venta';
     }
   }
 
@@ -420,12 +420,14 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
               const NavigationDestination(
                 icon: Icon(Icons.storefront_outlined),
                 selectedIcon: Icon(Icons.storefront_rounded),
-                label: 'Ventas & Voz',
+                label: 'Ventas',
+                tooltip: '',
               ),
               const NavigationDestination(
                 icon: Icon(Icons.inventory_2_outlined),
                 selectedIcon: Icon(Icons.inventory_2_rounded),
                 label: 'Inventario',
+                tooltip: '',
               ),
               NavigationDestination(
                 icon: Badge(
@@ -447,11 +449,13 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                   child: const Icon(Icons.people_rounded),
                 ),
                 label: 'Fiados',
+                tooltip: '',
               ),
               const NavigationDestination(
-                icon: Icon(Icons.bar_chart_outlined),
-                selectedIcon: Icon(Icons.bar_chart_rounded),
-                label: 'Cierre & IA',
+                icon: Icon(Icons.point_of_sale_outlined),
+                selectedIcon: Icon(Icons.point_of_sale_rounded),
+                label: 'Caja & Finanzas',
+                tooltip: '',
               ),
             ],
           ),
