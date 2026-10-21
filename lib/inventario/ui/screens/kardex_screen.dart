@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/theme_provider.dart';
 import '../../data/models/movimiento_inventario_model.dart';
 import '../../state/providers/movimientos_providers.dart';
 import '../widgets/modal_registrar_merma.dart';
@@ -72,17 +73,29 @@ class _KardexScreenState extends ConsumerState<KardexScreen> {
     final movimientosAsync = ref.watch(kardexListProvider);
     final resumen = ref.watch(resumenKardexProvider);
 
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final bgColor = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Kardex de Inventario',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 18),
         ),
-        backgroundColor: AppColors.primary,
+        backgroundColor: surfaceColor,
+        foregroundColor: textPrimary,
         elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(color: cardBorder, height: 1.0),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.white),
+            icon: Icon(Icons.remove_circle_outline_rounded, color: textPrimary),
             tooltip: 'Registrar Merma o Baja',
             onPressed: () {
               Navigator.push(
@@ -94,7 +107,7 @@ class _KardexScreenState extends ConsumerState<KardexScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
+            icon: Icon(Icons.refresh, color: textPrimary),
             tooltip: 'Refrescar Kardex',
             onPressed: () => ref.invalidate(kardexListProvider),
           ),

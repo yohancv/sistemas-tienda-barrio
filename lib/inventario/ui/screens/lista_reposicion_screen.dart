@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/theme/theme_provider.dart';
 import '../../data/models/item_reposicion_model.dart';
 import '../../state/providers/inventario_providers.dart';
 import '../../state/providers/reposicion_providers.dart';
@@ -48,21 +49,33 @@ class _ListaReposicionScreenState extends ConsumerState<ListaReposicionScreen> {
       proveedorSeleccionado = proveedores.where((p) => p.id == _proveedorFiltroId).firstOrNull;
     }
 
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final bgColor = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: bgColor,
       appBar: AppBar(
         title: Text(
           'Lista de Reposición',
-          style: AppTypography.headlineSmall.copyWith(
-            color: Colors.white,
+          style: TextStyle(
+            color: textPrimary,
             fontWeight: FontWeight.bold,
+            fontSize: 18,
           ),
         ),
-        backgroundColor: AppColors.primary,
+        backgroundColor: surfaceColor,
+        foregroundColor: textPrimary,
         elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(color: cardBorder, height: 1.0),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.restart_alt, size: 28, color: Colors.white),
+            icon: Icon(Icons.restart_alt, size: 26, color: textPrimary),
             tooltip: 'Restaurar cantidades sugeridas',
             onPressed: () {
               ref
@@ -572,8 +585,8 @@ class _BarraAccionesPedido extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(15),
-            blurRadius: 8,
-            offset: const Offset(0, -3),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
           ),
         ],
       ),

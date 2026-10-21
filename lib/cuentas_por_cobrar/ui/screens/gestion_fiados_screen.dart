@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_typography.dart';
+import '../../../core/theme/theme_provider.dart';
 import '../../data/models/cliente_model.dart';
 import '../../state/providers/clientes_providers.dart';
 import '../../utils/cobro_whatsapp_formatter.dart';
 import '../widgets/modal_nuevo_cliente.dart';
 import '../widgets/modal_registrar_abono.dart';
+import '../widgets/modal_editar_cliente.dart';
 
 class GestionFiadosScreen extends ConsumerStatefulWidget {
   const GestionFiadosScreen({super.key});
@@ -49,6 +50,20 @@ class _GestionFiadosScreenState extends ConsumerState<GestionFiadosScreen> {
     }
   }
 
+  void _abrirModalEditarCliente(Cliente cliente) async {
+    final actualizado = await showModalBottomSheet<Cliente>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ModalEditarCliente(cliente: cliente),
+    );
+
+    if (!mounted) return;
+    if (actualizado != null) {
+      ref.invalidate(clientesListProvider);
+    }
+  }
+
   void _abrirModalAbono(Cliente cliente) async {
     final abonado = await showModalBottomSheet<bool>(
       context: context,
@@ -75,20 +90,33 @@ class _GestionFiadosScreenState extends ConsumerState<GestionFiadosScreen> {
     final conteoDeudores = ref.watch(conteoDeudoresProvider);
     final soloDeudores = ref.watch(filtroSoloDeudoresProvider);
 
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final bgColor = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
         title: Text(
           'Cuentas por Cobrar (Fiados)',
-          style: AppTypography.headlineSmall.copyWith(
-            color: Colors.white,
+          style: TextStyle(
+            color: textPrimary,
             fontWeight: FontWeight.bold,
+            fontSize: 18,
           ),
         ),
-        backgroundColor: AppColors.primary,
+        backgroundColor: surfaceColor,
+        foregroundColor: textPrimary,
         elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(color: cardBorder, height: 1.0),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.person_add_alt_1, size: 28, color: Colors.white),
+            icon: Icon(Icons.person_add_alt_1, size: 24, color: textPrimary),
             tooltip: 'Registrar nuevo vecino',
             onPressed: () => _abrirNuevoCliente(),
           ),
@@ -276,6 +304,7 @@ class _GestionFiadosScreenState extends ConsumerState<GestionFiadosScreen> {
                       return _ClienteCard(
                         cliente: c,
                         onAbonar: () => _abrirModalAbono(c),
+                        onEditar: () => _abrirModalEditarCliente(c),
                       );
                     },
                   );
@@ -293,8 +322,13 @@ class _GestionFiadosScreenState extends ConsumerState<GestionFiadosScreen> {
 class _ClienteCard extends StatelessWidget {
   final Cliente cliente;
   final VoidCallback onAbonar;
+  final VoidCallback onEditar;
 
-  const _ClienteCard({required this.cliente, required this.onAbonar});
+  const _ClienteCard({
+    required this.cliente,
+    required this.onAbonar,
+    required this.onEditar,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -409,23 +443,37 @@ class _ClienteCard extends StatelessWidget {
                   ),
                 ],
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text('Límite de Fiado:', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
-                  Text(
-                    'Bs. ${cliente.limiteCredito.toStringAsFixed(2)}',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+              InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: onEditar,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('Límite de Fiado:', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
+                          SizedBox(width: 4),
+                          Icon(Icons.edit_outlined, size: 14, color: AppColors.primary),
+                        ],
+                      ),
+                      Text(
+                        'Bs. ${cliente.limiteCredito.toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                      ),
+                      Text(
+                        'Disp: Bs. ${cliente.creditoDisponible.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: cliente.limiteSuperado ? AppColors.danger : AppColors.success,
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    'Disp: Bs. ${cliente.creditoDisponible.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: cliente.limiteSuperado ? AppColors.danger : AppColors.success,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),

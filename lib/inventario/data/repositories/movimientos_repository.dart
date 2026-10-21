@@ -150,9 +150,17 @@ class MovimientosRepository {
 
       final prod = prods.first;
       final stockActual = (prod['stock_actual'] as num).toDouble();
+      final nombreProd = prod['nombre'] as String? ?? 'Producto';
+
+      if (stockActual < cantidad) {
+        throw Exception(
+          'Stock insuficiente para registrar merma de "$nombreProd". Stock disponible: $stockActual, solicitado: $cantidad.',
+        );
+      }
+
       final costoUnitario = (prod['costo_mayorista'] as num).toDouble();
       final costoTotal = costoUnitario * cantidad;
-      final nuevoStock = (stockActual - cantidad) < 0 ? 0.0 : (stockActual - cantidad);
+      final nuevoStock = stockActual - cantidad;
       final ahora = AppDatabase.ahora();
 
       await txn.update(

@@ -5,7 +5,7 @@ import '../../../compras/state/providers/compras_providers.dart';
 import '../../../compras/ui/widgets/modal_nuevo_proveedor.dart';
 import '../../../core/config/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_typography.dart';
+import '../../../core/theme/theme_provider.dart';
 import '../../data/models/categoria_model.dart';
 import '../../data/models/producto_model.dart';
 import '../../state/providers/categorias_providers.dart';
@@ -482,6 +482,12 @@ class _FormularioProductoScreenState
     final proveedoresAsync = ref.watch(proveedoresListProvider);
     final arbolCategoriasAsync = ref.watch(arbolCategoriasProvider);
 
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final bgColor = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
@@ -492,21 +498,27 @@ class _FormularioProductoScreenState
         }
       },
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: bgColor,
         appBar: AppBar(
+          backgroundColor: surfaceColor,
+          foregroundColor: textPrimary,
+          elevation: 0,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1.0),
+            child: Container(color: cardBorder, height: 1.0),
+          ),
           title: Text(
             _esEdicion ? 'Editar Producto' : 'Nuevo Producto',
-            style: AppTypography.headlineSmall.copyWith(
-              color: Colors.white,
+            style: TextStyle(
+              color: textPrimary,
               fontWeight: FontWeight.bold,
+              fontSize: 18,
             ),
           ),
-          backgroundColor: AppColors.primary,
-          elevation: 0,
           actions: [
             if (_esEdicion)
               IconButton(
-                icon: const Icon(Icons.delete_outline, size: 28, color: Colors.white),
+                icon: const Icon(Icons.delete_outline, size: 26, color: AppColors.danger),
                 tooltip: 'Retirar producto',
                 onPressed: _guardando ? null : _confirmarDesactivar,
               ),
@@ -831,25 +843,28 @@ class _FormularioProductoScreenState
 
         // Botón Guardar Flotante
         bottomSheet: Container(
-          color: AppColors.surface,
+          decoration: BoxDecoration(
+            color: surfaceColor,
+            border: Border(top: BorderSide(color: cardBorder, width: 1.0)),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: SafeArea(
             child: SizedBox(
-              height: 56,
+              height: 54,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.success,
+                  backgroundColor: AppColors.retailBlue,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 4,
+                  elevation: 0,
                 ),
                 onPressed: _guardando ? null : _guardar,
                 icon: _guardando
-                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                    : const Icon(Icons.check_circle_outline, size: 28),
+                    ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.2))
+                    : const Icon(Icons.check_circle_outline, size: 24),
                 label: Text(
                   _guardando ? 'Guardando producto...' : (_esEdicion ? 'Actualizar Producto' : 'Guardar Producto en Inventario'),
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -2091,24 +2106,34 @@ class _FormularioProductoScreenState
     );
   }
 
-  // Tarjeta contenedora de sección
+  // Tarjeta contenedora de sección adaptada a Pure Clean Retail
   Widget _buildCard({required String titulo, required Widget child}) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: AppColors.border),
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final cardBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cardBorder, width: 1.0),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(titulo, style: AppTypography.headlineSmall.copyWith(fontSize: 17, fontWeight: FontWeight.bold)),
-            const Divider(height: 20),
-            child,
-          ],
-        ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            titulo,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: textPrimary,
+            ),
+          ),
+          Divider(height: 20, color: cardBorder),
+          child,
+        ],
       ),
     );
   }

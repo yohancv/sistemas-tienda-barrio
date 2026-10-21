@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_typography.dart';
 import '../../../core/config/supabase_client.dart';
 import '../../../cuentas_por_cobrar/data/models/cliente_model.dart';
 import '../../../cuentas_por_cobrar/state/providers/clientes_providers.dart';
 import '../../../cuentas_por_cobrar/ui/widgets/modal_nuevo_cliente.dart';
+import '../../../cuentas_por_cobrar/ui/widgets/modal_editar_cliente.dart';
 import '../../data/models/venta_models.dart';
 import '../../state/providers/carrito_providers.dart';
 import '../../state/providers/pago_providers.dart';
@@ -13,6 +13,8 @@ import '../../state/providers/venta_providers.dart';
 import '../../../inventario/state/providers/inventario_providers.dart';
 import '../../../inventario/state/providers/movimientos_providers.dart';
 import '../../../cierre_caja/state/providers/caja_providers.dart';
+import '../../../core/utils/app_haptics.dart';
+import '../../../core/theme/theme_provider.dart';
 
 enum MetodoPagoCobro { efectivo, qr, mixto, fiado }
 
@@ -63,6 +65,19 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
 
     if (nuevo != null && mounted) {
       setState(() => _clienteSeleccionado = nuevo);
+    }
+  }
+
+  void _abrirModalEditarCliente(Cliente cliente) async {
+    final actualizado = await showModalBottomSheet<Cliente>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ModalEditarCliente(cliente: cliente),
+    );
+
+    if (actualizado != null && mounted) {
+      setState(() => _clienteSeleccionado = actualizado);
     }
   }
 
@@ -215,14 +230,18 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
         vueltoVenta = 0.0;
       }
 
-      // Obtener turno activo de caja si existe
-      final turnoActivo = ref.read(cajaTurnoActivaProvider).value;
+      // Obtener turno activo de caja (asegurándolo si aún no se había inicializado)
+      var turnoActivo = ref.read(cajaTurnoActivaProvider).value;
+      if (turnoActivo == null) {
+        final repo = ref.read(cajaRepositoryProvider);
+        turnoActivo = await repo.asegurarTurnoActivo(tenantId: tenantId);
+      }
 
       // 1. Construir cabecera de Venta
       final venta = Venta(
         tenantId: tenantId,
         clienteId: _clienteSeleccionado?.id,
-        cajaTurnoId: turnoActivo?.id,
+        cajaTurnoId: turnoActivo.id,
         totalVenta: widget.totalAPagar,
         metodoPago: metodoBD,
         montoRecibido: montoRecibidoVenta,
@@ -294,6 +313,8 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
       ref.invalidate(historialMovimientosProvider);
 
       if (!mounted) return;
+
+      AppHaptics.medium();
 
       // 5. Diálogo de éxito visual adaptado al método de pago
       await _mostrarDialogoExito(vueltoVenta, efectivoRecibido);
@@ -427,39 +448,97 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
         saldoQrMixto > 0 &&
         billeteEntregadoMixto >= montoEfectivoMixto;
 
+    final bool saldoFiadoPermitido = _clienteSeleccionado != null &&
+        ((_clienteSeleccionado!.saldoActual + widget.totalAPagar) <= _clienteSeleccionado!.limiteCredito);
+
     final bool puedeConfirmar = _metodo == MetodoPagoCobro.efectivo
         ? saldoSuficienteEfectivo
         : (_metodo == MetodoPagoCobro.qr
             ? true
             : (_metodo == MetodoPagoCobro.mixto
                 ? saldoSuficienteMixto
-                : (_clienteSeleccionado != null)));
+                : saldoFiadoPermitido));
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Cobro en Caja',
-          style: AppTypography.headlineSmall.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final bgColor = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final salir = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 28),
+                SizedBox(width: 8),
+                Text('¿Salir del cobro?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              ],
+            ),
+            content: const Text(
+              'La venta actual no se perderá: los productos seguirán guardados en tu ticket.',
+              style: TextStyle(fontSize: 15),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Continuar cobrando', style: TextStyle(fontSize: 15)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Volver al ticket', style: TextStyle(color: Colors.white, fontSize: 15)),
+              ),
+            ],
+          ),
+        );
+        if (salir == true && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: bgColor,
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.maybePop(context),
+          ),
+          title: Text(
+            'Cobro en Caja',
+            style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          backgroundColor: surfaceColor,
+          foregroundColor: textPrimary,
+          elevation: 0,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1.0),
+            child: Container(color: cardBorder, height: 1.0),
+          ),
         ),
-        backgroundColor: AppColors.primary,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: Column(
+        body: SafeArea(
+          child: Column(
           children: [
             // 1. Selector Superior de Método de Pago Masivo (4 opciones)
             Container(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-              color: AppColors.surface,
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              decoration: BoxDecoration(
+                color: surfaceColor,
+                border: Border(bottom: BorderSide(color: cardBorder, width: 1.0)),
+              ),
               child: Row(
                 children: [
-                  _buildBotonMetodo('💵 Efectivo', MetodoPagoCobro.efectivo),
-                  const SizedBox(width: 6),
-                  _buildBotonMetodo('📱 QR', MetodoPagoCobro.qr),
-                  const SizedBox(width: 6),
-                  _buildBotonMetodo('🔀 Mixto', MetodoPagoCobro.mixto),
-                  const SizedBox(width: 6),
-                  _buildBotonMetodo('📝 Fiado', MetodoPagoCobro.fiado),
+                  _buildBotonMetodo('💵 Efectivo', MetodoPagoCobro.efectivo, esOscuro),
+                  const SizedBox(width: 8),
+                  _buildBotonMetodo('📱 QR', MetodoPagoCobro.qr, esOscuro),
+                  const SizedBox(width: 8),
+                  _buildBotonMetodo('🔀 Mixto', MetodoPagoCobro.mixto, esOscuro),
+                  const SizedBox(width: 8),
+                  _buildBotonMetodo('📝 Fiado', MetodoPagoCobro.fiado, esOscuro),
                 ],
               ),
             ),
@@ -467,12 +546,12 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
             // 2. Contenido según el método de pago seleccionado
             Expanded(
               child: _metodo == MetodoPagoCobro.efectivo
-                  ? _buildVistaEfectivo(efectivoRecibido, diferencia, saldoSuficienteEfectivo)
+                  ? _buildVistaEfectivo(efectivoRecibido, diferencia, saldoSuficienteEfectivo, esOscuro)
                   : (_metodo == MetodoPagoCobro.qr
-                      ? _buildVistaQR()
+                      ? _buildVistaQR(esOscuro)
                       : (_metodo == MetodoPagoCobro.mixto
-                          ? _buildVistaMixto()
-                          : _buildVistaFiado(clientes))),
+                          ? _buildVistaMixto(esOscuro)
+                          : _buildVistaFiado(clientes, esOscuro))),
             ),
           ],
         ),
@@ -482,19 +561,26 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: surfaceColor,
+          border: Border(top: BorderSide(color: cardBorder, width: 1.0)),
           boxShadow: [
-            BoxShadow(color: Colors.black.withAlpha(20), offset: const Offset(0, -4), blurRadius: 10),
+            BoxShadow(
+              color: Colors.black.withAlpha(esOscuro ? 40 : 10),
+              offset: const Offset(0, -2),
+              blurRadius: 4,
+            ),
           ],
         ),
         child: SizedBox(
           width: double.infinity,
-          height: 64,
+          height: 60,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: puedeConfirmar ? AppColors.success : Colors.grey.shade400,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: puedeConfirmar ? 4 : 0,
+              backgroundColor: puedeConfirmar
+                  ? (esOscuro ? AppColors.darkSuccess : AppColors.retailGreen)
+                  : (esOscuro ? AppColors.darkSurfaceMuted : Colors.grey.shade400),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 0,
             ),
             onPressed: puedeConfirmar && !_isProcessing ? _confirmarVenta : null,
             child: _isProcessing
@@ -503,38 +589,48 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
                     _metodo == MetodoPagoCobro.fiado
                         ? 'CONFIRMAR FIADO (Bs. ${widget.totalAPagar.toStringAsFixed(2)})'
                         : 'CONFIRMAR VENTA (Bs. ${widget.totalAPagar.toStringAsFixed(2)})',
-                    style: const TextStyle(
-                      fontSize: 20,
+                    style: TextStyle(
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: puedeConfirmar
+                          ? (esOscuro ? AppColors.darkSuccessDark : Colors.white)
+                          : Colors.white60,
                       letterSpacing: 0.5,
                     ),
                   ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildBotonMetodo(String label, MetodoPagoCobro metodo) {
+  Widget _buildBotonMetodo(String label, MetodoPagoCobro metodo, bool esOscuro) {
     final seleccionado = _metodo == metodo;
+    final unselectedBg = esOscuro ? AppColors.darkSurface : AppColors.surfaceMuted;
+    final unselectedBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final unselectedText = esOscuro ? AppColors.darkTextSecondary : AppColors.textPrimary;
+
     return Expanded(
       child: SizedBox(
-        height: 48,
+        height: 46,
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 2),
-            backgroundColor: seleccionado ? AppColors.primary : AppColors.surfaceMuted,
-            elevation: seleccionado ? 2 : 0,
+            backgroundColor: seleccionado ? AppColors.retailBlue : unselectedBg,
+            elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
               side: BorderSide(
-                color: seleccionado ? AppColors.primary : AppColors.border,
-                width: seleccionado ? 2 : 1,
+                color: seleccionado ? AppColors.retailBlue : unselectedBorder,
+                width: seleccionado ? 1.5 : 1,
               ),
             ),
           ),
-          onPressed: () => setState(() => _metodo = metodo),
+          onPressed: () {
+            AppHaptics.selection();
+            setState(() => _metodo = metodo);
+          },
           child: Text(
             label,
             maxLines: 1,
@@ -542,7 +638,7 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
-              color: seleccionado ? Colors.white : AppColors.textPrimary,
+              color: seleccionado ? Colors.white : unselectedText,
             ),
           ),
         ),
@@ -551,13 +647,18 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
   }
 
   // --- Vista Pago Mixto (Efectivo + QR) ---
-  Widget _buildVistaMixto() {
+  Widget _buildVistaMixto(bool esOscuro) {
     final double total = widget.totalAPagar;
     final double efectivoACobrar = double.tryParse(_montoEfectivoMixtoController.text.trim()) ?? 0.0;
     final double saldoQr = (total - efectivoACobrar) > 0 ? (total - efectivoACobrar) : 0.0;
     final double billeteEntregado = double.tryParse(_billeteEntregadoMixtoController.text.trim()) ?? efectivoACobrar;
     final double vuelto = (billeteEntregado - efectivoACobrar) > 0 ? (billeteEntregado - efectivoACobrar) : 0.0;
     final bool valido = efectivoACobrar > 0 && efectivoACobrar < total;
+
+    final cardBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -568,46 +669,43 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
             decoration: BoxDecoration(
-              color: AppColors.primary.withAlpha(15),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.primary.withAlpha(60)),
+              color: esOscuro ? AppColors.darkSurface : const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: esOscuro ? AppColors.darkBorder : const Color(0xFFBFDBFE)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('TOTAL DE LA CUENTA:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-                Text('Bs. ${total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.primary)),
+                Text('TOTAL DE LA CUENTA:', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textSecondary)),
+                Text('Bs. ${total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.retailBlue)),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           // Bloque 1: Parte en Efectivo
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: cardBg,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.success.withAlpha(120), width: 1.5),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 6, offset: const Offset(0, 2)),
-              ],
+              border: Border.all(color: cardBorder, width: 1.0),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.attach_money, color: AppColors.success, size: 24),
+                    Icon(Icons.attach_money, color: AppColors.retailGreen, size: 22),
                     SizedBox(width: 6),
-                    Text('1. Parte pagada en Efectivo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.success)),
+                    Text('1. Parte pagada en Efectivo', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.retailGreen)),
                   ],
                 ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: _montoEfectivoMixtoController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.success),
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.retailGreen),
                   decoration: const InputDecoration(
                     labelText: 'Monto a pagar en Efectivo (Bs.) *',
                     hintText: 'Ej. 20.00',
@@ -621,7 +719,7 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
                 // Atajos rápidos de importe
                 Row(
                   children: [
-                    const Text('Atajos: ', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                    Text('Atajos: ', style: TextStyle(fontSize: 12, color: textSecondary)),
                     ActionChip(
                       label: const Text('Mitad (50%)', style: TextStyle(fontSize: 12)),
                       onPressed: () {
@@ -667,16 +765,16 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
                 if (vuelto > 0) ...[
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AppColors.success.withAlpha(20),
+                      color: AppColors.retailGreen.withAlpha(25),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Vuelto en efectivo a entregar:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                        Text('Bs. ${vuelto.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.success)),
+                        Text('Vuelto en efectivo a entregar:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary)),
+                        Text('Bs. ${vuelto.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.retailGreen)),
                       ],
                     ),
                   ),
@@ -684,27 +782,24 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           // Bloque 2: Saldo restante por QR
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: cardBg,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.blue.shade700.withAlpha(120), width: 1.5),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 6, offset: const Offset(0, 2)),
-              ],
+              border: Border.all(color: cardBorder, width: 1.0),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                const Row(
                   children: [
-                    Icon(Icons.qr_code_2, color: Colors.blue.shade700, size: 26),
-                    const SizedBox(width: 8),
-                    Text('2. Saldo restante por QR', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
+                    Icon(Icons.qr_code_2, color: AppColors.retailBlue, size: 24),
+                    SizedBox(width: 8),
+                    Text('2. Saldo restante por QR', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.retailBlue)),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -712,24 +807,24 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: esOscuro ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.blue.shade200),
+                    border: Border.all(color: esOscuro ? const Color(0xFF334155) : const Color(0xFFBFDBFE)),
                   ),
                   child: Column(
                     children: [
-                      const Text('El cliente debe escanear el QR por:', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                      Text('El cliente debe escanear el QR por:', style: TextStyle(fontSize: 13, color: textSecondary)),
                       const SizedBox(height: 4),
                       Text(
                         'Bs. ${saldoQr.toStringAsFixed(2)}',
-                        style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.blue.shade800),
+                        style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: AppColors.retailBlue),
                       ),
                       if (!valido && efectivoACobrar >= total) ...[
                         const SizedBox(height: 4),
                         const Text('⚠️ El efectivo ya cubre todo el total. Usa la pestaña "Efectivo".', style: TextStyle(color: AppColors.danger, fontSize: 12, fontWeight: FontWeight.bold)),
                       ] else if (!valido) ...[
                         const SizedBox(height: 4),
-                        const Text('Ingresa el monto en efectivo para calcular el QR restante.', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                        Text('Ingresa el monto en efectivo para calcular el QR restante.', style: TextStyle(color: textSecondary, fontSize: 12)),
                       ],
                     ],
                   ),
@@ -743,39 +838,46 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
   }
 
   // --- Vista Efectivo ---
-  Widget _buildVistaEfectivo(double recibido, double diferencia, bool saldoSuficiente) {
+  Widget _buildVistaEfectivo(double recibido, double diferencia, bool saldoSuficiente, bool esOscuro) {
+    final cardBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+
     return Column(
       children: [
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-          color: saldoSuficiente ? AppColors.success.withAlpha(25) : AppColors.danger.withAlpha(25),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          color: saldoSuficiente
+              ? (esOscuro ? const Color(0xFF16A34A).withAlpha(30) : const Color(0xFFDCFCE7))
+              : (esOscuro ? const Color(0xFFDC2626).withAlpha(30) : const Color(0xFFFEE2E2)),
           child: Column(
             children: [
               Text(
                 'TOTAL DE LA CUENTA: Bs. ${widget.totalAPagar.toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: textSecondary),
               ),
               const SizedBox(height: 4),
               Text(
                 'Recibido: Bs. ${recibido.toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textPrimary),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               if (!saldoSuficiente)
                 Text(
                   'FALTAN: Bs. ${(-diferencia).toStringAsFixed(2)}',
-                  style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: AppColors.danger),
+                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: AppColors.danger),
                 )
               else
                 Text(
                   'VUELTO: Bs. ${diferencia.toStringAsFixed(2)}',
-                  style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w900, color: AppColors.success),
+                  style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: AppColors.retailGreen),
                 ),
             ],
           ),
         ),
-        const Divider(height: 1, thickness: 2, color: AppColors.border),
+        Divider(height: 1, thickness: 1, color: cardBorder),
         Expanded(
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -783,20 +885,20 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
               children: [
                 SizedBox(
                   width: double.infinity,
-                  height: 56,
+                  height: 52,
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.primary, width: 2),
+                      side: const BorderSide(color: AppColors.retailBlue, width: 1.6),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      backgroundColor: AppColors.surface,
+                      backgroundColor: cardBg,
                     ),
                     onPressed: () {
                       ref.read(efectivoRecibidoProvider.notifier).fijarMontoExacto(widget.totalAPagar);
                     },
-                    icon: const Icon(Icons.flash_on, color: AppColors.primary, size: 28),
+                    icon: const Icon(Icons.flash_on, color: AppColors.retailBlue, size: 24),
                     label: Text(
                       'PAGO EXACTO (Bs. ${widget.totalAPagar.toStringAsFixed(2)})',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.retailBlue),
                     ),
                   ),
                 ),
@@ -816,14 +918,15 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.danger,
+                          elevation: 0,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         onPressed: () {
                           ref.read(efectivoRecibidoProvider.notifier).corregir();
                         },
-                        icon: const Icon(Icons.backspace, color: Colors.white, size: 24),
+                        icon: const Icon(Icons.backspace, color: Colors.white, size: 22),
                         label: const Text('BORRAR',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
                       ),
                     ],
                   ),
@@ -837,57 +940,83 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
   }
 
   // --- Vista QR ---
-  Widget _buildVistaQR() {
+  Widget _buildVistaQR(bool esOscuro) {
+    final cardBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(28.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: AppColors.secondary.withAlpha(20),
-                borderRadius: BorderRadius.circular(20),
+        padding: const EdgeInsets.all(24.0),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: cardBorder, width: 1.0),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: AppColors.retailBlue.withAlpha(25),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.qr_code_2, size: 52, color: AppColors.retailBlue),
               ),
-              child: const Icon(Icons.qr_code_2, size: 64, color: AppColors.secondary),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'COBRO POR QR',
-              style: AppTypography.headlineSmall.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Muestra el código QR al cliente por el monto exacto:',
-              style: const TextStyle(fontSize: 16, color: AppColors.textSecondary),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Bs. ${widget.totalAPagar.toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w900, color: AppColors.secondary),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Una vez que el cliente confirme la transferencia en su celular, presiona el botón inferior para cerrar la venta.',
-              style: TextStyle(fontSize: 14, color: AppColors.textMuted),
-              textAlign: TextAlign.center,
-            ),
-          ],
+              const SizedBox(height: 16),
+              Text(
+                'COBRO POR QR',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Muestra el código QR al cliente por el monto exacto:',
+                style: TextStyle(fontSize: 14, color: textSecondary),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Bs. ${widget.totalAPagar.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.retailGreen,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Una vez que el cliente confirme la transferencia en su celular, presiona el botón inferior para cerrar la venta.',
+                style: TextStyle(fontSize: 12, color: textSecondary),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   // --- Vista Fiado / Crédito ---
-  Widget _buildVistaFiado(List<Cliente> clientes) {
+  Widget _buildVistaFiado(List<Cliente> clientes, bool esOscuro) {
     final cliente = _clienteSeleccionado;
     final saldoActual = cliente?.saldoActual ?? 0.0;
     final limite = cliente?.limiteCredito ?? 100.0;
     final totalProyectado = saldoActual + widget.totalAPagar;
     final bool excedeLimite = totalProyectado > limite;
+
+    final cardBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -898,25 +1027,25 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: cardBg,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: cliente == null ? AppColors.warning : AppColors.border,
-                width: 1.5,
+                color: cliente == null ? AppColors.warning : cardBorder,
+                width: 1.0,
               ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'VECINO / CLIENTE QUE SACA FIADO:',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.textMuted),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textSecondary),
                 ),
                 const SizedBox(height: 10),
                 if (cliente == null)
                   const Text(
                     '⚠️ Aún no has seleccionado ningún cliente',
-                    style: TextStyle(fontSize: 16, color: AppColors.warning, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 15, color: AppColors.warning, fontWeight: FontWeight.bold),
                   )
                 else
                   Row(
@@ -925,10 +1054,10 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withAlpha(20),
+                          color: AppColors.retailBlue.withAlpha(20),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.person, color: AppColors.primary, size: 26),
+                        child: const Icon(Icons.person, color: AppColors.retailBlue, size: 24),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -937,11 +1066,24 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
                           children: [
                             Text(
                               cliente.nombre,
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: textPrimary),
                             ),
-                            Text(
-                              'Deuda actual: Bs. ${cliente.saldoActual.toStringAsFixed(2)} • Límite: Bs. ${cliente.limiteCredito.toStringAsFixed(2)}',
-                              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                            Row(
+                              children: [
+                                Text(
+                                  'Deuda: Bs. ${cliente.saldoActual.toStringAsFixed(2)} • Límite: Bs. ${cliente.limiteCredito.toStringAsFixed(0)}',
+                                  style: TextStyle(fontSize: 13, color: textSecondary),
+                                ),
+                                const SizedBox(width: 4),
+                                InkWell(
+                                  onTap: () => _abrirModalEditarCliente(cliente),
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                    child: Icon(Icons.edit_outlined, size: 15, color: AppColors.retailBlue),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -954,20 +1096,20 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
                     Expanded(
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppColors.primary, width: 1.5),
+                          side: const BorderSide(color: AppColors.retailBlue, width: 1.5),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                         onPressed: () => _mostrarSelectorClientes(clientes),
-                        icon: const Icon(Icons.search, color: AppColors.primary),
+                        icon: const Icon(Icons.search, color: AppColors.retailBlue),
                         label: Text(
                           cliente == null ? 'Buscar Vecino' : 'Cambiar Vecino',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.retailBlue),
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     IconButton.filled(
-                      style: IconButton.styleFrom(backgroundColor: AppColors.secondary),
+                      style: IconButton.styleFrom(backgroundColor: AppColors.retailBlue),
                       icon: const Icon(Icons.person_add, color: Colors.white),
                       tooltip: 'Registrar nuevo vecino',
                       onPressed: _abrirCrearNuevoCliente,
@@ -985,11 +1127,13 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: excedeLimite ? AppColors.danger.withAlpha(15) : AppColors.success.withAlpha(15),
+                color: excedeLimite
+                    ? (esOscuro ? const Color(0xFFDC2626).withAlpha(25) : AppColors.danger.withAlpha(15))
+                    : (esOscuro ? const Color(0xFF16A34A).withAlpha(25) : AppColors.retailGreen.withAlpha(15)),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: excedeLimite ? AppColors.danger : AppColors.success,
-                  width: 1.8,
+                  color: excedeLimite ? AppColors.danger : AppColors.retailGreen,
+                  width: 1.5,
                 ),
               ),
               child: Column(
@@ -999,8 +1143,8 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
                     children: [
                       Icon(
                         excedeLimite ? Icons.warning_amber_rounded : Icons.verified_user_outlined,
-                        color: excedeLimite ? AppColors.danger : AppColors.success,
-                        size: 26,
+                        color: excedeLimite ? AppColors.danger : AppColors.retailGreen,
+                        size: 24,
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -1008,41 +1152,41 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w900,
-                          color: excedeLimite ? AppColors.danger : AppColors.success,
+                          color: excedeLimite ? AppColors.danger : AppColors.retailGreen,
                         ),
                       ),
                     ],
                   ),
-                  const Divider(height: 18),
+                  Divider(height: 18, color: cardBorder),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Deuda anterior:', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                      Text('Deuda anterior:', style: TextStyle(fontSize: 14, color: textSecondary)),
                       Text('Bs. ${saldoActual.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textPrimary)),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Esta compra:', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                      Text('Esta compra:', style: TextStyle(fontSize: 14, color: textSecondary)),
                       Text('+Bs. ${widget.totalAPagar.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textPrimary)),
                     ],
                   ),
-                  const Divider(height: 14),
+                  Divider(height: 14, color: cardBorder),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Deuda Total Resultante:',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                      Text('Deuda Total Resultante:',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textPrimary)),
                       Text(
                         'Bs. ${totalProyectado.toStringAsFixed(2)}',
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w900,
-                          color: excedeLimite ? AppColors.danger : AppColors.primary,
+                          color: excedeLimite ? AppColors.danger : AppColors.retailBlue,
                         ),
                       ),
                     ],
@@ -1056,8 +1200,22 @@ class _CobroScreenState extends ConsumerState<CobroScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        '⚠️ Esta compra sobrepasa su límite de Bs. ${limite.toStringAsFixed(2)} en Bs. ${(totalProyectado - limite).toStringAsFixed(2)}. Puedes confirmar bajo tu propio criterio.',
+                        '⚠️ Esta compra sobrepasa su límite de Bs. ${limite.toStringAsFixed(2)} en Bs. ${(totalProyectado - limite).toStringAsFixed(2)}. Puedes aumentarle el límite o cobrar en otro método.',
                         style: const TextStyle(fontSize: 13, color: AppColors.danger, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF2563EB),
+                          side: const BorderSide(color: Color(0xFF2563EB)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => _abrirModalEditarCliente(cliente),
+                        icon: const Icon(Icons.edit_note, size: 18),
+                        label: const Text('Aumentar límite de fiado a este vecino'),
                       ),
                     ),
                   ],
@@ -1078,12 +1236,16 @@ class _BotonBillete extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final esOscuro = ref.watch(esModoOscuroProvider);
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textPrimary,
-        elevation: 2,
-        side: const BorderSide(color: AppColors.borderStrong, width: 1.5),
+        backgroundColor: esOscuro ? AppColors.darkSurface : AppColors.surface,
+        foregroundColor: esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary,
+        elevation: 0,
+        side: BorderSide(
+          color: esOscuro ? AppColors.darkBorder : AppColors.border,
+          width: 1.2,
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       onPressed: () {
@@ -1091,7 +1253,7 @@ class _BotonBillete extends ConsumerWidget {
       },
       child: Text(
         '+Bs. ${monto.toInt()}',
-        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.primary),
+        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.retailBlue),
       ),
     );
   }

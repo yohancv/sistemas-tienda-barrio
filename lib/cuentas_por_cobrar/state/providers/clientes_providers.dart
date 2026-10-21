@@ -138,6 +138,43 @@ class ClientesNotifier extends StateNotifier<ClienteOperacionState> {
     }
   }
 
+  /// Actualiza los datos o límite de crédito de un cliente existente
+  Future<Cliente?> actualizarCliente({
+    required String clienteId,
+    String? nombre,
+    String? telefono,
+    double? limiteCredito,
+    String? notas,
+  }) async {
+    state = state.copyWith(isLoading: true, errorMessage: null, successMessage: null);
+
+    try {
+      final actualizado = await _repository.actualizarCliente(
+        clienteId: clienteId,
+        tenantId: SupabaseConfig.defaultTenantId,
+        nombre: nombre,
+        telefono: telefono,
+        limiteCredito: limiteCredito,
+        notas: notas,
+      );
+
+      // Refrescar lista de clientes
+      _ref.invalidate(clientesListProvider);
+
+      state = state.copyWith(
+        isLoading: false,
+        successMessage: '¡Datos y límite de fiado actualizados exitosamente!',
+      );
+      return actualizado;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Error al actualizar cliente: $e',
+      );
+      return null;
+    }
+  }
+
   /// Registra un abono a deuda y actualiza el saldo del cliente
   Future<bool> registrarAbono({
     required String clienteId,
@@ -148,12 +185,17 @@ class ClientesNotifier extends StateNotifier<ClienteOperacionState> {
     state = state.copyWith(isLoading: true, errorMessage: null, successMessage: null);
 
     try {
+      final turno = await _ref.read(cajaRepositoryProvider).asegurarTurnoActivo(
+            tenantId: SupabaseConfig.defaultTenantId,
+          );
+
       final res = await _repository.registrarAbono(
         clienteId: clienteId,
         monto: monto,
         metodoPago: metodoPago,
         notas: notas,
         tenantId: SupabaseConfig.defaultTenantId,
+        cajaTurnoId: turno.id,
       );
 
       _ref.invalidate(clientesListProvider);

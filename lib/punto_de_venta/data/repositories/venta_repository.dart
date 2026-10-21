@@ -26,10 +26,24 @@ class VentaRepository {
       // 1. Insertar Cabecera de Venta
       await txn.insert('ventas', AppDatabase.aFila(ventaAGuardar.toMap()));
 
-      // 2. Insertar Detalle de Ventas
+      // 2. Insertar Detalle de Ventas con el costo mayorista más reciente de la BD
       for (final detalle in detalles) {
+        final prodsCosto = await txn.query(
+          'productos',
+          columns: ['costo_mayorista'],
+          where: 'id = ?',
+          whereArgs: [detalle.productoId],
+        );
+        final double costoFresco = (prodsCosto.isNotEmpty && prodsCosto.first['costo_mayorista'] != null)
+            ? (prodsCosto.first['costo_mayorista'] as num).toDouble()
+            : detalle.costoUnitario;
+
         final dId = detalle.id ?? AppDatabase.nuevoId();
-        final dMap = detalle.copyWith(id: dId, ventaId: ventaId).toMap();
+        final dMap = detalle.copyWith(
+          id: dId,
+          ventaId: ventaId,
+          costoUnitario: costoFresco,
+        ).toMap();
         await txn.insert('detalle_ventas', AppDatabase.aFila(dMap));
       }
 
@@ -46,7 +60,7 @@ class VentaRepository {
       for (final detalle in detalles) {
         final prods = await txn.query(
           'productos',
-          columns: ['stock_actual', 'costo_mayorista'],
+          columns: ['stock_actual', 'costo_mayorista', 'nombre'],
           where: 'id = ?',
           whereArgs: [detalle.productoId],
         );
@@ -128,7 +142,12 @@ class VentaRepository {
           }
         }
 
-        final double nuevoStock = (stockActual - detalle.cantidad) < 0 ? 0.0 : (stockActual - detalle.cantidad);
+        if (stockActual < detalle.cantidad) {
+          final nombreProd = prods.first['nombre'] as String? ?? 'Producto';
+          throw Exception('Stock insuficiente para "$nombreProd". Disponible: $stockActual, requerido: ${detalle.cantidad}');
+        }
+
+        final double nuevoStock = stockActual - detalle.cantidad;
 
         await txn.update(
           'productos',

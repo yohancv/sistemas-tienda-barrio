@@ -22,6 +22,19 @@ class ClientesRepository {
         .toList();
   }
 
+  /// Obtiene un cliente específico por su ID
+  Future<Cliente?> obtenerClientePorId(String clienteId) async {
+    final db = await _db.database;
+    final rows = await db.query(
+      'clientes',
+      where: 'id = ?',
+      whereArgs: [clienteId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return Cliente.fromMap(AppDatabase.aMapa(rows.first));
+  }
+
   /// Busca clientes activos por coincidencia en nombre o teléfono
   Future<List<Cliente>> buscarClientes(String tenantId, String query) async {
     final cleanQuery = query.trim();
@@ -61,6 +74,37 @@ class ClientesRepository {
     return nuevoCliente;
   }
 
+  /// Actualiza los datos de un cliente existente (límite de fiado, nombre, teléfono, notas)
+  Future<Cliente> actualizarCliente({
+    required String clienteId,
+    required String tenantId,
+    String? nombre,
+    String? telefono,
+    double? limiteCredito,
+    String? notas,
+  }) async {
+    final db = await _db.database;
+    final ahora = AppDatabase.ahora();
+    final campos = <String, dynamic>{
+      'updated_at': ahora,
+    };
+    if (nombre != null) campos['nombre'] = nombre.trim();
+    if (telefono != null) campos['telefono'] = telefono.trim();
+    if (limiteCredito != null) campos['limite_credito'] = limiteCredito;
+    if (notas != null) campos['notas'] = notas.trim();
+
+    await db.update(
+      'clientes',
+      AppDatabase.aFila(campos),
+      where: 'id = ? AND tenant_id = ?',
+      whereArgs: [clienteId, tenantId],
+    );
+
+    final actualizado = await obtenerClientePorId(clienteId);
+    if (actualizado == null) throw Exception('Cliente no encontrado tras actualizar');
+    return actualizado;
+  }
+
   /// Ejecuta un abono a deuda de forma atómica.
   /// El trigger de SQLite `trg_saldo_cliente_por_abono` actualiza automáticamente el saldo.
   Future<Map<String, dynamic>> registrarAbono({
@@ -90,6 +134,11 @@ class ClientesRepository {
 
       final cliente = clientes.first;
       final saldoAnterior = (cliente['saldo_actual'] as num).toDouble();
+      if (monto > saldoAnterior + 0.001) {
+        throw Exception(
+          'El abono (Bs. ${monto.toStringAsFixed(2)}) no puede exceder la deuda pendiente (Bs. ${saldoAnterior.toStringAsFixed(2)}).',
+        );
+      }
       final nombreCliente = cliente['nombre'] as String? ?? '';
       final abonoId = AppDatabase.nuevoId();
       final ahora = AppDatabase.ahora();
@@ -154,8 +203,8 @@ class ClientesRepository {
     final db = await _db.database;
     final rows = await db.query(
       'ventas',
-      where: 'cliente_id = ? AND metodo_pago = "CREDITO_FIADO"',
-      whereArgs: [clienteId],
+      where: 'cliente_id = ? AND (metodo_pago = ? OR metodo_pago = ?)',
+      whereArgs: [clienteId, 'CREDITO_FIADO', 'FIADO'],
       orderBy: 'fecha_venta DESC',
       limit: limite,
     );
@@ -163,7 +212,7 @@ class ClientesRepository {
     return rows.map((r) => AppDatabase.aMapa(r)).toList();
   }
 
-  /// Obtiene los últimos movimientos combinados (ventas fiadas y abonos) para mostrar en la tarjeta de fiados
+  /// Obtiene los últimos movimientos combinados (ventas fiadas y abonos) para mostrar en la tarjeta de fiados y en el historial completo
   Future<List<Map<String, dynamic>>> obtenerMovimientosCliente(String clienteId, {int limite = 5}) async {
     final db = await _db.database;
 
@@ -184,12 +233,130 @@ class ClientesRepository {
         metodo_pago AS detalle,
         fecha_venta AS fecha
       FROM ventas
-      WHERE cliente_id = ? AND metodo_pago = 'CREDITO_FIADO'
+      WHERE cliente_id = ? AND (metodo_pago = 'CREDITO_FIADO' OR metodo_pago = 'FIADO')
       ORDER BY fecha DESC
       LIMIT $limite
     ''';
 
     final rows = await db.rawQuery(sql, [clienteId, clienteId]);
-    return rows.map((r) => AppDatabase.aMapa(r)).toList();
+    final List<Map<String, dynamic>> resultado = [];
+
+    for (final r in rows) {
+      final mapa = AppDatabase.aMapa(r);
+      if (mapa['tipo'] == 'FIADO') {
+        final ventaId = mapa['id'] as String;
+        try {
+          final detalles = await db.rawQuery('''
+            SELECT 
+              dv.cantidad,
+              COALESCE(p.nombre, 'Producto') AS nombre,
+              COALESCE(p.tipo_unidad, 'UNIDAD') AS tipo_unidad,
+              p.unidad_medida
+            FROM detalle_ventas dv
+            LEFT JOIN productos p ON dv.producto_id = p.id
+            WHERE dv.venta_id = ?
+          ''', [ventaId]);
+
+          if (detalles.isNotEmpty) {
+            final articulos = detalles.map((d) {
+              final cant = d['cantidad'];
+              final cantNum = cant is num ? cant.toDouble() : (double.tryParse(cant.toString()) ?? 1.0);
+              final cantStr = (cantNum % 1 == 0) ? cantNum.toInt().toString() : cantNum.toStringAsFixed(1);
+              final tipo = (d['tipo_unidad']?.toString() ?? 'UNIDAD').toUpperCase();
+              final unidadMedida = d['unidad_medida']?.toString().trim();
+              final String prefijo;
+              if (tipo == 'KILO' || tipo == 'GRANEL' || tipo == 'FRACCIONABLE') {
+                final u = (unidadMedida != null && unidadMedida.isNotEmpty) ? unidadMedida : 'kg';
+                prefijo = '$cantStr $u';
+              } else if (unidadMedida != null && unidadMedida.isNotEmpty && unidadMedida.toLowerCase() != 'unidad') {
+                prefijo = '$cantStr $unidadMedida';
+              } else {
+                prefijo = cantStr;
+              }
+              final nombre = d['nombre']?.toString() ?? 'Producto';
+              return '$prefijo $nombre';
+            }).join(', ');
+
+            mapa['productos_resumen'] = articulos;
+            mapa['detalles_items'] = detalles;
+          }
+        } catch (_) {}
+      }
+      resultado.add(mapa);
+    }
+
+    return resultado;
+  }
+
+  /// Obtiene la fecha del último movimiento registrado (venta fiada o abono) para calcular antigüedad
+  Future<DateTime?> obtenerFechaUltimoMovimiento(String clienteId) async {
+    final db = await _db.database;
+    final sql = '''
+      SELECT fecha_abono AS fecha FROM abonos_deuda WHERE cliente_id = ?
+      UNION ALL
+      SELECT fecha_venta AS fecha FROM ventas WHERE cliente_id = ? AND (metodo_pago = 'CREDITO_FIADO' OR metodo_pago = 'FIADO')
+      ORDER BY fecha DESC
+      LIMIT 1
+    ''';
+    final rows = await db.rawQuery(sql, [clienteId, clienteId]);
+    if (rows.isEmpty) return null;
+    return DateTime.tryParse(rows.first['fecha'] as String? ?? '');
+  }
+
+  /// Obtiene las ventas fiadas recientes con el detalle de sus productos para el ticket de WhatsApp
+  Future<List<Map<String, dynamic>>> obtenerDetalleProductosFiados(
+    String clienteId, {
+    int limiteVentas = 4,
+  }) async {
+    final db = await _db.database;
+
+    final ventas = await db.query(
+      'ventas',
+      where: 'cliente_id = ? AND (metodo_pago = ? OR metodo_pago = ?)',
+      whereArgs: [clienteId, 'CREDITO_FIADO', 'FIADO'],
+      orderBy: 'fecha_venta DESC',
+      limit: limiteVentas,
+    );
+
+    if (ventas.isEmpty) return [];
+
+    final List<Map<String, dynamic>> resultado = [];
+
+    for (final v in ventas) {
+      final ventaId = v['id'] as String;
+      final fechaVentaStr = v['fecha_venta'] as String;
+      final totalVenta = (v['total_venta'] as num?)?.toDouble() ?? 0.0;
+
+      final detalles = await db.rawQuery('''
+        SELECT 
+          dv.cantidad,
+          COALESCE(p.nombre, 'Producto') AS nombre,
+          COALESCE(p.tipo_unidad, 'UNIDAD') AS tipo_unidad,
+          dv.subtotal
+        FROM detalle_ventas dv
+        LEFT JOIN productos p ON dv.producto_id = p.id
+        WHERE dv.venta_id = ?
+      ''', [ventaId]);
+
+      final List<Map<String, dynamic>> items = detalles.map((d) {
+        final cant = d['cantidad'];
+        final sub = d['subtotal'];
+        return {
+          'cantidad': cant is num ? cant.toDouble() : (double.tryParse(cant.toString()) ?? 1.0),
+          'nombre': d['nombre']?.toString() ?? 'Producto',
+          'tipo_unidad': d['tipo_unidad']?.toString() ?? 'UNIDAD',
+          'subtotal': sub is num ? sub.toDouble() : (double.tryParse(sub.toString()) ?? 0.0),
+        };
+      }).toList();
+
+      resultado.add({
+        'venta_id': ventaId,
+        'fecha': fechaVentaStr,
+        'total': totalVenta,
+        'items': items,
+      });
+    }
+
+    return resultado;
   }
 }

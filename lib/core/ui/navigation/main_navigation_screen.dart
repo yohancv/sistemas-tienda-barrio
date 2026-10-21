@@ -15,7 +15,13 @@ import '../../../inventario/ui/screens/inventario_tab_screen.dart';
 import '../../../inventario/ui/screens/kardex_screen.dart';
 import '../../../inventario/ui/screens/movimientos_inventario_screen.dart';
 import '../../../punto_de_venta/ui/screens/ventas_productos_screen.dart';
+import '../../../reportes/state/providers/reportes_providers.dart';
+import '../../../reportes/ui/screens/dashboard_reportes_screen.dart';
+import '../../../recargas/ui/screens/gestion_recargas_screen.dart';
+import '../screens/centro_respaldos_screen.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/theme_provider.dart';
+import '../../utils/app_haptics.dart';
 
 /// Pantalla Principal con Navegación Inferior de 4 Pestañas:
 /// 1. Productos / Ventas (POS con navegación jerárquica)
@@ -75,6 +81,22 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     );
   }
 
+  void _abrirReportesYMetricas() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const DashboardReportesScreen(),
+      ),
+    );
+  }
+
+  void _abrirRecargasYServicios() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const GestionRecargasScreen(),
+      ),
+    );
+  }
+
   void _abrirMermasYDesempaque() {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -92,6 +114,14 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     );
   }
 
+  void _abrirCentroRespaldos() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const CentroRespaldosScreen(),
+      ),
+    );
+  }
+
   void _recargarTodo() {
     ref.invalidate(productosListProvider);
     ref.invalidate(clientesListProvider);
@@ -99,6 +129,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     ref.invalidate(cajaTurnoActivaProvider);
     ref.invalidate(resumenCajaTurnoProvider);
     ref.invalidate(totalDeudaCalleProvider);
+    ref.invalidate(reporteDashboardProvider);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -123,39 +154,77 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     }
   }
 
-  Color _colorBarraPorTab(int index) {
-    if (index == 3) {
-      return const Color(0xFF090D1A);
-    }
-    return AppColors.primaryDark;
-  }
-
   @override
   Widget build(BuildContext context) {
     final conteoDeudores = ref.watch(conteoDeudoresProvider);
+    final esOscuro = ref.watch(esModoOscuroProvider);
+
+    final colorFondoScaffold = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final colorAppBar = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final colorTextoAppBar = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final colorIconosAppBar = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final colorBorde = esOscuro ? AppColors.darkBorder : AppColors.border;
 
     return Scaffold(
-      backgroundColor: _tabActual == 3 ? const Color(0xFF090D1A) : AppColors.background,
+      backgroundColor: _tabActual == 3 && esOscuro ? AppColors.darkBackground : colorFondoScaffold,
       appBar: AppBar(
         title: Text(
           _tituloPorTab(_tabActual),
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
+          style: TextStyle(
+            color: colorTextoAppBar,
+            fontWeight: FontWeight.w800,
             fontSize: 18,
+            letterSpacing: -0.3,
           ),
         ),
-        backgroundColor: _colorBarraPorTab(_tabActual),
+        backgroundColor: colorAppBar,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: colorBorde,
+            height: 1,
+          ),
+        ),
         actions: [
+          // Conmutador rápido de Modo Claro / Modo Oscuro
+          IconButton(
+            icon: Icon(
+              esOscuro ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              color: esOscuro ? const Color(0xFFFFB800) : AppColors.primary,
+            ),
+            tooltip: esOscuro ? 'Cambiar a Modo Claro (Pure Clean Retail)' : 'Cambiar a Modo Oscuro (Modern Slate Fintech)',
+            onPressed: () {
+              AppHaptics.selection();
+              ref.read(themeModeProvider.notifier).toggleTheme();
+            },
+          ),
+
+          // Acceso directo a Ganancias y Métricas
+          IconButton(
+            icon: Icon(Icons.analytics_rounded, color: colorIconosAppBar),
+            tooltip: 'Ganancias y Métricas del Día',
+            onPressed: _abrirReportesYMetricas,
+          ),
+
           // Menú de 3 puntos (⋮) con opciones secundarias
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
+            icon: Icon(Icons.more_vert, color: colorIconosAppBar),
             tooltip: 'Opciones y Administración',
-            color: const Color(0xFF1E293B),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            color: esOscuro ? const Color(0xFF1E293B) : AppColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: colorBorde),
+            ),
             onSelected: (valor) {
               switch (valor) {
+                case 'reportes':
+                  _abrirReportesYMetricas();
+                  break;
+                case 'recargas_servicios':
+                  _abrirRecargasYServicios();
+                  break;
                 case 'nuevo_producto':
                   _abrirNuevoProducto();
                   break;
@@ -174,85 +243,123 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                 case 'nuevo_cliente':
                   _abrirNuevoCliente();
                   break;
+                case 'respaldos':
+                  _abrirCentroRespaldos();
+                  break;
                 case 'recargar':
                   _recargarTodo();
                   break;
               }
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'nuevo_producto',
-                child: Row(
-                  children: [
-                    Icon(Icons.add_box_rounded, color: Color(0xFF00E676), size: 20),
-                    SizedBox(width: 12),
-                    Text('Nuevo Producto', style: TextStyle(color: Colors.white)),
-                  ],
+            itemBuilder: (context) {
+              final colorItem = esOscuro ? Colors.white : AppColors.textPrimary;
+              return [
+                PopupMenuItem(
+                  value: 'reportes',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.analytics_rounded, color: Color(0xFF00E676), size: 20),
+                      const SizedBox(width: 12),
+                      Text('Ganancias y Métricas', style: TextStyle(color: colorItem, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                 ),
-              ),
-              const PopupMenuItem(
-                value: 'proveedores',
-                child: Row(
-                  children: [
-                    Icon(Icons.local_shipping_rounded, color: Color(0xFF00D2FF), size: 20),
-                    SizedBox(width: 12),
-                    Text('Proveedores y Compras', style: TextStyle(color: Colors.white)),
-                  ],
+                PopupMenuItem(
+                  value: 'recargas_servicios',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.phone_android_rounded, color: Color(0xFF38BDF8), size: 20),
+                      const SizedBox(width: 12),
+                      Text('Recargas & Paquetes', style: TextStyle(color: colorItem, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                 ),
-              ),
-              const PopupMenuItem(
-                value: 'categorias',
-                child: Row(
-                  children: [
-                    Icon(Icons.category_rounded, color: Color(0xFFFFB800), size: 20),
-                    SizedBox(width: 12),
-                    Text('Categorías y Marcas', style: TextStyle(color: Colors.white)),
-                  ],
+                const PopupMenuDivider(height: 1),
+                PopupMenuItem(
+                  value: 'nuevo_producto',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.add_box_rounded, color: Color(0xFF00E676), size: 20),
+                      const SizedBox(width: 12),
+                      Text('Nuevo Producto', style: TextStyle(color: colorItem)),
+                    ],
+                  ),
                 ),
-              ),
-              const PopupMenuDivider(height: 1),
-              const PopupMenuItem(
-                value: 'kardex',
-                child: Row(
-                  children: [
-                    Icon(Icons.history_rounded, color: Color(0xFFB388FF), size: 20),
-                    SizedBox(width: 12),
-                    Text('Kardex de Movimientos', style: TextStyle(color: Colors.white)),
-                  ],
+                PopupMenuItem(
+                  value: 'proveedores',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.local_shipping_rounded, color: Color(0xFF38BDF8), size: 20),
+                      const SizedBox(width: 12),
+                      Text('Proveedores y Compras', style: TextStyle(color: colorItem)),
+                    ],
+                  ),
                 ),
-              ),
-              const PopupMenuItem(
-                value: 'mermas',
-                child: Row(
-                  children: [
-                    Icon(Icons.remove_circle_outline_rounded, color: Color(0xFFFF5252), size: 20),
-                    SizedBox(width: 12),
-                    Text('Mermas y Bajas', style: TextStyle(color: Colors.white)),
-                  ],
+                PopupMenuItem(
+                  value: 'categorias',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.category_rounded, color: Color(0xFFFFB800), size: 20),
+                      const SizedBox(width: 12),
+                      Text('Categorías y Marcas', style: TextStyle(color: colorItem)),
+                    ],
+                  ),
                 ),
-              ),
-              const PopupMenuItem(
-                value: 'nuevo_cliente',
-                child: Row(
-                  children: [
-                    Icon(Icons.person_add_rounded, color: Color(0xFF64B5F6), size: 20),
-                    SizedBox(width: 12),
-                    Text('Nuevo Vecino / Cliente', style: TextStyle(color: Colors.white)),
-                  ],
+                const PopupMenuDivider(height: 1),
+                PopupMenuItem(
+                  value: 'kardex',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.history_rounded, color: Color(0xFFB388FF), size: 20),
+                      const SizedBox(width: 12),
+                      Text('Kardex de Movimientos', style: TextStyle(color: colorItem)),
+                    ],
+                  ),
                 ),
-              ),
-              const PopupMenuDivider(height: 1),
-              const PopupMenuItem(
-                value: 'recargar',
-                child: Row(
-                  children: [
-                    Icon(Icons.sync_rounded, color: Colors.white70, size: 20),
-                    SizedBox(width: 12),
-                    Text('Recargar Base Local SQLite', style: TextStyle(color: Colors.white70)),
-                  ],
+                PopupMenuItem(
+                  value: 'mermas',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.remove_circle_outline_rounded, color: Color(0xFFFF5252), size: 20),
+                      const SizedBox(width: 12),
+                      Text('Mermas y Bajas', style: TextStyle(color: colorItem)),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                PopupMenuItem(
+                  value: 'nuevo_cliente',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.person_add_rounded, color: Color(0xFF64B5F6), size: 20),
+                      const SizedBox(width: 12),
+                      Text('Nuevo Vecino / Cliente', style: TextStyle(color: colorItem)),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(height: 1),
+                PopupMenuItem(
+                  value: 'respaldos',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.cloud_sync_rounded, color: Color(0xFF38BDF8), size: 20),
+                      const SizedBox(width: 12),
+                      Text('Copias & Restauración (Backup)', style: TextStyle(color: colorItem, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(height: 1),
+                PopupMenuItem(
+                  value: 'recargar',
+                  child: Row(
+                    children: [
+                      Icon(Icons.sync_rounded, color: esOscuro ? Colors.white70 : AppColors.textMuted, size: 20),
+                      const SizedBox(width: 12),
+                      Text('Recargar Base Local SQLite', style: TextStyle(color: esOscuro ? Colors.white70 : AppColors.textMuted)),
+                    ],
+                  ),
+                ),
+              ];
+            },
           ),
         ],
       ),
@@ -261,40 +368,52 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
         children: _pantallas,
       ),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF090D1A),
+        decoration: BoxDecoration(
+          color: esOscuro ? AppColors.darkSurface : AppColors.surface,
           border: Border(
-            top: BorderSide(color: Color(0xFF1E2844), width: 1),
+            top: BorderSide(
+              color: esOscuro ? AppColors.darkBorder : AppColors.border,
+              width: 1,
+            ),
           ),
         ),
         child: NavigationBarTheme(
           data: NavigationBarThemeData(
-            backgroundColor: const Color(0xFF090D1A),
-            indicatorColor: const Color(0xFF272A4E),
+            backgroundColor: esOscuro ? AppColors.darkSurface : AppColors.surface,
+            indicatorColor: esOscuro ? const Color(0x2638BDF8) : const Color(0xFFEFF6FF),
             labelTextStyle: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.selected)) {
-                return const TextStyle(
-                  color: Colors.white,
+                return TextStyle(
+                  color: esOscuro ? AppColors.darkAccent : AppColors.primary,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
                 );
               }
-              return const TextStyle(
-                color: Color(0xFF8B9CB5),
+              return TextStyle(
+                color: esOscuro ? AppColors.darkTextMuted : AppColors.textMuted,
                 fontWeight: FontWeight.w500,
                 fontSize: 11,
               );
             }),
             iconTheme: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.selected)) {
-                return const IconThemeData(color: Color(0xFF00D2FF), size: 24);
+                return IconThemeData(
+                  color: esOscuro ? AppColors.darkAccent : AppColors.primary,
+                  size: 24,
+                );
               }
-              return const IconThemeData(color: Color(0xFF8B9CB5), size: 22);
+              return IconThemeData(
+                color: esOscuro ? AppColors.darkTextMuted : AppColors.textMuted,
+                size: 22,
+              );
             }),
           ),
           child: NavigationBar(
+            elevation: 0,
+            backgroundColor: esOscuro ? AppColors.darkSurface : AppColors.surface,
             selectedIndex: _tabActual,
             onDestinationSelected: (index) {
+              AppHaptics.selection();
               setState(() => _tabActual = index);
             },
             destinations: [

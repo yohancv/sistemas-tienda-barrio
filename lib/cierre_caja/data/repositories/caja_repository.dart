@@ -27,6 +27,23 @@ class CajaRepository {
     }
   }
 
+  /// Asegura que siempre exista un turno de caja activo (Modo Dueño / Caja Continua).
+  /// Si no hay un turno abierto, crea uno automáticamente con fondo inicial 0.0 Bs.
+  Future<CajaTurnoModel> asegurarTurnoActivo({
+    required String tenantId,
+    double montoInicial = 0.0,
+    String? usuarioId,
+  }) async {
+    final turnoExistente = await obtenerTurnoActivo(tenantId);
+    if (turnoExistente != null) return turnoExistente;
+
+    return await abrirTurno(
+      tenantId: tenantId,
+      montoInicial: montoInicial,
+      usuarioId: usuarioId ?? 'DUEÑO',
+    );
+  }
+
   /// Inicia un nuevo turno de caja con el fondo inicial en Bs.
   Future<CajaTurnoModel> abrirTurno({
     required String tenantId,

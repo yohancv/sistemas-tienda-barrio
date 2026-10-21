@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/theme/theme_provider.dart';
 import '../../data/models/categoria_model.dart';
 import '../../state/providers/categorias_providers.dart';
 
@@ -258,17 +259,29 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
   Widget build(BuildContext context) {
     final arbolAsync = ref.watch(arbolCategoriasProvider);
 
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final bgColor = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Categorías y Familias',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold, fontSize: 18),
         ),
-        backgroundColor: AppColors.primary,
+        backgroundColor: surfaceColor,
+        foregroundColor: textPrimary,
         elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(color: cardBorder, height: 1.0),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
+            icon: Icon(Icons.refresh, color: textPrimary),
             tooltip: 'Refrescar categorías',
             onPressed: () => ref.invalidate(arbolCategoriasProvider),
           ),
@@ -525,8 +538,8 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primary,
-        elevation: 4,
+        backgroundColor: AppColors.retailBlue,
+        elevation: 0,
         onPressed: () => _abrirModalCrearOEditarCategoria(),
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(

@@ -96,7 +96,8 @@ class CajaTurnoActivaNotifier extends AsyncNotifier<CajaTurnoModel?> {
   @override
   Future<CajaTurnoModel?> build() async {
     final repo = ref.read(cajaRepositoryProvider);
-    return await repo.obtenerTurnoActivo(SupabaseConfig.defaultTenantId);
+    // Modo Dueño: Asegura silenciosamente que siempre haya una caja lista para operar
+    return await repo.asegurarTurnoActivo(tenantId: SupabaseConfig.defaultTenantId);
   }
 
   /// Refresca el turno activo
@@ -104,7 +105,7 @@ class CajaTurnoActivaNotifier extends AsyncNotifier<CajaTurnoModel?> {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(cajaRepositoryProvider);
-      return await repo.obtenerTurnoActivo(SupabaseConfig.defaultTenantId);
+      return await repo.asegurarTurnoActivo(tenantId: SupabaseConfig.defaultTenantId);
     });
   }
 
@@ -142,6 +143,37 @@ class CajaTurnoActivaNotifier extends AsyncNotifier<CajaTurnoModel?> {
 
     // Al limpiar el estado a null, los providers dependientes se actualizan reactivamente
     state = const AsyncValue.data(null);
+    return turnoCerrado;
+  }
+
+  /// Realiza el corte de caja del día para el dueño (Caja Continua):
+  /// Cierra el turno actual congelando los montos reales sin exigir conteo ciego,
+  /// e inicia de inmediato el nuevo turno para que la tienda continúe operando.
+  Future<CajaTurnoModel> hacerCorteDiario({
+    required ResumenCajaModel resumen,
+    required double fondoParaManana,
+    String? observaciones,
+  }) async {
+    final turnoActual = state.value;
+    if (turnoActual == null) throw Exception('No hay turno abierto');
+
+    final repo = ref.read(cajaRepositoryProvider);
+    final turnoCerrado = await repo.cerrarTurno(
+      turnoId: turnoActual.id,
+      montoContado: resumen.montoEsperadoEfectivo,
+      resumen: resumen,
+      desglose: null,
+      observaciones: observaciones,
+    );
+
+    // Iniciar automáticamente el siguiente turno con el cambio dejado en gaveta
+    final nuevoTurno = await repo.abrirTurno(
+      tenantId: SupabaseConfig.defaultTenantId,
+      montoInicial: fondoParaManana,
+      usuarioId: 'DUEÑO',
+    );
+
+    state = AsyncValue.data(nuevoTurno);
     return turnoCerrado;
   }
 }
@@ -195,4 +227,11 @@ final ultimoTurnoCerradoProvider = FutureProvider<CajaTurnoModel?>((ref) async {
   final repo = ref.read(cajaRepositoryProvider);
   return await repo.obtenerUltimoTurnoCerrado(SupabaseConfig.defaultTenantId);
 });
+
+/// Proveedor del historial de turnos cerrados
+final historialTurnosCajaProvider = FutureProvider<List<CajaTurnoModel>>((ref) async {
+  final repo = ref.read(cajaRepositoryProvider);
+  return await repo.obtenerHistorialTurnos(SupabaseConfig.defaultTenantId);
+});
+
 

@@ -21,7 +21,7 @@ class AppDatabase {
   /// Instancia única compartida por todos los repositorios.
   static final AppDatabase instance = AppDatabase._();
 
-  static const int _version = 1;
+  static const int _version = 2;
   static const Uuid _uuid = Uuid();
 
   Database? _db;
@@ -103,6 +103,11 @@ class AppDatabase {
           await _crearEsquema(db);
           await SeedData.cargar(db);
         },
+        onUpgrade: (db, oldVersion, newVersion) async {
+          if (oldVersion < 2) {
+            await _instalarTriggersSeguridad(db);
+          }
+        },
         onOpen: (db) async {
           // Migración segura para compras: estado y fecha_entrega
           try {
@@ -115,9 +120,43 @@ class AppDatabase {
               await db.execute('ALTER TABLE compras ADD COLUMN fecha_entrega TEXT');
             }
           } catch (_) {}
+
+          // Garantizar que los triggers de seguridad estén activos en cualquier conexión
+          try {
+            await _instalarTriggersSeguridad(db);
+          } catch (_) {}
         },
       ),
     );
+  }
+
+  /// Instala los triggers de inmutabilidad y seguridad financiera
+  static Future<void> _instalarTriggersSeguridad(DatabaseExecutor db) async {
+    final queries = [
+      '''
+      CREATE TRIGGER IF NOT EXISTS trg_compras_no_update BEFORE UPDATE ON compras
+      WHEN OLD.estado = 'COMPLETADA'
+      BEGIN SELECT RAISE(ABORT, 'Las compras completadas son inmutables para proteger el Kardex.'); END;
+      ''',
+      '''
+      CREATE TRIGGER IF NOT EXISTS trg_compras_no_delete BEFORE DELETE ON compras
+      WHEN OLD.estado = 'COMPLETADA'
+      BEGIN SELECT RAISE(ABORT, 'No se puede eliminar una compra completada.'); END;
+      ''',
+      '''
+      CREATE TRIGGER IF NOT EXISTS trg_productos_no_delete BEFORE DELETE ON productos
+      BEGIN SELECT RAISE(ABORT, 'No se permite eliminar productos. Use desactivación lógica para preservar el historial.'); END;
+      ''',
+      '''
+      CREATE TRIGGER IF NOT EXISTS trg_clientes_no_delete BEFORE DELETE ON clientes
+      BEGIN SELECT RAISE(ABORT, 'No se permite eliminar clientes. Use desactivación lógica para preservar el historial.'); END;
+      ''',
+    ];
+    for (final q in queries) {
+      try {
+        await db.execute(q);
+      } catch (_) {}
+    }
   }
 
   /// Cierra la conexión (útil para respaldos o pruebas).
@@ -423,6 +462,28 @@ class AppDatabase {
         BEGIN SELECT RAISE(ABORT, '$mensaje'); END
       ''');
     });
+
+    // Inmutabilidad de compras completadas
+    batch.execute('''
+      CREATE TRIGGER trg_compras_no_update BEFORE UPDATE ON compras
+      WHEN OLD.estado = 'COMPLETADA'
+      BEGIN SELECT RAISE(ABORT, 'Las compras completadas son inmutables para proteger el Kardex.'); END;
+    ''');
+    batch.execute('''
+      CREATE TRIGGER trg_compras_no_delete BEFORE DELETE ON compras
+      WHEN OLD.estado = 'COMPLETADA'
+      BEGIN SELECT RAISE(ABORT, 'No se puede eliminar una compra completada.'); END;
+    ''');
+
+    // Bloqueo de borrado físico en catálogo y clientes (exigir Soft Delete)
+    batch.execute('''
+      CREATE TRIGGER trg_productos_no_delete BEFORE DELETE ON productos
+      BEGIN SELECT RAISE(ABORT, 'No se permite eliminar productos. Use desactivación lógica para preservar el historial.'); END;
+    ''');
+    batch.execute('''
+      CREATE TRIGGER trg_clientes_no_delete BEFORE DELETE ON clientes
+      BEGIN SELECT RAISE(ABORT, 'No se permite eliminar clientes. Use desactivación lógica para preservar el historial.'); END;
+    ''');
 
     // -------------------------------------------------------------------------
     // TRIGGERS: SINCRONIZACIÓN AUTOMÁTICA DEL SALDO DE FIADOS

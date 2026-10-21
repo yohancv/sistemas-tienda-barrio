@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../cierre_caja/state/providers/caja_providers.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_typography.dart';
+import '../../../core/theme/theme_provider.dart';
 import '../../../inventario/data/models/producto_model.dart';
 import '../../../inventario/state/providers/inventario_providers.dart';
 import '../../data/models/compra_model.dart';
@@ -108,55 +108,72 @@ class _ComprasProveedoresScreenState
     final pedidosPendientesAsync = ref.watch(pedidosPendientesProvider);
     final conteoPendientes = pedidosPendientesAsync.valueOrNull?.length ?? 0;
 
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final bgColor = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: bgColor,
       appBar: AppBar(
         title: Text(
           'Proveedores y Compras',
-          style: AppTypography.headlineSmall.copyWith(
-            color: Colors.white,
+          style: TextStyle(
+            color: textPrimary,
             fontWeight: FontWeight.bold,
+            fontSize: 18,
           ),
         ),
-        backgroundColor: AppColors.primary,
+        backgroundColor: surfaceColor,
+        foregroundColor: textPrimary,
         elevation: 0,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppColors.secondary,
-          indicatorWeight: 3.5,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-          tabs: [
-            Tab(
-              icon: Badge(
-                isLabelVisible: carrito.items.isNotEmpty,
-                label: Text('${carrito.items.length}'),
-                backgroundColor: AppColors.secondary,
-                textColor: Colors.white,
-                child: const Icon(Icons.shopping_cart_checkout),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(49.0),
+          child: Column(
+            children: [
+              TabBar(
+                controller: _tabController,
+                indicatorColor: AppColors.retailBlue,
+                indicatorWeight: 3.0,
+                labelColor: AppColors.retailBlue,
+                unselectedLabelColor: textSecondary,
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                tabs: [
+                  Tab(
+                    icon: Badge(
+                      isLabelVisible: carrito.items.isNotEmpty,
+                      label: Text('${carrito.items.length}'),
+                      backgroundColor: AppColors.retailBlue,
+                      textColor: Colors.white,
+                      child: const Icon(Icons.shopping_cart_checkout),
+                    ),
+                    text: 'Nueva Compra',
+                  ),
+                  Tab(
+                    icon: Badge(
+                      isLabelVisible: conteoPendientes > 0,
+                      label: Text('$conteoPendientes'),
+                      backgroundColor: AppColors.warning,
+                      textColor: Colors.white,
+                      child: const Icon(Icons.local_shipping_rounded),
+                    ),
+                    text: 'En Camino',
+                  ),
+                  const Tab(
+                    icon: Icon(Icons.business_rounded),
+                    text: 'Proveedores',
+                  ),
+                  const Tab(
+                    icon: Icon(Icons.history_rounded),
+                    text: 'Historial',
+                  ),
+                ],
               ),
-              text: 'Nueva Compra',
-            ),
-            Tab(
-              icon: Badge(
-                isLabelVisible: conteoPendientes > 0,
-                label: Text('$conteoPendientes'),
-                backgroundColor: AppColors.warning,
-                textColor: Colors.white,
-                child: const Icon(Icons.local_shipping_rounded),
-              ),
-              text: 'En Camino',
-            ),
-            const Tab(
-              icon: Icon(Icons.business_rounded),
-              text: 'Proveedores',
-            ),
-            const Tab(
-              icon: Icon(Icons.history_rounded),
-              text: 'Historial',
-            ),
-          ],
+              Container(color: cardBorder, height: 1.0),
+            ],
+          ),
         ),
       ),
       body: TabBarView(
@@ -842,8 +859,8 @@ class _ComprasProveedoresScreenState
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(30),
-            blurRadius: 8,
-            offset: const Offset(0, -3),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
           ),
         ],
       ),
@@ -1062,8 +1079,8 @@ class _ComprasProveedoresScreenState
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(20),
-            blurRadius: 8,
-            offset: const Offset(0, -3),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
           ),
         ],
       ),

@@ -18,7 +18,7 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
   final _notasController = TextEditingController();
 
   double _montoAbono = 0.0;
-  final String _metodoPago = 'EFECTIVO';
+  String _metodoPago = 'EFECTIVO';
   bool _procesando = false;
 
   @override
@@ -37,9 +37,10 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
   }
 
   void _seleccionarMonto(double monto) {
+    final montoSeguro = monto > widget.cliente.saldoActual ? widget.cliente.saldoActual : monto;
     setState(() {
-      _montoAbono = monto;
-      _montoController.text = monto.toStringAsFixed(2);
+      _montoAbono = montoSeguro;
+      _montoController.text = montoSeguro.toStringAsFixed(2);
     });
   }
 
@@ -53,6 +54,15 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
 
   void _confirmarAbono() async {
     if (_montoAbono <= 0) return;
+    if (_montoAbono > widget.cliente.saldoActual + 0.001) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('El abono no puede ser mayor al saldo deudor actual.'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
 
     setState(() => _procesando = true);
 
@@ -258,6 +268,86 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
                   ),
                 );
               }).toList(),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Selector de Método de Pago: Efectivo vs QR / Banco
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceMuted,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(() => _metodoPago = 'EFECTIVO'),
+                      borderRadius: BorderRadius.circular(9),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        decoration: BoxDecoration(
+                          color: _metodoPago == 'EFECTIVO' ? AppColors.retailGreen : Colors.transparent,
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.payments_outlined,
+                              size: 19,
+                              color: _metodoPago == 'EFECTIVO' ? Colors.white : AppColors.textPrimary,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Efectivo',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: _metodoPago == 'EFECTIVO' ? Colors.white : AppColors.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(() => _metodoPago = 'QR'),
+                      borderRadius: BorderRadius.circular(9),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        decoration: BoxDecoration(
+                          color: _metodoPago == 'QR' ? AppColors.retailBlue : Colors.transparent,
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.qr_code_rounded,
+                              size: 19,
+                              color: _metodoPago == 'QR' ? Colors.white : AppColors.textPrimary,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'QR / Banco',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: _metodoPago == 'QR' ? Colors.white : AppColors.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
 
             const SizedBox(height: 16),

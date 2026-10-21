@@ -7,6 +7,9 @@ import '../../data/models/producto_model.dart';
 import '../../state/providers/inventario_providers.dart';
 import '../widgets/modal_ajuste_rapido_producto.dart';
 import 'formulario_producto_screen.dart';
+import '../../../core/utils/app_haptics.dart';
+import '../../../core/utils/debouncer.dart';
+import '../../../core/theme/theme_provider.dart';
 
 /// Apartado 2: Inventario & Administración de la Tienda
 ///
@@ -25,14 +28,18 @@ class InventarioTabScreen extends ConsumerStatefulWidget {
 class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
   bool _soloFaltantes = false;
   final TextEditingController _searchController = TextEditingController();
+  final Debouncer _debouncer = Debouncer(milliseconds: 220);
+  String _debouncedQuery = '';
 
   @override
   void dispose() {
     _searchController.dispose();
+    _debouncer.dispose();
     super.dispose();
   }
 
   void _abrirModalAjuste(BuildContext context, Producto producto) {
+    AppHaptics.light();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -42,6 +49,7 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
   }
 
   void _abrirNuevoProducto(BuildContext context) {
+    AppHaptics.medium();
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -53,10 +61,19 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
   @override
   Widget build(BuildContext context) {
     final productosAsync = ref.watch(productosListProvider);
-    final query = _searchController.text.trim().toLowerCase();
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final query = _debouncedQuery;
+
+    final bgColor = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final headerBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final headerBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final inputBg = esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted;
+    final inputBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: bgColor,
       body: productosAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(
@@ -86,28 +103,32 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
             children: [
               // 1. Cabecera con Métricas de Capital y Controles
               Container(
-                color: Colors.white,
-                padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                decoration: BoxDecoration(
+                  color: headerBg,
+                  border: Border(bottom: BorderSide(color: headerBorder, width: 1.0)),
+                ),
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
                 child: Column(
                   children: [
-                    // Resumen Financiero del Negocio (Cuánto vale la tienda hoy)
+                    // Resumen Financiero del Negocio (Banner Pure Clean Retail)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
+                        gradient: const LinearGradient(
                           colors: [
-                            AppColors.primary,
-                            AppColors.primary.withAlpha(210),
+                            Color(0xFF0F172A),
+                            Color(0xFF1E293B),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFF334155)),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primary.withAlpha(30),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
+                            color: Colors.black.withAlpha(25),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
@@ -120,10 +141,10 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                               const Text(
                                 'CAPITAL EN MERCADERÍA',
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 10.5,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white70,
-                                  letterSpacing: 0.5,
+                                  color: Color(0xFF94A3B8),
+                                  letterSpacing: 0.6,
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -133,6 +154,7 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                                   fontSize: 22,
                                   fontWeight: FontWeight.w900,
                                   color: Colors.white,
+                                  letterSpacing: -0.5,
                                 ),
                               ),
                             ],
@@ -140,10 +162,11 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withAlpha(35),
+                                  color: Colors.white.withAlpha(20),
                                   borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.white.withAlpha(25)),
                                 ),
                                 child: Text(
                                   '${todosLosProductos.length} productos',
@@ -153,9 +176,9 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                               if (conteoFaltantes > 0) ...[
                                 const SizedBox(width: 6),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: AppColors.danger.withAlpha(220),
+                                    color: AppColors.danger.withAlpha(230),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
@@ -181,25 +204,36 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                             height: 42,
                             child: TextField(
                               controller: _searchController,
-                              onChanged: (_) => setState(() {}),
+                              onChanged: (val) {
+                                _debouncer.run(() {
+                                  if (mounted) setState(() => _debouncedQuery = val.trim().toLowerCase());
+                                });
+                              },
+                              style: TextStyle(fontSize: 14, color: textPrimary),
                               decoration: InputDecoration(
                                 hintText: 'Buscar en inventario...',
-                                prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.primary),
+                                hintStyle: TextStyle(fontSize: 13, color: textMuted),
+                                prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.retailBlue),
                                 suffixIcon: _searchController.text.isNotEmpty
                                     ? IconButton(
-                                        icon: const Icon(Icons.clear, size: 18),
+                                        icon: Icon(Icons.clear, size: 18, color: textMuted),
                                         onPressed: () {
                                           _searchController.clear();
-                                          setState(() {});
+                                          _debouncer.run(() {});
+                                          setState(() => _debouncedQuery = '');
                                         },
                                       )
                                     : null,
                                 filled: true,
-                                fillColor: AppColors.surfaceMuted,
+                                fillColor: inputBg,
                                 contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
-                                border: OutlineInputBorder(
+                                enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide.none,
+                                  borderSide: BorderSide(color: inputBorder),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(color: AppColors.retailBlue, width: 1.5),
                                 ),
                               ),
                             ),
@@ -215,21 +249,21 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                             height: 42,
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                             decoration: BoxDecoration(
-                              color: AppColors.secondary.withAlpha(25),
+                              color: esOscuro ? AppColors.darkSurfaceMuted : const Color(0xFFEFF6FF),
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppColors.secondary.withAlpha(70)),
+                              border: Border.all(color: esOscuro ? AppColors.darkBorderStrong : const Color(0xFFBFDBFE)),
                             ),
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.add, color: AppColors.secondary, size: 18),
+                                Icon(Icons.add, color: AppColors.retailBlue, size: 18),
                                 SizedBox(width: 4),
                                 Text(
                                   'Nuevo',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
-                                    color: AppColors.secondary,
+                                    color: AppColors.retailBlue,
                                   ),
                                 ),
                               ],
@@ -242,6 +276,7 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                         InkWell(
                           borderRadius: BorderRadius.circular(10),
                           onTap: () {
+                            AppHaptics.medium();
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -253,21 +288,21 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                             height: 42,
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withAlpha(20),
+                              color: esOscuro ? AppColors.darkSurfaceMuted : const Color(0xFFF1F5F9),
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppColors.primary.withAlpha(60)),
+                              border: Border.all(color: esOscuro ? AppColors.darkBorderStrong : AppColors.border),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.local_shipping_outlined, color: AppColors.primary, size: 18),
-                                SizedBox(width: 4),
+                                Icon(Icons.local_shipping_outlined, color: textPrimary, size: 18),
+                                const SizedBox(width: 4),
                                 Text(
                                   'Compras',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
-                                    color: AppColors.primary,
+                                    color: textPrimary,
                                   ),
                                 ),
                               ],
@@ -286,13 +321,19 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                           visualDensity: VisualDensity.compact,
                           label: Text('Todos (${todosLosProductos.length})'),
                           selected: !_soloFaltantes,
-                          selectedColor: AppColors.primary,
+                          selectedColor: esOscuro ? AppColors.darkAccent : AppColors.retailBlue,
+                          backgroundColor: esOscuro ? AppColors.darkSurfaceMuted : const Color(0xFFF1F5F9),
+                          side: BorderSide.none,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           labelStyle: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: !_soloFaltantes ? Colors.white : AppColors.textPrimary,
+                            color: !_soloFaltantes ? Colors.white : textMuted,
                           ),
-                          onSelected: (_) => setState(() => _soloFaltantes = false),
+                          onSelected: (_) {
+                            AppHaptics.selection();
+                            setState(() => _soloFaltantes = false);
+                          },
                         ),
                         const SizedBox(width: 8),
                         FilterChip(
@@ -311,13 +352,18 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                           ),
                           selected: _soloFaltantes,
                           selectedColor: AppColors.danger,
-                          backgroundColor: AppColors.danger.withAlpha(15),
+                          backgroundColor: esOscuro ? const Color(0xFF2D1219) : const Color(0xFFFEF2F2),
+                          side: BorderSide.none,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           labelStyle: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: _soloFaltantes ? Colors.white : AppColors.danger,
                           ),
-                          onSelected: (val) => setState(() => _soloFaltantes = val),
+                          onSelected: (val) {
+                            AppHaptics.selection();
+                            setState(() => _soloFaltantes = val);
+                          },
                         ),
                       ],
                     ),
@@ -332,23 +378,23 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.inventory_2_outlined, size: 60, color: Colors.grey.shade400),
+                            Icon(Icons.inventory_2_outlined, size: 60, color: textMuted),
                             const SizedBox(height: 12),
                             Text(
                               _soloFaltantes
                                   ? '¡Excelente! No hay productos con stock faltante'
                                   : 'No se encontraron productos',
-                              style: const TextStyle(fontSize: 15, color: AppColors.textMuted),
+                              style: TextStyle(fontSize: 15, color: textMuted),
                             ),
                           ],
                         ),
                       )
                     : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(14, 8, 14, 20),
+                        padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
                         itemCount: filtrados.length,
                         itemBuilder: (context, index) {
                           final prod = filtrados[index];
-                          return _buildTarjetaTresPartes(context, prod);
+                          return _buildTarjetaTresPartes(context, prod, esOscuro);
                         },
                       ),
               ),
@@ -363,22 +409,31 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
   /// Parte 1: Nombre del producto, precio de venta y botón de ajuste
   /// Parte 2: Número de cajas / paquetes
   /// Parte 3: Cantidad de sueltos
-  Widget _buildTarjetaTresPartes(BuildContext context, Producto producto) {
+  Widget _buildTarjetaTresPartes(BuildContext context, Producto producto, bool esOscuro) {
     final bultos = producto.empaquesCompletos;
     final sueltas = producto.unidadesSueltasRestantes;
 
+    final cardBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = producto.esStockBajo
+        ? AppColors.danger.withAlpha(140)
+        : (esOscuro ? AppColors.darkBorder : AppColors.border);
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMuted = esOscuro ? AppColors.darkTextSecondary : AppColors.textMuted;
+    final dividerColor = esOscuro ? AppColors.darkBorder : AppColors.border;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      elevation: 1.5,
+      elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: producto.esStockBajo
-            ? BorderSide(color: AppColors.danger.withAlpha(120), width: 1.5)
-            : BorderSide.none,
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: cardBorder,
+          width: producto.esStockBajo ? 1.5 : 1.0,
+        ),
       ),
-      color: Colors.white,
+      color: cardBg,
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         onTap: () => _abrirModalAjuste(context, producto),
         child: Padding(
           padding: const EdgeInsets.all(12.0),
@@ -391,7 +446,9 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: producto.esStockBajo ? AppColors.danger.withAlpha(20) : AppColors.success.withAlpha(20),
+                      color: producto.esStockBajo
+                          ? (esOscuro ? const Color(0xFF2D1219) : const Color(0xFFFEF2F2))
+                          : (esOscuro ? const Color(0xFF0F291E) : const Color(0xFFF0FDF4)),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -399,7 +456,7 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                         Icon(
                           producto.esStockBajo ? Icons.warning_amber_rounded : Icons.check_circle_outline,
                           size: 14,
-                          color: producto.esStockBajo ? AppColors.danger : AppColors.success,
+                          color: producto.esStockBajo ? AppColors.danger : AppColors.retailGreen,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -407,7 +464,7 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: producto.esStockBajo ? AppColors.danger : AppColors.success,
+                            color: producto.esStockBajo ? AppColors.danger : AppColors.retailGreen,
                           ),
                         ),
                       ],
@@ -418,9 +475,12 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withAlpha(15),
+                      color: esOscuro ? AppColors.darkSurfaceMuted : const Color(0xFFEFF6FF),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.primary.withAlpha(50), width: 0.8),
+                      border: Border.all(
+                        color: esOscuro ? AppColors.darkBorderStrong : const Color(0xFFBFDBFE),
+                        width: 0.8,
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -429,11 +489,11 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
+                            color: AppColors.retailBlue,
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(Icons.edit_outlined, size: 12, color: AppColors.primary),
+                        const Icon(Icons.edit_outlined, size: 12, color: AppColors.retailBlue),
                       ],
                     ),
                   ),
@@ -441,7 +501,7 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
               ),
 
               const SizedBox(height: 8),
-              const Divider(height: 1),
+              Divider(height: 1, color: dividerColor),
               const SizedBox(height: 8),
 
               // CUADRO EN 3 PARTES:
@@ -457,10 +517,10 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                       children: [
                         Text(
                           producto.nombre,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
+                            color: textPrimary,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -468,12 +528,12 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                         const SizedBox(height: 2),
                         Text(
                           '${producto.categoria ?? "General"} • ${producto.subcategoria ?? ""}',
-                          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                          style: TextStyle(fontSize: 11, color: textMuted),
                         ),
                         if (producto.codigoBarras != null && producto.codigoBarras!.isNotEmpty)
                           Text(
                             'Cód: #${producto.codigoBarras}',
-                            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                            style: TextStyle(fontSize: 11, color: textMuted),
                           ),
                       ],
                     ),
@@ -482,7 +542,7 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                   Container(
                     width: 1,
                     height: 44,
-                    color: Colors.grey.shade300,
+                    color: dividerColor,
                     margin: const EdgeInsets.symmetric(horizontal: 8),
                   ),
 
@@ -496,7 +556,7 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: bultos == 0 && producto.tieneEmpaqueMayorista ? AppColors.danger : AppColors.primary,
+                            color: bultos == 0 && producto.tieneEmpaqueMayorista ? AppColors.danger : AppColors.retailBlue,
                           ),
                         ),
                         Text(
@@ -504,7 +564,7 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                           textAlign: TextAlign.center,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                          style: TextStyle(fontSize: 11, color: textMuted),
                         ),
                       ],
                     ),
@@ -513,7 +573,7 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                   Container(
                     width: 1,
                     height: 44,
-                    color: Colors.grey.shade300,
+                    color: dividerColor,
                     margin: const EdgeInsets.symmetric(horizontal: 8),
                   ),
 
@@ -529,13 +589,13 @@ class _InventarioTabScreenState extends ConsumerState<InventarioTabScreen> {
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: producto.stockActual == 0 ? AppColors.danger : AppColors.textPrimary,
+                            color: producto.stockActual == 0 ? AppColors.danger : textPrimary,
                           ),
                         ),
                         Text(
                           producto.esFraccionable ? producto.unidadMedida : 'Sueltas',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                          style: TextStyle(fontSize: 11, color: textMuted),
                         ),
                       ],
                     ),

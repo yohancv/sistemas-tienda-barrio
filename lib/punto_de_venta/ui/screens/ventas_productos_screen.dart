@@ -11,6 +11,10 @@ import '../../data/models/item_carrito_model.dart';
 import '../../state/providers/carrito_providers.dart';
 import '../screens/ticket_screen.dart';
 import '../widgets/modal_venta_fraccionada.dart';
+import '../../../recargas/ui/widgets/modal_registro_recarga_rapida.dart';
+import '../../../core/utils/app_haptics.dart';
+import '../../../core/utils/debouncer.dart';
+import '../../../core/theme/theme_provider.dart';
 
 /// Pantalla del Apartado 1: Productos / Ventas (POS)
 ///
@@ -29,6 +33,8 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
   String? _categoriaSeleccionada;
   String? _marcaSeleccionada;
   final TextEditingController _searchController = TextEditingController();
+  final Debouncer _debouncer = Debouncer(milliseconds: 220);
+  String _debouncedQuery = '';
 
   // Guarda la opción de venta por defecto (Paquete vs Unidad) seleccionada para cada producto en pantalla
   final Map<String, ModoVenta> _modosVentaPorProducto = {};
@@ -36,10 +42,22 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _debouncer.dispose();
     super.dispose();
   }
 
+  void _abrirModalRecargas() {
+    AppHaptics.medium();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const ModalRegistroRecargaRapida(),
+    );
+  }
+
   void _irACategoria(String categoria) {
+    AppHaptics.selection();
     setState(() {
       _categoriaSeleccionada = categoria;
       _marcaSeleccionada = null;
@@ -47,12 +65,14 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
   }
 
   void _irAMarca(String marca) {
+    AppHaptics.selection();
     setState(() {
       _marcaSeleccionada = marca;
     });
   }
 
   void _retroceder() {
+    AppHaptics.light();
     setState(() {
       if (_marcaSeleccionada != null) {
         _marcaSeleccionada = null;
@@ -67,10 +87,13 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
     final productosAsync = ref.watch(productosListProvider);
     final totalArticulos = ref.watch(totalArticulosProvider);
     final totalMonto = ref.watch(totalCarritoProvider);
-    final query = _searchController.text.trim().toLowerCase();
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final query = _debouncedQuery;
+
+    final bgColor = esOscuro ? AppColors.darkBackground : AppColors.background;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: bgColor,
       body: productosAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(
@@ -92,9 +115,9 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
 
             return Column(
               children: [
-                _buildBarraBusqueda(),
-                Expanded(child: _buildListaProductos(resultados)),
-                _buildBarraCobroFlotante(totalArticulos, totalMonto),
+                _buildBarraBusqueda(esOscuro),
+                Expanded(child: _buildListaProductos(resultados, esOscuro)),
+                _buildBarraCobroFlotante(totalArticulos, totalMonto, esOscuro),
               ],
             );
           }
@@ -102,16 +125,16 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
           // Flujo Jerárquico normal
           return Column(
             children: [
-              _buildBarraBusqueda(),
-              _buildMigasDePan(),
+              _buildBarraBusqueda(esOscuro),
+              _buildMigasDePan(esOscuro),
               Expanded(
                 child: _categoriaSeleccionada == null
-                    ? _buildGridCategorias(todosLosProductos)
+                    ? _buildGridCategorias(todosLosProductos, esOscuro)
                     : (_marcaSeleccionada == null
-                        ? _buildGridMarcas(todosLosProductos, _categoriaSeleccionada!)
-                        : _buildPresentacionesMarca(todosLosProductos, _categoriaSeleccionada!, _marcaSeleccionada!)),
+                        ? _buildGridMarcas(todosLosProductos, _categoriaSeleccionada!, esOscuro)
+                        : _buildPresentacionesMarca(todosLosProductos, _categoriaSeleccionada!, _marcaSeleccionada!, esOscuro)),
               ),
-              _buildBarraCobroFlotante(totalArticulos, totalMonto),
+              _buildBarraCobroFlotante(totalArticulos, totalMonto, esOscuro),
             ],
           );
         },
@@ -119,44 +142,101 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
     );
   }
 
-  Widget _buildBarraBusqueda() {
+  Widget _buildBarraBusqueda(bool esOscuro) {
+    final searchBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final inputBg = esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted;
+    final inputBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+
     return Container(
-      color: Colors.white,
+      color: searchBg,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      child: TextField(
-        controller: _searchController,
-        onChanged: (_) => setState(() {}),
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-        decoration: InputDecoration(
-          hintText: 'Buscar por nombre, marca o código...',
-          prefixIcon: const Icon(Icons.search, color: AppColors.primary, size: 26),
-          suffixIcon: _searchController.text.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.close, color: AppColors.textMuted),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() {});
-                  },
-                )
-              : null,
-          filled: true,
-          fillColor: AppColors.surfaceMuted,
-          contentPadding: const EdgeInsets.symmetric(vertical: 12),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide.none,
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              onChanged: (val) {
+                _debouncer.run(() {
+                  if (mounted) setState(() => _debouncedQuery = val.trim().toLowerCase());
+                });
+              },
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: textPrimary),
+              decoration: InputDecoration(
+                hintText: 'Buscar por nombre, marca o código...',
+                hintStyle: TextStyle(color: textMuted, fontSize: 13.5),
+                prefixIcon: const Icon(Icons.search, color: AppColors.retailBlue, size: 22),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(Icons.close, color: textMuted),
+                        onPressed: () {
+                          _searchController.clear();
+                          _debouncer.run(() {});
+                          setState(() => _debouncedQuery = '');
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: inputBg,
+                contentPadding: const EdgeInsets.symmetric(vertical: 11, horizontal: 14),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: inputBorder),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: AppColors.retailBlue, width: 1.5),
+                ),
+              ),
+            ),
           ),
-        ),
+          const SizedBox(width: 8),
+          Material(
+            color: const Color(0xFF005CA9),
+            borderRadius: BorderRadius.circular(14),
+            elevation: 0,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: _abrirModalRecargas,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withAlpha(40)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.phone_android_rounded, color: Colors.white, size: 19),
+                    SizedBox(width: 5),
+                    Text(
+                      'Recarga',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildMigasDePan() {
+  Widget _buildMigasDePan(bool esOscuro) {
     if (_categoriaSeleccionada == null) return const SizedBox.shrink();
+
+    final bg = esOscuro ? AppColors.darkSurface : AppColors.surfaceMuted;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: AppColors.surfaceMuted,
+      color: bg,
       child: Row(
         children: [
           InkWell(
@@ -166,40 +246,40 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
             }),
             child: Row(
               children: [
-                const Icon(Icons.storefront, size: 18, color: AppColors.primary),
+                const Icon(Icons.storefront, size: 18, color: AppColors.retailBlue),
                 const SizedBox(width: 4),
-                Text('Inicio', style: AppTypography.bodySmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                Text('Inicio', style: AppTypography.bodySmall.copyWith(color: AppColors.retailBlue, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
           const SizedBox(width: 6),
-          const Icon(Icons.chevron_right, size: 18, color: AppColors.textMuted),
+          Icon(Icons.chevron_right, size: 18, color: textMuted),
           const SizedBox(width: 6),
           InkWell(
             onTap: () => setState(() => _marcaSeleccionada = null),
             child: Text(
               _categoriaSeleccionada!,
               style: AppTypography.bodySmall.copyWith(
-                color: _marcaSeleccionada == null ? AppColors.textPrimary : AppColors.primary,
+                color: _marcaSeleccionada == null ? textPrimary : AppColors.retailBlue,
                 fontWeight: _marcaSeleccionada == null ? FontWeight.bold : FontWeight.w500,
               ),
             ),
           ),
           if (_marcaSeleccionada != null) ...[
             const SizedBox(width: 6),
-            const Icon(Icons.chevron_right, size: 18, color: AppColors.textMuted),
+            Icon(Icons.chevron_right, size: 18, color: textMuted),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
                 _marcaSeleccionada!,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.bold, color: textPrimary),
               ),
             ),
           ],
           IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+            icon: const Icon(Icons.arrow_back, color: AppColors.retailBlue),
             tooltip: 'Retroceder',
             onPressed: _retroceder,
           ),
@@ -208,7 +288,7 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
     );
   }
 
-  Widget _buildGridCategorias(List<Producto> productos) {
+  Widget _buildGridCategorias(List<Producto> productos, bool esOscuro) {
     // Obtener categorías únicas con su conteo de productos
     final Map<String, int> conteoCat = {};
     for (final p in productos) {
@@ -217,6 +297,10 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
     }
 
     final categoriasOrdenadas = conteoCat.keys.toList()..sort();
+    final cardBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMuted = esOscuro ? AppColors.darkTextSecondary : AppColors.textMuted;
 
     return GridView.builder(
       padding: const EdgeInsets.all(16),
@@ -233,9 +317,12 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
         final cant = conteoCat[cat] ?? 0;
 
         return Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          color: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: cardBorder),
+          ),
+          color: cardBg,
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: () => _irACategoria(cat),
@@ -251,16 +338,16 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+                      color: textPrimary,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '$cant opciones',
-                    style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 13, color: textMuted),
                   ),
                 ],
               ),
@@ -271,7 +358,7 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
     );
   }
 
-  Widget _buildGridMarcas(List<Producto> productos, String categoria) {
+  Widget _buildGridMarcas(List<Producto> productos, String categoria, bool esOscuro) {
     // Filtrar productos de esta categoría
     final prodsCat = productos.where((p) => (p.categoria ?? 'Otros') == categoria).toList();
 
@@ -283,6 +370,10 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
     }
 
     final marcas = conteoMarcas.keys.toList()..sort();
+    final cardBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMuted = esOscuro ? AppColors.darkTextSecondary : AppColors.textMuted;
 
     return GridView.builder(
       padding: const EdgeInsets.all(16),
@@ -298,12 +389,15 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
         final cant = conteoMarcas[marca] ?? 0;
 
         return Card(
-          elevation: 2,
+          elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: AppColors.primary.withAlpha(50), width: 1.5),
+            side: BorderSide(
+              color: esOscuro ? cardBorder : AppColors.retailBlue.withAlpha(70),
+              width: 1.2,
+            ),
           ),
-          color: Colors.white,
+          color: cardBg,
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: () => _irAMarca(marca),
@@ -315,10 +409,10 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withAlpha(20),
+                      color: AppColors.retailBlue.withAlpha(esOscuro ? 35 : 20),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.sell_outlined, color: AppColors.primary, size: 28),
+                    child: const Icon(Icons.sell_outlined, color: AppColors.retailBlue, size: 28),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -326,16 +420,16 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+                      color: textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '$cant presentaciones',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 12, color: textMuted),
                   ),
                 ],
               ),
@@ -346,18 +440,19 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
     );
   }
 
-  Widget _buildPresentacionesMarca(List<Producto> productos, String categoria, String marca) {
+  Widget _buildPresentacionesMarca(List<Producto> productos, String categoria, String marca, bool esOscuro) {
     final filtrados = productos.where((p) {
       return (p.categoria ?? 'Otros') == categoria && (p.subcategoria ?? 'General') == marca;
     }).toList();
 
-    return _buildListaProductos(filtrados);
+    return _buildListaProductos(filtrados, esOscuro);
   }
 
-  Widget _buildListaProductos(List<Producto> productos) {
+  Widget _buildListaProductos(List<Producto> productos, bool esOscuro) {
     if (productos.isEmpty) {
-      return const Center(
-        child: Text('No hay productos disponibles en este apartado', style: TextStyle(color: AppColors.textMuted, fontSize: 16)),
+      final textMuted = esOscuro ? AppColors.darkTextSecondary : AppColors.textMuted;
+      return Center(
+        child: Text('No hay productos disponibles en este apartado', style: TextStyle(color: textMuted, fontSize: 16)),
       );
     }
 
@@ -366,12 +461,12 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
       itemCount: productos.length,
       itemBuilder: (context, index) {
         final prod = productos[index];
-        return _buildTarjetaProductoVenta(prod);
+        return _buildTarjetaProductoVenta(prod, esOscuro);
       },
     );
   }
 
-  Widget _buildTarjetaProductoVenta(Producto producto) {
+  Widget _buildTarjetaProductoVenta(Producto producto, bool esOscuro) {
     final tieneOpcionesEmpaque = producto.permiteVentaEmpaque || producto.permiteVentaSuelta;
     final modoActual = _modosVentaPorProducto[producto.id] ?? ModoVenta.normal;
 
@@ -390,11 +485,20 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
       etiquetaModo = 'Por ${producto.nombreUnidadSuelta} suelto';
     }
 
+    final cardBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMuted = esOscuro ? AppColors.darkTextSecondary : AppColors.textMuted;
+    final thumbBg = esOscuro ? AppColors.darkSurfaceMuted : AppColors.surfaceMuted;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: Colors.white,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: cardBorder),
+      ),
+      color: cardBg,
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(
@@ -409,9 +513,9 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
                   width: 54,
                   height: 54,
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceMuted,
+                    color: thumbBg,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: cardBorder),
                   ),
                   child: Center(
                     child: Text(
@@ -429,16 +533,16 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
                     children: [
                       Text(
                         producto.nombre,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: textPrimary,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '${producto.categoria ?? "General"} • ${producto.subcategoria ?? ""}',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        style: TextStyle(fontSize: 12, color: textMuted),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -446,7 +550,7 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: producto.esStockBajo ? AppColors.danger : AppColors.success,
+                          color: producto.esStockBajo ? AppColors.danger : AppColors.retailGreen,
                         ),
                       ),
                     ],
@@ -455,7 +559,7 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
 
                 // 3 Puntos: Editar y Kardex
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert, color: AppColors.textMuted),
+                  icon: Icon(Icons.more_vert, color: textMuted),
                   onSelected: (val) {
                     if (val == 'editar') {
                       Navigator.push(
@@ -479,7 +583,7 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
                       value: 'editar',
                       child: Row(
                         children: [
-                          Icon(Icons.edit_outlined, size: 20, color: AppColors.primary),
+                          Icon(Icons.edit_outlined, size: 20, color: AppColors.retailBlue),
                           SizedBox(width: 8),
                           Text('Editar Producto'),
                         ],
@@ -510,7 +614,7 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
                     ChoiceChip(
                       label: Text(producto.nombreEmpaqueLegible),
                       selected: modoActual == ModoVenta.porEmpaqueMayorista,
-                      selectedColor: AppColors.primary.withAlpha(30),
+                      selectedColor: AppColors.retailBlue.withAlpha(esOscuro ? 50 : 30),
                       onSelected: (sel) {
                         if (sel) {
                           setState(() {
@@ -523,7 +627,7 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
                     ChoiceChip(
                       label: const Text('Unidad'),
                       selected: modoActual == ModoVenta.normal,
-                      selectedColor: AppColors.primary.withAlpha(30),
+                      selectedColor: AppColors.retailBlue.withAlpha(esOscuro ? 50 : 30),
                       onSelected: (sel) {
                         if (sel) {
                           setState(() {
@@ -565,12 +669,12 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.success,
+                        color: AppColors.retailGreen,
                       ),
                     ),
                     Text(
                       etiquetaModo,
-                      style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                      style: TextStyle(fontSize: 11, color: textMuted),
                     ),
                   ],
                 ),
@@ -578,9 +682,10 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
                 // Botón '+' amplio (touch target >= 48dp)
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: AppColors.retailBlue,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
                   ),
                   icon: const Icon(Icons.add, size: 22, color: Colors.white),
                   label: const Text('AÑADIR', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
@@ -595,6 +700,7 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
   }
 
   void _agregarProductoAlTicket(Producto producto, ModoVenta modo) {
+    AppHaptics.light();
     if (producto.esFraccionable) {
       showModalBottomSheet(
         context: context,
@@ -603,12 +709,13 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
         builder: (_) => ModalVentaFraccionada(
           producto: producto,
           onAgregarAlTicket: (peso, totalCobrar) {
+            AppHaptics.light();
             ref.read(carritoProvider.notifier).agregarFraccionado(producto, peso, ModoVenta.porPeso);
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Añadido: ${producto.nombre} ($peso ${producto.unidadMedida})'),
-                duration: const Duration(seconds: 1),
+                duration: const Duration(milliseconds: 900),
                 backgroundColor: AppColors.primaryDark,
               ),
             );
@@ -630,28 +737,34 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Añadido: ${producto.nombre}'),
-        duration: const Duration(seconds: 1),
+        duration: const Duration(milliseconds: 900),
         backgroundColor: AppColors.primaryDark,
       ),
     );
   }
 
-  Widget _buildBarraCobroFlotante(double totalArticulos, double totalMonto) {
+  Widget _buildBarraCobroFlotante(double totalArticulos, double totalMonto, bool esOscuro) {
     if (totalArticulos <= 0) return const SizedBox.shrink();
 
     final articulosTexto = totalArticulos == totalArticulos.roundToDouble()
         ? totalArticulos.toInt().toString()
         : totalArticulos.toStringAsFixed(1);
 
+    final barBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final barBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+    final textTotal = esOscuro ? AppColors.darkSuccessBright : AppColors.textPrimary;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
       decoration: BoxDecoration(
-        color: AppColors.primaryDark,
+        color: barBg,
+        border: Border(top: BorderSide(color: barBorder, width: 1.2)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(60),
-            blurRadius: 10,
-            offset: const Offset(0, -3),
+            color: Colors.black.withAlpha(esOscuro ? 45 : 12),
+            blurRadius: 6,
+            offset: const Offset(0, -2),
           ),
         ],
       ),
@@ -665,18 +778,18 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.shopping_cart, color: Colors.white, size: 20),
+                    const Icon(Icons.shopping_cart, color: AppColors.retailBlue, size: 20),
                     const SizedBox(width: 6),
                     Text(
                       '$articulosTexto ${totalArticulos == 1 ? "artículo" : "artículos"}',
-                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      style: TextStyle(color: textMuted, fontSize: 13),
                     ),
                   ],
                 ),
                 Text(
                   'Bs. ${totalMonto.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: textTotal,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
@@ -686,16 +799,22 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
             const Spacer(),
             FilledButton.icon(
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.success,
+                backgroundColor: esOscuro ? AppColors.darkSuccess : AppColors.retailGreen,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
               ),
-              icon: const Icon(Icons.payment, size: 22, color: Colors.white),
-              label: const Text(
+              icon: Icon(Icons.payment, size: 22, color: esOscuro ? AppColors.darkSuccessDark : Colors.white),
+              label: Text(
                 'COBRAR',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: esOscuro ? AppColors.darkSuccessDark : Colors.white,
+                ),
               ),
               onPressed: () {
+                AppHaptics.medium();
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const TicketScreen()),

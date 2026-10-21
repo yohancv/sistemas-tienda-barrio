@@ -259,7 +259,7 @@ class _ModalCompraMultipleState extends ConsumerState<ModalCompraMultiple> {
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withAlpha(20),
-                  blurRadius: 8,
+                  blurRadius: 4,
                   offset: const Offset(0, -2),
                 ),
               ],

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/config/supabase_client.dart';
+import 'core/theme/app_theme.dart';
+import 'core/theme/theme_provider.dart';
 import 'core/ui/navigation/main_navigation_screen.dart';
 
 void main() async {
@@ -15,7 +17,7 @@ void main() async {
 }
 
 /// Constructor sin animaciones de transición para optimizar el rendimiento
-/// y mantener accesibilidad fluida en teléfonos de gama baja.
+/// y mantener accesibilidad fluida en teléfonos de gama base como el Tecno Spark 8C.
 class NoTransitionsBuilder extends PageTransitionsBuilder {
   const NoTransitionsBuilder();
 
@@ -31,26 +33,29 @@ class NoTransitionsBuilder extends PageTransitionsBuilder {
   }
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+
+    const pageTransitions = PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: NoTransitionsBuilder(),
+        TargetPlatform.iOS: NoTransitionsBuilder(),
+        TargetPlatform.windows: NoTransitionsBuilder(),
+        TargetPlatform.linux: NoTransitionsBuilder(),
+        TargetPlatform.macOS: NoTransitionsBuilder(),
+      },
+    );
+
     return MaterialApp(
       title: 'LicorPOS • Tienda de Barrio',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        pageTransitionsTheme: const PageTransitionsTheme(
-          builders: {
-            TargetPlatform.android: NoTransitionsBuilder(),
-            TargetPlatform.iOS: NoTransitionsBuilder(),
-            TargetPlatform.windows: NoTransitionsBuilder(),
-            TargetPlatform.linux: NoTransitionsBuilder(),
-            TargetPlatform.macOS: NoTransitionsBuilder(),
-          },
-        ),
-      ),
+      themeMode: themeMode,
+      theme: AppTheme.lightTheme.copyWith(pageTransitionsTheme: pageTransitions),
+      darkTheme: AppTheme.darkTheme.copyWith(pageTransitionsTheme: pageTransitions),
       home: const MainNavigationScreen(),
     );
   }

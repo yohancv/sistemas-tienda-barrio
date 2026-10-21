@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LicorPOS • Explorador de Estilos & Dirección Visual</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-workspace: #0B0F19;
+      --card-workspace: #111827;
+      --border-workspace: #1F2937;
+      --text-main: #F9FAFB;
+      --text-sub: #9CA3AF;
+      --accent-main: #10B981;
+    }
+
+    /* THEME 1: MIDNIGHT OBSIDIAN POS (Full Dark Cohesivo) */
+    .theme-obsidian {
+      --app-bg: #090D1A;
+      --app-bar-bg: #090D1A;
+      --app-bar-border: #1E2844;
+      --app-card-bg: #121829;
+      --app-card-border: #1F2B48;
+      --app-banner-bg: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+      --app-banner-border: #4338CA;
+      --app-banner-text: #E0E7FF;
+      --app-banner-amount: #FFFFFF;
+      --app-kpi-badge-bg: rgba(99, 102, 241, 0.25);
+      --app-kpi-badge-border: #6366F1;
+      --app-search-bg: #131A2E;
+      --app-search-border: #1F2B48;
+      --app-search-text: #F8FAFC;
+      --app-search-placeholder: #64748B;
+      --app-chip-bg: #1E293B;
+      --app-chip-text: #94A3B8;
+      --app-chip-active-bg: #38BDF8;
+      --app-chip-active-text: #090D1A;
+      --app-item-bg: #131A2E;
+      --app-item-border: #1F2B48;
+      --app-item-title: #FFFFFF;
+      --app-item-sub: #94A3B8;
+      --app-item-amount: #38BDF8;
+      --app-history-bg: rgba(255, 255, 255, 0.03);
+      --app-history-border: rgba(255, 255, 255, 0.06);
+      --app-history-text: #CBD5E1;
+      --app-btn-pay-bg: #059669;
+      --app-btn-pay-text: #FFFFFF;
+      --app-btn-wa-bg: #25D366;
+      --app-btn-wa-text: #FFFFFF;
+      --app-fab-bg: #38BDF8;
+      --app-fab-text: #090D1A;
+      --app-nav-bg: #090D1A;
+      --app-nav-border: #1E2844;
+      --app-nav-active: #38BDF8;
+      --app-nav-inactive: #64748B;
+    }
+
+    /* THEME 2: PURE CLEAN RETAIL (Shopify / Apple Store - Full Light Unificado) */
+    .theme-light {
+      --app-bg: #F8FAFC;
+      --app-bar-bg: #FFFFFF;
+      --app-bar-border: #E2E8F0;
+      --app-card-bg: #FFFFFF;
+      --app-card-border: #E2E8F0;
+      --app-banner-bg: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+      --app-banner-border: #334155;
+      --app-banner-text: #94A3B8;
+      --app-banner-amount: #FFFFFF;
+      --app-kpi-badge-bg: rgba(255, 255, 255, 0.12);
+      --app-kpi-badge-border: rgba(255, 255, 255, 0.2);
+      --app-search-bg: #FFFFFF;
+      --app-search-border: #E2E8F0;
+      --app-search-text: #0F172A;
+      --app-search-placeholder: #94A3B8;
+      --app-chip-bg: #F1F5F9;
+      --app-chip-text: #475569;
+      --app-chip-active-bg: #2563EB;
+      --app-chip-active-text: #FFFFFF;
+      --app-item-bg: #FFFFFF;
+      --app-item-border: #E2E8F0;
+      --app-item-title: #0F172A;
+      --app-item-sub: #64748B;
+      --app-item-amount: #DC2626;
+      --app-history-bg: #F8FAFC;
+      --app-history-border: #E2E8F0;
+      --app-history-text: #334155;
+      --app-btn-pay-bg: #16A34A;
+      --app-btn-pay-text: #FFFFFF;
+      --app-btn-wa-bg: #25D366;
+      --app-btn-wa-text: #FFFFFF;
+      --app-fab-bg: #2563EB;
+      --app-fab-text: #FFFFFF;
+      --app-nav-bg: #FFFFFF;
+      --app-nav-border: #E2E8F0;
+      --app-nav-active: #2563EB;
+      --app-nav-inactive: #94A3B8;
+    }
+
+    /* THEME 3: WARM AMBER & CHARCOAL (Gourmet Licorería / Bodega Tradición) */
+    .theme-amber {
+      --app-bg: #141416;
+      --app-bar-bg: #1A1A1E;
+      --app-bar-border: #2A2A32;
+      --app-card-bg: #1E1E24;
+      --app-card-border: #2E2E38;
+      --app-banner-bg: linear-gradient(135deg, #78350F 0%, #B45309 100%);
+      --app-banner-border: #D97706;
+      --app-banner-text: #FDE68A;
+      --app-banner-amount: #FFFFFF;
+      --app-kpi-badge-bg: rgba(0, 0, 0, 0.35);
+      --app-kpi-badge-border: #F59E0B;
+      --app-search-bg: #1E1E24;
+      --app-search-border: #2E2E38;
+      --app-search-text: #F4F4F5;
+      --app-search-placeholder: #71717A;
+      --app-chip-bg: #27272A;
+      --app-chip-text: #A1A1AA;
+      --app-chip-active-bg: #F59E0B;
+      --app-chip-active-text: #18181B;
+      --app-item-bg: #1E1E24;
+      --app-item-border: #2E2E38;
+      --app-item-title: #FAFAFA;
+      --app-item-sub: #A1A1AA;
+      --app-item-amount: #F59E0B;
+      --app-history-bg: rgba(0, 0, 0, 0.2);
+      --app-history-border: #2E2E38;
+      --app-history-text: #D4D4D8;
+      --app-btn-pay-bg: #D97706;
+      --app-btn-pay-text: #FFFFFF;
+      --app-btn-wa-bg: #25D366;
+      --app-btn-wa-text: #FFFFFF;
+      --app-fab-bg: #F59E0B;
+      --app-fab-text: #18181B;
+      --app-nav-bg: #1A1A1E;
+      --app-nav-border: #2A2A32;
+      --app-nav-active: #F59E0B;
+      --app-nav-inactive: #71717A;
+    }
+
+    /* THEME 4: NEUTRAL SLATE MODERN (Fintech Stripe / Clover Minimal) */
+    .theme-slate {
+      --app-bg: #0F172A;
+      --app-bar-bg: #1E293B;
+      --app-bar-border: #334155;
+      --app-card-bg: #1E293B;
+      --app-card-border: #334155;
+      --app-banner-bg: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+      --app-banner-border: #38BDF8;
+      --app-banner-text: #94A3B8;
+      --app-banner-amount: #38BDF8;
+      --app-kpi-badge-bg: rgba(56, 189, 248, 0.15);
+      --app-kpi-badge-border: #0284C7;
+      --app-search-bg: #1E293B;
+      --app-search-border: #334155;
+      --app-search-text: #F8FAFC;
+      --app-search-placeholder: #64748B;
+      --app-chip-bg: #334155;
+      --app-chip-text: #94A3B8;
+      --app-chip-active-bg: #10B981;
+      --app-chip-active-text: #064E3B;
+      --app-item-bg: #1E293B;
+      --app-item-border: #334155;
+      --app-item-title: #F8FAFC;
+      --app-item-sub: #94A3B8;
+      --app-item-amount: #34D399;
+      --app-history-bg: rgba(15, 23, 42, 0.5);
+      --app-history-border: #334155;
+      --app-history-text: #CBD5E1;
+      --app-btn-pay-bg: #10B981;
+      --app-btn-pay-text: #064E3B;
+      --app-btn-wa-bg: #25D366;
+      --app-btn-wa-text: #FFFFFF;
+      --app-fab-bg: #10B981;
+      --app-fab-text: #064E3B;
+      --app-nav-bg: #1E293B;
+      --app-nav-border: #334155;
+      --app-nav-active: #38BDF8;
+      --app-nav-inactive: #64748B;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg-workspace);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header.top-header {
+      background: rgba(17, 24, 39, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-workspace);
+      padding: 20px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-badge {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10B981;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 32px 24px;
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 440px;
+      gap: 40px;
+    }
+
+    /* LEFT COLUMN: THEME SELECTION & DIAGNOSIS */
+    .controls-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .diagnosis-box {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(245, 158, 11, 0.08) 100%);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 16px;
+      padding: 20px 24px;
+    }
+
+    .diagnosis-box h3 {
+      color: #F59E0B;
+      font-size: 15px;
+      font-weight: 800;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .diagnosis-box p {
+      color: #D1D5DB;
+      font-size: 13.5px;
+      line-height: 1.6;
+    }
+
+    .diagnosis-box ul {
+      margin-top: 10px;
+      padding-left: 20px;
+      font-size: 13px;
+      color: #9CA3AF;
+      line-height: 1.6;
+    }
+
+    .diagnosis-box li strong {
+      color: #F3F4F6;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #F9FAFB;
+      letter-spacing: -0.3px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .theme-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .theme-card {
+      background: var(--card-workspace);
+      border: 2px solid var(--border-workspace);
+      border-radius: 16px;
+      padding: 18px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .theme-card:hover {
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .theme-card.active {
+      border-color: var(--accent-main);
+      background: rgba(16, 185, 129, 0.05);
+      box-shadow: 0 0 0 1px var(--accent-main);
+    }
+
+    .theme-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .theme-card-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #FFFFFF;
+    }
+
+    .theme-card-tag {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #9CA3AF;
+    }
+
+    .theme-card.active .theme-card-tag {
+      background: var(--accent-main);
+      color: #064E3B;
+    }
+
+    .theme-card-desc {
+      font-size: 12.5px;
+      color: #9CA3AF;
+      line-height: 1.45;
+    }
+
+    .color-swatches {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    /* RIGHT COLUMN: INTERACTIVE DEVICE SIMULATOR */
+    .device-wrapper {
+      position: sticky;
+      top: 100px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .device-frame {
+      width: 390px;
+      height: 780px;
+      background: var(--app-bg);
+      border-radius: 46px;
+      border: 10px solid #1F2937;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    /* NOTCH & STATUS BAR */
+    .device-notch {
+      width: 140px;
+      height: 22px;
+      background: #1F2937;
+      border-bottom-left-radius: 14px;
+      border-bottom-right-radius: 14px;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+    }
+
+    .app-status-bar {
+      height: 38px;
+      padding: 0 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.7);
+      background: var(--app-bar-bg);
+      transition: background 0.3s ease;
+      z-index: 90;
+    }
+
+    .theme-light .app-status-bar {
+      color: #0F172A;
+    }
+
+    /* APP BAR */
+    .app-header {
+      background: var(--app-bar-bg);
+      border-bottom: 1px solid var(--app-bar-border);
+      padding: 10px 18px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.3s ease;
+      z-index: 80;
+    }
+
+    .app-header-title {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      color: var(--app-search-text);
+    }
+
+    .app-header-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .icon-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--app-search-text);
+      cursor: pointer;
+    }
+
+    /* SCROLLABLE VIEWPORT */
+    .app-viewport {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      scroll-behavior: smooth;
+    }
+
+    .app-viewport::-webkit-scrollbar {
+      width: 4px;
+    }
+    .app-viewport::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+    }
+
+    /* 1. TOP BANNER (TOTAL EN LA CALLE) */
+    .app-banner {
+      background: var(--app-banner-bg);
+      border-bottom: 1px solid var(--app-banner-border);
+      padding: 16px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.3s ease;
+    }
+
+    .banner-sub {
+      font-size: 10.5px;
+      font-weight: 800;
+      color: var(--app-banner-text);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    .banner-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--app-banner-amount);
+      letter-spacing: -0.5px;
+      margin-top: 2px;
+    }
+
+    .banner-badge {
+      background: var(--app-kpi-badge-bg);
+      border: 1px solid var(--app-kpi-badge-border);
+      border-radius: 12px;
+      padding: 6px 12px;
+      text-align: center;
+    }
+
+    .banner-badge-num {
+      font-size: 18px;
+      font-weight: 800;
+      color: #FFFFFF;
+      line-height: 1.1;
+    }
+
+    .banner-badge-lbl {
+      font-size: 9.5px;
+      font-weight: 600;
+      color: var(--app-banner-text);
+    }
+
+    /* 2. SEARCH & CHIPS BAR (COLLAPSIBLE) */
+    .app-search-section {
+      background: var(--app-search-bg);
+      border-bottom: 1px solid var(--app-search-border);
+      padding: 10px 14px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      transform-origin: top;
+      overflow: hidden;
+    }
+
+    .app-search-section.collapsed {
+      max-height: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      opacity: 0;
+      border-bottom-width: 0;
+    }
+
+    .search-input-fake {
+      height: 38px;
+      background: var(--app-chip-bg);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--app-search-placeholder);
+    }
+
+    .chips-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+    .chips-row::-webkit-scrollbar { display: none; }
+
+    .chip {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: var(--app-chip-bg);
+      color: var(--app-chip-text);
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .chip.active {
+      background: var(--app-chip-active-bg);
+      color: var(--app-chip-active-text);
+    }
+
+    /* 3. CARDS LIST */
+    .cards-list {
+      padding: 12px 14px 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .debtor-card {
+      background: var(--app-item-bg);
+      border: 1px solid var(--app-item-border);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      transition: all 0.3s ease;
+    }
+
+    .debtor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .debtor-name {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--app-item-title);
+    }
+
+    .debtor-phone {
+      font-size: 11.5px;
+      color: var(--app-item-sub);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 3px;
+    }
+
+    .debtor-amount-box {
+      text-align: right;
+    }
+
+    .debtor-amount {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--app-item-amount);
+    }
+
+    .debtor-status {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--app-item-sub);
+      text-transform: uppercase;
+    }
+
+    .history-box {
+      background: var(--app-history-bg);
+      border: 1px solid var(--app-history-border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .history-title {
+      font-size: 9.5px;
+      font-weight: 800;
+      color: var(--app-item-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+
+    .history-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--app-history-text);
+    }
+
+    .history-row.credit {
+      color: #EF4444;
+      font-weight: 700;
+    }
+
+    .history-row.abono {
+      color: #10B981;
+      font-weight: 700;
+    }
+
+    .card-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .btn-card {
+      height: 38px;
+      border-radius: 10px;
+      border: none;
+      font-size: 12px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-abono {
+      background: var(--app-btn-pay-bg);
+      color: var(--app-btn-pay-text);
+    }
+
+    .btn-wa {
+      background: var(--app-btn-wa-bg);
+      color: var(--app-btn-wa-text);
+    }
+
+    /* FLOATING ACTION BUTTON */
+    .app-fab {
+      position: absolute;
+      bottom: 74px;
+      right: 14px;
+      background: var(--app-fab-bg);
+      color: var(--app-fab-text);
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      z-index: 70;
+    }
+
+    /* BOTTOM NAV BAR */
+    .app-nav {
+      background: var(--app-nav-bg);
+      border-top: 1px solid var(--app-nav-border);
+      height: 60px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      align-items: center;
+      z-index: 80;
+      transition: background 0.3s ease;
+    }
+
+    .nav-tab {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+      color: var(--app-nav-inactive);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .nav-tab.active {
+      color: var(--app-nav-active);
+    }
+
+    .nav-tab svg {
+      width: 20px;
+      height: 20px;
+      stroke-width: 2;
+    }
+
+    /* INTERACTIVE DEMO CONTROLS */
+    .simulator-controls {
+      display: flex;
+      gap: 10px;
+      background: var(--card-workspace);
+      padding: 8px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border-workspace);
+    }
+
+    .sim-btn {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #9CA3AF;
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .sim-btn:hover {
+      color: #FFFFFF;
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .sim-btn.active {
+      background: var(--accent-main);
+      color: #064E3B;
+      border-color: var(--accent-main);
+    }
+  </style>
+</head>
+<body class="theme-obsidian">
+
+  <header class="top-header">
+    <div class="brand-title">
+      <span>🍷 LicorPOS</span>
+      <span class="brand-badge">Diseño Visual & Temas</span>
+    </div>
+    <div style="font-size: 13px; color: var(--text-sub);">
+      Haz clic en cualquiera de los 4 temas para verlo reflejado en vivo en el celular 👉
+    </div>
+  </header>
+
+  <main class="container">
+    
+    <!-- LEFT PANEL -->
+    <div class="controls-panel">
+      
+      <!-- DIAGNOSIS -->
+      <div class="diagnosis-box">
+        <h3>🔍 El Diagnóstico: ¿Por qué hoy sientes que "algo no te convence"?</h3>
+        <p>
+          En tu captura actual de <em>Cuentas por Cobrar</em>, la pantalla tiene <strong>4 lenguajes visuales chocando entre sí</strong>:
+        </p>
+        <ul>
+          <li><strong>Barra superior (AppBar):</strong> Azul marino oscuro con iconos blancos.</li>
+          <li><strong>Banner de Deuda:</strong> Degradado marrón/naranja intenso (tono cálido) con tarjeta semitransparente.</li>
+          <li><strong>Buscador y Tarjetas:</strong> Fondo blanco puro con texto oscuro y botones verdes (tono frío y claro).</li>
+          <li><strong>Barra de Navegación inferior:</strong> Negro obsidiana profundo con iconos cyan neón.</li>
+        </ul>
+        <p style="margin-top: 10px; font-weight: 600; color: #F59E0B;">
+          💡 La solución: Unificar toda la aplicación bajo una sola identidad visual contundente, eliminando los parches entre modo claro y oscuro.
+        </p>
+      </div>
+
+      <!-- THEME SELECTOR -->
+      <div>
+        <div class="section-title">
+          <span>✨ Elige una Dirección de Diseño para toda la App</span>
+        </div>
+
+        <div class="theme-grid">
+          
+          <!-- OPTION 1 -->
+          <div class="theme-card active" onclick="setTheme('theme-obsidian', this)">
+            <div class="theme-card-header">
+              <span class="theme-card-title">1. Midnight Obsidian</span>
+              <span class="theme-card-tag">Recomendado</span>
+            </div>
+            <p class="theme-card-desc">
+              <strong>Estilo Terminal POS de Gama Alta</strong> (Square / Toast POS). Modo oscuro unificado que no cansa la vista en jornadas de 12h, reduce consumo en pantallas IPS/AMOLED y hace que los datos de dinero resalten con claridad quirúrgica.
+            </p>
+            <div class="color-swatches">
+              <div class="swatch" style="background: #090D1A;"></div>
+              <div class="swatch" style="background: #121829;"></div>
+              <div class="swatch" style="background: #312E81;"></div>
+              <div class="swatch" style="background: #38BDF8;"></div>
+              <div class="swatch" style="background: #059669;"></div>
+            </div>
+          </div>
+
+          <!-- OPTION 2 -->
+          <div class="theme-card" onclick="setTheme('theme-light', this)">
+            <div class="theme-card-header">
+              <span class="theme-card-title">2. Pure Clean Retail</span>
+              <span class="theme-card-tag">Luminoso</span>
+            </div>
+            <p class="theme-card-desc">
+              <strong>Estilo Apple Store / Shopify POS</strong>. 100% Modo Claro armónico. Todo el celular pasa a ser blanco puro y gris pizarra suave, con barra inferior blanca y acentos azul ultramar. Máxima legibilidad bajo el sol o con luz directa en el mostrador.
+            </p>
+            <div class="color-swatches">
+              <div class="swatch" style="background: #F8FAFC;"></div>
+              <div class="swatch" style="background: #FFFFFF;"></div>
+              <div class="swatch" style="background: #0F172A;"></div>
+              <div class="swatch" style="background: #2563EB;"></div>
+              <div class="swatch" style="background: #16A34A;"></div>
+            </div>
+          </div>
+
+          <!-- OPTION 3 -->
+          <div class="theme-card" onclick="setTheme('theme-amber', this)">
+            <div class="theme-card-header">
+              <span class="theme-card-title">3. Warm Amber Lounge</span>
+              <span class="theme-card-tag">Identidad Licorera</span>
+            </div>
+            <p class="theme-card-desc">
+              <strong>Especial para Licorería & Bodega Gourmet</strong>. Fondo carbón cálido (#141416) con acentos dorados ámbar (#F59E0B) y cobre. Conserva el espíritu del banner de fiados pero integrándolo de forma homogénea con el resto de la app.
+            </p>
+            <div class="color-swatches">
+              <div class="swatch" style="background: #141416;"></div>
+              <div class="swatch" style="background: #1E1E24;"></div>
+              <div class="swatch" style="background: #B45309;"></div>
+              <div class="swatch" style="background: #F59E0B;"></div>
+              <div class="swatch" style="background: #25D366;"></div>
+            </div>
+          </div>
+
+          <!-- OPTION 4 -->
+          <div class="theme-card" onclick="setTheme('theme-slate', this)">
+            <div class="theme-card-header">
+              <span class="theme-card-title">4. Modern Slate Fintech</span>
+              <span class="theme-card-tag">Financiero Pro</span>
+            </div>
+            <p class="theme-card-desc">
+              <strong>Estilo Stripe Dashboard / Clover</strong>. Azul pizarra profundo (#0F172A) con bordes precisos en #334155 y acentos menta esmeralda (#10B981) y cyan cielo (#38BDF8). Da una apariencia sumamente seria, bancaria y tecnológica.
+            </p>
+            <div class="color-swatches">
+              <div class="swatch" style="background: #0F172A;"></div>
+              <div class="swatch" style="background: #1E293B;"></div>
+              <div class="swatch" style="background: #334155;"></div>
+              <div class="swatch" style="background: #10B981;"></div>
+              <div class="swatch" style="background: #38BDF8;"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- COMPARATIVA DE VENTAJAS -->
+      <div style="background: var(--card-workspace); border: 1px solid var(--border-workspace); border-radius: 16px; padding: 22px;">
+        <h4 style="font-size: 14px; font-weight: 800; color: #FFFFFF; margin-bottom: 12px;">📊 Comparación para tu Tienda:</h4>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 12.5px; color: #9CA3AF;">
+          <div>
+            <span style="color: #10B981; font-weight: 700;">✓ Modo Oscuro Cohesivo (Temas 1, 3, 4):</span>
+            <p style="margin-top: 4px;">Ideal si atiendes de noche o en interiores con baja luz. Los colores brillantes de los botones (Cobrar WhatsApp, Abono, Cobrar) destacan con fuerza instantánea.</p>
+          </div>
+          <div>
+            <span style="color: #38BDF8; font-weight: 700;">✓ Modo Claro Unificado (Tema 2):</span>
+            <p style="margin-top: 4px;">Ideal si tu local recibe mucha luz solar de frente y necesitas el máximo contraste blanco/negro clásico tipo recibo de caja.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT PANEL: INTERACTIVE PHONE SIMULATOR -->
+    <div class="device-wrapper">
+      
+      <div class="simulator-controls">
+        <button class="sim-btn active" id="btn-toggle-search" onclick="toggleSearch()">
+          🔽 Probar Ocultar Búsqueda al Scroll
+        </button>
+      </div>
+
+      <div class="device-frame">
+        <div class="device-notch"></div>
+
+        <!-- STATUS BAR -->
+        <div class="app-status-bar">
+          <span>09:41</span>
+          <span>4G • 90 Hz 🔋</span>
+        </div>
+
+        <!-- APP BAR -->
+        <div class="app-header">
+          <div class="app-header-title">Cuentas por Cobrar (Fiados)</div>
+          <div class="app-header-actions">
+            <div class="icon-btn">📊</div>
+            <div class="icon-btn">⋮</div>
+          </div>
+        </div>
+
+        <!-- VIEWPORT -->
+        <div class="app-viewport" id="viewport">
+          
+          <!-- BANNER -->
+          <div class="app-banner">
+            <div>
+              <div class="banner-sub">Total en la Calle (Fiados)</div>
+              <div class="banner-val">Bs. 141.00</div>
+            </div>
+            <div class="banner-badge">
+              <div class="banner-badge-num">2</div>
+              <div class="banner-badge-lbl">con deuda</div>
+            </div>
+          </div>
+
+          <!-- SEARCH & CHIPS SECTION -->
+          <div class="app-search-section" id="search-section">
+            <div class="search-input-fake">
+              <span>🔍</span>
+              <span>Buscar vecino o teléfono...</span>
+            </div>
+            <div class="chips-row">
+              <div class="chip active">✓ Con Deuda</div>
+              <div class="chip">⏰ +15 días sin pagar</div>
+              <div class="chip">Todos los Vecinos</div>
+            </div>
+          </div>
+
+          <!-- CARDS LIST -->
+          <div class="cards-list">
+            
+            <!-- CARD 1 -->
+            <div class="debtor-card">
+              <div class="debtor-header">
+                <div>
+                  <div class="debtor-name">Don Pedro Ramos</div>
+                  <div class="debtor-phone">📞 72233445 &nbsp;•&nbsp; ⏳ Hace 1 d</div>
+                </div>
+                <div class="debtor-amount-box">
+                  <div class="debtor-amount">Bs. 98.00</div>
+                  <div class="debtor-status">Deuda Pendiente</div>
+                </div>
+              </div>
+
+              <div class="history-box">
+                <div class="history-title">Historial Reciente</div>
+                <div class="history-row abono">
+                  <span>Abonó parte de la cuenta</span>
+                  <span>- Bs. 30.00</span>
+                </div>
+                <div class="history-row credit">
+                  <span>2 Cigarrillos Camel Box 20</span>
+                  <span>+ Bs. 44.00</span>
+                </div>
+                <div class="history-row credit">
+                  <span>6 Paceña Pilsener 710ml</span>
+                  <span>+ Bs. 84.00</span>
+                </div>
+              </div>
+
+              <div class="card-actions">
+                <button class="btn-card btn-abono">$ ABONAR</button>
+                <button class="btn-card btn-wa">💬 WHATSAPP</button>
+              </div>
+            </div>
+
+            <!-- CARD 2 -->
+            <div class="debtor-card">
+              <div class="debtor-header">
+                <div>
+                  <div class="debtor-name">Doña Carmen Ortiz</div>
+                  <div class="debtor-phone">📞 71122334 &nbsp;•&nbsp; ⏳ Hace 1 d</div>
+                </div>
+                <div class="debtor-amount-box">
+                  <div class="debtor-amount">Bs. 43.00</div>
+                  <div class="debtor-status">Deuda Pendiente</div>
+                </div>
+              </div>
+
+              <div class="history-box">
+                <div class="history-title">Historial Reciente</div>
+                <div class="history-row credit">
+                  <span>1 Vino Kohlberg Clásico</span>
+                  <span>+ Bs. 43.00</span>
+                </div>
+              </div>
+
+              <div class="card-actions">
+                <button class="btn-card btn-abono">$ ABONAR</button>
+                <button class="btn-card btn-wa">💬 WHATSAPP</button>
+              </div>
+            </div>
+
+            <!-- CARD 3 -->
+            <div class="debtor-card">
+              <div class="debtor-header">
+                <div>
+                  <div class="debtor-name">Carlos Mendoza</div>
+                  <div class="debtor-phone">📞 76543210 &nbsp;•&nbsp; ⏳ Hace 3 d</div>
+                </div>
+                <div class="debtor-amount-box">
+                  <div class="debtor-amount">Bs. 25.50</div>
+                  <div class="debtor-status">Deuda Pendiente</div>
+                </div>
+              </div>
+
+              <div class="card-actions">
+                <button class="btn-card btn-abono">$ ABONAR</button>
+                <button class="btn-card btn-wa">💬 WHATSAPP</button>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- FAB -->
+        <div class="app-fab">
+          <span>👤+</span>
+          <span>NUEVO VECINO</span>
+        </div>
+
+        <!-- NAV BAR -->
+        <div class="app-nav">
+          <div class="nav-tab">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M3 3h18v18H3z"/></svg>
+            <span>Ventas</span>
+          </div>
+          <div class="nav-tab">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+            <span>Inventario</span>
+          </div>
+          <div class="nav-tab active">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+            <span>Fiados</span>
+          </div>
+          <div class="nav-tab">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span>Cierre</span>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    function setTheme(themeName, element) {
+      document.body.className = themeName;
+      document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active'));
+      element.classList.add('active');
+    }
+
+    function toggleSearch() {
+      const section = document.getElementById('search-section');
+      const btn = document.getElementById('btn-toggle-search');
+      section.classList.toggle('collapsed');
+      if (section.classList.contains('collapsed')) {
+        btn.textContent = '🔼 Mostrar Búsqueda (Scroll Arriba)';
+        btn.classList.add('active');
+      } else {
+        btn.textContent = '🔽 Ocultar Búsqueda (Scroll Abajo)';
+        btn.classList.remove('active');
+      }
+    }
+
+    // Scroll listener inside mockup
+    const viewport = document.getElementById('viewport');
+    let lastScroll = 0;
+    viewport.addEventListener('scroll', () => {
+      const currentScroll = viewport.scrollTop;
+      const section = document.getElementById('search-section');
+      const btn = document.getElementById('btn-toggle-search');
+
+      if (currentScroll > lastScroll && currentScroll > 20) {
+        // Scrolling down
+        section.classList.add('collapsed');
+        btn.textContent = '🔼 Mostrar Búsqueda (Scroll Arriba)';
+        btn.classList.add('active');
+      } else if (currentScroll < lastScroll || currentScroll <= 5) {
+        // Scrolling up
+        section.classList.remove('collapsed');
+        btn.textContent = '🔽 Ocultar Búsqueda (Scroll Abajo)';
+        btn.classList.remove('active');
+      }
+      lastScroll = currentScroll;
+    });
+  </script>
+
+</body>
+</html>

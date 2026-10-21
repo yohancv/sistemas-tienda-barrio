@@ -152,7 +152,7 @@ class ComprasRepository {
           'monto': compra.montoPagadoCaja,
           'motivo': 'Pago compra mercadería - $nombreProveedor (Ticket #$ticketCorto)',
           'origen_dinero': 'EFECTIVO_CAJA',
-          'categoria': 'MERCADERIA_FUTURA',
+          'categoria': 'COMPRA_MERCADERIA',
           'created_at': ahora,
         }));
       }
@@ -489,7 +489,7 @@ class ComprasRepository {
           'monto': montoCaja,
           'motivo': 'Pago recepción camión $nombreProveedor (Ticket #$ticketCorto)',
           'origen_dinero': 'EFECTIVO_CAJA',
-          'categoria': 'MERCADERIA_FUTURA',
+          'categoria': 'COMPRA_MERCADERIA',
           'created_at': ahora,
         }));
       }

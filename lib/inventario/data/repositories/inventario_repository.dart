@@ -64,8 +64,9 @@ class InventarioRepository {
     return nuevoProd;
   }
 
-  /// Actualiza los datos y precios de un producto existente
-  Future<Producto> actualizarProducto(Producto producto) async {
+  /// Actualiza los datos y precios de un producto existente de forma atómica.
+  /// Si el stock cambia respecto a [stockAnterior], genera el movimiento de auditoría en la misma transacción.
+  Future<Producto> actualizarProducto(Producto producto, {double? stockAnterior}) async {
     final db = await _db.database;
     final ahora = AppDatabase.ahora();
 
@@ -76,14 +77,41 @@ class InventarioRepository {
     final fila = AppDatabase.aFila(prodActualizado.toMap());
     fila.remove('id');
 
-    await db.update(
-      'productos',
-      fila,
-      where: 'id = ? AND tenant_id = ?',
-      whereArgs: [producto.id, producto.tenantId],
-    );
+    return await db.transaction<Producto>((txn) async {
+      await txn.update(
+        'productos',
+        fila,
+        where: 'id = ? AND tenant_id = ?',
+        whereArgs: [producto.id, producto.tenantId],
+      );
 
-    return prodActualizado;
+      if (stockAnterior != null) {
+        final delta = producto.stockActual - stockAnterior;
+        if (delta.abs() > 0.001) {
+          final tipoMovimiento = delta > 0 ? 'AJUSTE_POSITIVO' : 'AJUSTE_NEGATIVO';
+          final costoTotal = producto.costoMayorista * delta.abs();
+
+          await txn.insert(
+            'movimientos_inventario',
+            AppDatabase.aFila({
+              'id': AppDatabase.nuevoId(),
+              'tenant_id': producto.tenantId,
+              'producto_id': producto.id,
+              'tipo_movimiento': tipoMovimiento,
+              'cantidad': delta.abs(),
+              'costo_unitario': producto.costoMayorista,
+              'costo_total': costoTotal,
+              'motivo': 'Ajuste manual de stock desde edición de catálogo',
+              'stock_anterior': stockAnterior,
+              'stock_posterior': producto.stockActual,
+              'created_at': ahora,
+            }),
+          );
+        }
+      }
+
+      return prodActualizado;
+    });
   }
 
   /// Desactiva lógicamente un producto (Soft Delete para trazabilidad histórica)
@@ -194,5 +222,19 @@ class InventarioRepository {
         'created_at': ahora,
       }),
     );
+  }
+
+  /// Obtiene un producto por su ID
+  Future<Producto?> obtenerProductoPorId(String productoId) async {
+    final db = await _db.database;
+    final rows = await db.query(
+      'productos',
+      where: 'id = ?',
+      whereArgs: [productoId],
+      limit: 1,
+    );
+
+    if (rows.isEmpty) return null;
+    return Producto.fromMap(AppDatabase.aMapa(rows.first));
   }
 }

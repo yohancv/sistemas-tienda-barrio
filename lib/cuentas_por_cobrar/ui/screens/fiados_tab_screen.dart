@@ -1,24 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/theme_provider.dart';
 import '../../data/models/cliente_model.dart';
 import '../../state/providers/clientes_providers.dart';
-import '../../utils/cobro_whatsapp_formatter.dart';
+import '../widgets/modal_cobro_whatsapp.dart';
 import '../widgets/modal_nuevo_cliente.dart';
 import '../widgets/modal_registrar_abono.dart';
+import '../widgets/modal_editar_cliente.dart';
+import '../../../core/utils/app_haptics.dart';
+import '../../../core/utils/debouncer.dart';
+
+enum FiltroFiados { todos, soloDeuda, masDe15Dias }
 
 /// Apartado 3: Fiados (Cuentas por Cobrar)
 ///
-/// Características solicitadas:
-/// 1. En la parte superior: Total de fiados (cuánto en total nos deben los vecinos).
-/// 2. Tarjetas de clientes:
-///    - Nombre del cliente y deuda pendiente.
-///    - Último movimiento registrado.
-///    - Historial con fecha y hora (si sacó fiado o abonó a la cuenta).
-///    - Dos botones:
-///      * Botón si pagó parte de su deuda (Abonar).
-///      * Botón para ver el historial completo (y cobrar por WhatsApp).
+/// Características:
+/// 1. En la parte superior: Total de fiados en la calle.
+/// 2. Filtros: Todos, Con Deuda, +15 días sin pagar.
+/// 3. Tarjetas de clientes con:
+///    - Nombre, teléfono y semáforo de antigüedad.
+///    - Historial con fecha y hora.
+///    - Botón de Abono y Botón de Cobro directo por WhatsApp.
 class FiadosTabScreen extends ConsumerStatefulWidget {
   const FiadosTabScreen({super.key});
 
@@ -26,13 +31,28 @@ class FiadosTabScreen extends ConsumerStatefulWidget {
   ConsumerState<FiadosTabScreen> createState() => _FiadosTabScreenState();
 }
 
-class _FiadosTabScreenState extends ConsumerState<FiadosTabScreen> {
+class _FiadosTabScreenState extends ConsumerState<FiadosTabScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
-  bool _soloConDeuda = false;
+  final Debouncer _debouncer = Debouncer(milliseconds: 220);
+  String _debouncedQuery = '';
+  FiltroFiados _filtro = FiltroFiados.soloDeuda;
+  late final AnimationController _searchAnimController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+      value: 1.0,
+    );
+  }
 
   @override
   void dispose() {
+    _searchAnimController.dispose();
     _searchController.dispose();
+    _debouncer.dispose();
     super.dispose();
   }
 
@@ -41,10 +61,11 @@ class _FiadosTabScreenState extends ConsumerState<FiadosTabScreen> {
     final clientesAsync = ref.watch(clientesListProvider);
     final totalDineroEnCalle = ref.watch(totalDineroEnLaCalleProvider);
     final conteoDeudores = ref.watch(conteoDeudoresProvider);
-    final query = _searchController.text.trim().toLowerCase();
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final query = _debouncedQuery;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: esOscuro ? AppColors.darkBackground : AppColors.background,
       body: clientesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(
@@ -52,7 +73,12 @@ class _FiadosTabScreenState extends ConsumerState<FiadosTabScreen> {
         ),
         data: (todosLosClientes) {
           final filtrados = todosLosClientes.where((c) {
-            if (_soloConDeuda && !c.tieneDeuda) return false;
+            if (_filtro == FiltroFiados.soloDeuda && !c.tieneDeuda) return false;
+            if (_filtro == FiltroFiados.masDe15Dias) {
+              if (!c.tieneDeuda) return false;
+              final dias = DateTime.now().difference(c.updatedAt).inDays;
+              if (dias < 15) return false;
+            }
             if (query.isNotEmpty) {
               final n = c.nombre.toLowerCase();
               final t = (c.telefono ?? '').toLowerCase();
@@ -63,21 +89,23 @@ class _FiadosTabScreenState extends ConsumerState<FiadosTabScreen> {
 
           return Column(
             children: [
-              // 1. PARTE SUPERIOR: Total Dinero Fiado en la Calle
+              // 1. PARTE SUPERIOR: Total Dinero Fiado en la Calle (Pure Clean Retail / Midnight Obsidian)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFB45309), Color(0xFFD97706)],
+                  gradient: LinearGradient(
+                    colors: esOscuro
+                        ? const [AppColors.darkBannerStart, AppColors.darkBannerEnd]
+                        : const [AppColors.bannerFiadosStart, AppColors.bannerFiadosEnd],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.amber.shade900.withAlpha(40),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      color: Colors.black.withAlpha(25),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
@@ -91,18 +119,19 @@ class _FiadosTabScreenState extends ConsumerState<FiadosTabScreen> {
                           'TOTAL EN LA CALLE (FIADOS)',
                           style: TextStyle(
                             color: Colors.white70,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Text(
                           'Bs. ${totalDineroEnCalle.toStringAsFixed(2)}',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 28,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
                           ),
                         ),
                       ],
@@ -110,8 +139,9 @@ class _FiadosTabScreenState extends ConsumerState<FiadosTabScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.black.withAlpha(30),
+                        color: Colors.white.withAlpha(20),
                         borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white.withAlpha(40)),
                       ),
                       child: Column(
                         children: [
@@ -119,13 +149,13 @@ class _FiadosTabScreenState extends ConsumerState<FiadosTabScreen> {
                             '$conteoDeudores',
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                           const Text(
                             'con deuda',
-                            style: TextStyle(color: Colors.white70, fontSize: 11),
+                            style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
@@ -134,44 +164,138 @@ class _FiadosTabScreenState extends ConsumerState<FiadosTabScreen> {
                 ),
               ),
 
-              // Buscador y filtro rápido
-              Container(
-                color: Colors.white,
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
+              // Buscador y filtro rápido (se oculta automáticamente al hacer scroll hacia abajo)
+              SizeTransition(
+                sizeFactor: CurvedAnimation(
+                  parent: _searchAnimController,
+                  curve: Curves.easeOutCubic,
+                ),
+                axisAlignment: -1.0,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: esOscuro ? AppColors.darkSurface : AppColors.surface,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: esOscuro ? AppColors.darkBorder : AppColors.border,
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                  child: Column(
+                    children: [
+                      TextField(
                         controller: _searchController,
-                        onChanged: (_) => setState(() {}),
+                        style: TextStyle(
+                          color: esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                          fontSize: 14,
+                        ),
+                        onChanged: (val) {
+                          _debouncer.run(() {
+                            if (mounted) setState(() => _debouncedQuery = val.trim().toLowerCase());
+                          });
+                        },
                         decoration: InputDecoration(
                           hintText: 'Buscar vecino o teléfono...',
-                          prefixIcon: const Icon(Icons.search, color: AppColors.primary),
+                          hintStyle: TextStyle(
+                            color: esOscuro ? AppColors.darkTextMuted : AppColors.textMuted,
+                            fontSize: 13.5,
+                          ),
+                          prefixIcon: Icon(Icons.search, color: esOscuro ? AppColors.darkAccent : AppColors.primary, size: 20),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(
+                                    Icons.close,
+                                    size: 18,
+                                    color: esOscuro ? AppColors.darkTextSecondary : AppColors.textMuted,
+                                  ),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    _debouncer.run(() {});
+                                    setState(() => _debouncedQuery = '');
+                                  },
+                                )
+                              : null,
                           filled: true,
-                          fillColor: AppColors.surfaceMuted,
+                          fillColor: esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted,
                           contentPadding: const EdgeInsets.symmetric(vertical: 8),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
+                            borderSide: BorderSide(
+                              color: esOscuro ? AppColors.darkBorder : AppColors.border,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: esOscuro ? AppColors.darkBorder : AppColors.border,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    FilterChip(
-                      label: Text(
-                        'Solo deuda',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: _soloConDeuda ? Colors.white : AppColors.textPrimary,
+                      const SizedBox(height: 8),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            ChoiceChip(
+                              label: const Text('Con Deuda'),
+                              selected: _filtro == FiltroFiados.soloDeuda,
+                              selectedColor: esOscuro ? AppColors.darkAccent : AppColors.primary,
+                              backgroundColor: esOscuro ? AppColors.darkSurfaceMuted : AppColors.surfaceMuted,
+                              labelStyle: TextStyle(
+                                color: _filtro == FiltroFiados.soloDeuda
+                                    ? (esOscuro ? AppColors.darkBackground : Colors.white)
+                                    : (esOscuro ? AppColors.darkTextSecondary : AppColors.textPrimary),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                              onSelected: (_) {
+                                AppHaptics.selection();
+                                setState(() => _filtro = FiltroFiados.soloDeuda);
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            ChoiceChip(
+                              label: const Text('⏰ +15 días sin pagar'),
+                              selected: _filtro == FiltroFiados.masDe15Dias,
+                              selectedColor: AppColors.danger,
+                              backgroundColor: esOscuro ? AppColors.darkSurfaceMuted : AppColors.surfaceMuted,
+                              labelStyle: TextStyle(
+                                color: _filtro == FiltroFiados.masDe15Dias
+                                    ? Colors.white
+                                    : (esOscuro ? AppColors.darkTextSecondary : AppColors.textPrimary),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                              onSelected: (_) {
+                                AppHaptics.selection();
+                                setState(() => _filtro = FiltroFiados.masDe15Dias);
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            ChoiceChip(
+                              label: const Text('Todos los Vecinos'),
+                              selected: _filtro == FiltroFiados.todos,
+                              selectedColor: esOscuro ? AppColors.darkAccent : AppColors.primary,
+                              backgroundColor: esOscuro ? AppColors.darkSurfaceMuted : AppColors.surfaceMuted,
+                              labelStyle: TextStyle(
+                                color: _filtro == FiltroFiados.todos
+                                    ? (esOscuro ? AppColors.darkBackground : Colors.white)
+                                    : (esOscuro ? AppColors.darkTextSecondary : AppColors.textPrimary),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                              onSelected: (_) {
+                                AppHaptics.selection();
+                                setState(() => _filtro = FiltroFiados.todos);
+                              },
+                            ),
+                          ],
                         ),
                       ),
-                      selected: _soloConDeuda,
-                      selectedColor: AppColors.primary,
-                      onSelected: (val) => setState(() => _soloConDeuda = val),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
 
@@ -191,13 +315,41 @@ class _FiadosTabScreenState extends ConsumerState<FiadosTabScreen> {
                           ],
                         ),
                       )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(14, 12, 14, 80),
-                        itemCount: filtrados.length,
-                        itemBuilder: (context, index) {
-                          final cliente = filtrados[index];
-                          return _TarjetaClienteFiado(cliente: cliente);
+                    : NotificationListener<ScrollNotification>(
+                        onNotification: (notification) {
+                          if (notification is UserScrollNotification) {
+                            if (notification.direction == ScrollDirection.reverse) {
+                              // Desplazamiento hacia abajo: ocultar buscador y teclado
+                              FocusScope.of(context).unfocus();
+                              if (_searchAnimController.status != AnimationStatus.reverse &&
+                                  _searchAnimController.value > 0) {
+                                _searchAnimController.reverse();
+                              }
+                            } else if (notification.direction == ScrollDirection.forward) {
+                              // Desplazamiento hacia arriba: mostrar buscador
+                              if (_searchAnimController.status != AnimationStatus.forward &&
+                                  _searchAnimController.value < 1.0) {
+                                _searchAnimController.forward();
+                              }
+                            }
+                          }
+                          // Si regresa arriba del todo de la lista, asegurar que esté visible
+                          if (notification.metrics.pixels <= 10) {
+                            if (_searchAnimController.value < 1.0 &&
+                                _searchAnimController.status != AnimationStatus.forward) {
+                              _searchAnimController.forward();
+                            }
+                          }
+                          return false;
                         },
+                        child: ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(14, 12, 14, 80),
+                          itemCount: filtrados.length,
+                          itemBuilder: (context, index) {
+                            final cliente = filtrados[index];
+                            return _TarjetaClienteFiado(cliente: cliente);
+                          },
+                        ),
                       ),
               ),
             ],
@@ -258,28 +410,46 @@ class _TarjetaClienteFiadoState extends ConsumerState<_TarjetaClienteFiado> {
     }
   }
 
+  Future<void> _abrirModalEditarCliente(BuildContext context, Cliente c) async {
+    AppHaptics.light();
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ModalEditarCliente(cliente: c),
+    );
+    ref.invalidate(clientesListProvider);
+    _cargarMovimientos();
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = widget.cliente;
     final tieneDeuda = c.tieneDeuda;
+    final esOscuro = ref.watch(esModoOscuroProvider);
     final semaforoColor = c.limiteSuperado
         ? AppColors.danger
         : (c.saldoActual > c.limiteCredito * 0.7 ? AppColors.warning : AppColors.success);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
-      elevation: 2,
+      elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: c.limiteSuperado ? const BorderSide(color: AppColors.danger, width: 2) : BorderSide.none,
+        side: BorderSide(
+          color: c.limiteSuperado
+              ? AppColors.danger
+              : (esOscuro ? AppColors.darkBorder : AppColors.border),
+          width: c.limiteSuperado ? 2 : 1,
+        ),
       ),
-      color: Colors.white,
+      color: esOscuro ? AppColors.darkSurface : AppColors.surface,
       child: Padding(
         padding: const EdgeInsets.all(14.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cabecera: Nombre + Deuda Pendiente
+            // Cabecera: Nombre + Deuda Pendiente + Semáforo Antigüedad + Límite
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -288,15 +458,96 @@ class _TarjetaClienteFiadoState extends ConsumerState<_TarjetaClienteFiado> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        c.nombre,
-                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              c.nombre,
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: () => _abrirModalEditarCliente(context, c),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4.0),
+                              child: Icon(
+                                Icons.edit_outlined,
+                                size: 16,
+                                color: esOscuro ? Colors.white60 : AppColors.textMuted,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      if (c.telefono != null && c.telefono!.isNotEmpty)
-                        Text(
-                          '📞 ${c.telefono}',
-                          style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          if (c.telefono != null && c.telefono!.isNotEmpty) ...[
+                            Text(
+                              '📞 ${c.telefono}',
+                              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          _buildBadgeAntiguedad(c),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // Pill de Límite de Fiado editable con 1 toque
+                      InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => _abrirModalEditarCliente(context, c),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: c.limiteSuperado
+                                ? Colors.red.withValues(alpha: 0.1)
+                                : (esOscuro ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: c.limiteSuperado
+                                  ? Colors.redAccent.withValues(alpha: 0.5)
+                                  : (esOscuro ? AppColors.darkBorder : const Color(0xFFCBD5E1)),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.credit_card_outlined,
+                                size: 13,
+                                color: c.limiteSuperado ? Colors.redAccent : const Color(0xFF2563EB),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                'Límite: Bs. ${c.limiteCredito.toStringAsFixed(0)}',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: esOscuro ? Colors.white70 : AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '• Disp: Bs. ${c.creditoDisponible.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: c.limiteSuperado ? Colors.redAccent : AppColors.retailGreen,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(Icons.edit, size: 11, color: esOscuro ? Colors.white38 : AppColors.textMuted),
+                            ],
+                          ),
                         ),
+                      ),
                     ],
                   ),
                 ),
@@ -327,7 +578,7 @@ class _TarjetaClienteFiadoState extends ConsumerState<_TarjetaClienteFiado> {
             ),
 
             const SizedBox(height: 10),
-            const Divider(height: 1),
+            Divider(height: 1, color: esOscuro ? AppColors.darkBorder : AppColors.border),
             const SizedBox(height: 10),
 
             // HISTORIAL CON FECHA Y HORA (Últimos 2-3 movimientos directos en la tarjeta)
@@ -344,8 +595,9 @@ class _TarjetaClienteFiadoState extends ConsumerState<_TarjetaClienteFiado> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceMuted,
+                  color: esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted,
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: esOscuro ? AppColors.darkBorder : AppColors.border),
                 ),
                 child: const Text(
                   'No hay movimientos recientes registrados para este cliente.',
@@ -355,8 +607,9 @@ class _TarjetaClienteFiadoState extends ConsumerState<_TarjetaClienteFiado> {
             else
               Container(
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceMuted,
+                  color: esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted,
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: esOscuro ? AppColors.darkBorder : AppColors.border),
                 ),
                 child: Column(
                   children: _movimientos!.map((mov) {
@@ -378,8 +631,18 @@ class _TarjetaClienteFiadoState extends ConsumerState<_TarjetaClienteFiado> {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              esAbono ? 'Abonó parte de la cuenta' : 'Sacó productos fiados',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                              esAbono
+                                  ? 'Abonó parte de la cuenta'
+                                  : ((mov['productos_resumen'] as String?)?.isNotEmpty == true
+                                      ? (mov['productos_resumen'] as String)
+                                      : 'Sacó productos fiados'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: esOscuro ? const Color(0xFFE2E8F0) : AppColors.textPrimary,
+                              ),
                             ),
                           ),
                           Text(
@@ -404,54 +667,146 @@ class _TarjetaClienteFiadoState extends ConsumerState<_TarjetaClienteFiado> {
 
             const SizedBox(height: 12),
 
-            // DOS BOTONES DE ACCIÓN:
-            // [ 1. Botón si pagó parte de su deuda (Abonar) ] | [ 2. Botón de ver el historial ]
-            Row(
-              children: [
-                // Botón 1: Abonar / Pagó parte
-                Expanded(
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.success,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            // BOTONES DE ACCIÓN: ABONAR, COBRO WHATSAPP Y VER HISTORIAL
+            if (tieneDeuda) ...[
+              Row(
+                children: [
+                  // Botón 1: Abonar / Pagó parte
+                  Expanded(
+                    flex: 5,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: esOscuro ? AppColors.darkSuccess : AppColors.success,
+                        foregroundColor: esOscuro ? AppColors.darkSuccessDark : Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.attach_money, size: 20),
+                      label: const Text('ABONAR', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      onPressed: () async {
+                        await showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => ModalRegistrarAbono(cliente: c),
+                        );
+                        ref.invalidate(clientesListProvider);
+                        _cargarMovimientos();
+                      },
                     ),
-                    icon: const Icon(Icons.attach_money, size: 20),
-                    label: const Text('ABONAR / PAGÓ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    onPressed: () async {
-                      await showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (_) => ModalRegistrarAbono(cliente: c),
-                      );
-                      ref.invalidate(clientesListProvider);
-                      _cargarMovimientos();
-                    },
                   ),
-                ),
-                const SizedBox(width: 8),
+                  const SizedBox(width: 8),
 
-                // Botón 2: Ver Historial completo
-                Expanded(
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      side: const BorderSide(color: AppColors.primary, width: 1.5),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  // Botón 2: Cobrar por WhatsApp con mensaje pre-armado
+                  Expanded(
+                    flex: 6,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF25D366),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        elevation: 1,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.mark_chat_unread_rounded, size: 18),
+                      label: const Text('COBRAR WHATSAPP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      onPressed: () async {
+                        AppHaptics.medium();
+                        await showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => ModalCobroWhatsApp(cliente: c),
+                        );
+                      },
                     ),
-                    icon: const Icon(Icons.history, size: 20),
-                    label: const Text('VER HISTORIAL', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    onPressed: () => _mostrarHistorialCompleto(context, c),
                   ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Center(
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                  icon: const Icon(Icons.history_rounded, size: 16, color: AppColors.primary),
+                  label: const Text(
+                    'Ver historial completo de compras',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
+                  ),
+                  onPressed: () => _mostrarHistorialCompleto(context, c),
                 ),
-              ],
-            ),
+              ),
+            ] else ...[
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary, width: 1.5),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.history, size: 20),
+                  label: const Text('VER HISTORIAL', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  onPressed: () => _mostrarHistorialCompleto(context, c),
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildBadgeAntiguedad(Cliente c) {
+    if (!c.tieneDeuda) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: AppColors.success.withAlpha(20),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: const Text('🟢 Al día', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.success)),
+      );
+    }
+
+    final dias = DateTime.now().difference(c.updatedAt).inDays;
+    if (dias <= 0) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.blue.withAlpha(20),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: const Text('⚡ Movimiento hoy', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue)),
+      );
+    } else if (dias <= 7) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.amber.withAlpha(25),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text('⏳ Hace $dias d', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
+      );
+    } else if (dias <= 20) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.orange.withAlpha(25),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text('⚠️ $dias d sin abonar', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFC2410C))),
+      );
+    } else {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.red.withAlpha(25),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text('🔴 Retrasado: $dias d', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.danger)),
+      );
+    }
   }
 
   void _mostrarHistorialCompleto(BuildContext context, Cliente c) {
@@ -493,23 +848,32 @@ class _TarjetaClienteFiadoState extends ConsumerState<_TarjetaClienteFiado> {
               const SizedBox(height: 8),
 
               // Botón de WhatsApp amable
-              if (c.telefono != null && c.telefono!.isNotEmpty && c.tieneDeuda)
+              if (c.tieneDeuda)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF15803D),
-                        side: const BorderSide(color: Color(0xFF15803D)),
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF25D366),
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      icon: const Icon(Icons.send_rounded, size: 18),
-                      label: const Text('Enviar Recordatorio Amable por WhatsApp'),
-                      onPressed: () => CobroWhatsAppFormatter.enviarRecordatorio(
-                        cliente: c,
-                        nombreTienda: 'Tienda de Barrio',
+                      icon: const Icon(Icons.mark_chat_unread_rounded, size: 18),
+                      label: const Text(
+                        'Cobrar por WhatsApp con Mensaje Personalizado',
+                        style: TextStyle(fontWeight: FontWeight.bold),
                       ),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => ModalCobroWhatsApp(cliente: c),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -538,21 +902,40 @@ class _TarjetaClienteFiadoState extends ConsumerState<_TarjetaClienteFiado> {
                         final monto = (m['monto'] as num).toDouble();
                         final fecha = DateTime.tryParse(m['fecha'] as String? ?? '') ?? DateTime.now();
 
+                        final productos = m['productos_resumen'] as String?;
+                        final titulo = esAbono
+                            ? 'Abono recibido (${m['detalle'] ?? 'Efectivo'})'
+                            : (productos != null && productos.isNotEmpty
+                                ? productos
+                                : 'Venta a crédito (Fiado)');
+
                         return ListTile(
-                          leading: Icon(
-                            esAbono ? Icons.check_circle : Icons.shopping_cart,
-                            color: esAbono ? AppColors.success : AppColors.danger,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: (esAbono ? AppColors.success : AppColors.danger).withAlpha(20),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              esAbono ? Icons.check_circle_rounded : Icons.shopping_bag_rounded,
+                              color: esAbono ? AppColors.success : AppColors.danger,
+                              size: 22,
+                            ),
                           ),
-                          title: Text(esAbono ? 'Abono recibido' : 'Venta a crédito (Fiado)',
-                              style: const TextStyle(fontWeight: FontWeight.bold)),
+                          title: Text(
+                            titulo,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
                           subtitle: Text(
-                            'Fecha: ${fecha.day}/${fecha.month}/${fecha.year} a las ${fecha.hour}:${fecha.minute.toString().padLeft(2, "0")}',
+                            '${esAbono ? "Abono a cuenta" : "Fiado"} • ${fecha.day}/${fecha.month}/${fecha.year} a las ${fecha.hour}:${fecha.minute.toString().padLeft(2, "0")}',
+                            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                           ),
                           trailing: Text(
                             '${esAbono ? "-" : "+"} Bs. ${monto.toStringAsFixed(2)}',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                              fontSize: 15,
                               color: esAbono ? AppColors.success : AppColors.danger,
                             ),
                           ),

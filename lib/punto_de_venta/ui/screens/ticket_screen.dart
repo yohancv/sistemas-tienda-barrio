@@ -5,8 +5,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../data/models/item_carrito_model.dart';
 import '../../state/providers/carrito_providers.dart';
 import '../../../inventario/state/providers/inventario_providers.dart';
-import '../../../cierre_caja/state/providers/caja_providers.dart';
-import '../../../cierre_caja/ui/screens/cierre_caja_screen.dart';
+import '../../../core/theme/theme_provider.dart';
 import 'cobro_screen.dart';
 
 class TicketScreen extends ConsumerWidget {
@@ -16,22 +15,31 @@ class TicketScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final itemsCarrito = ref.watch(carritoProvider);
     final totalMonto = ref.watch(totalCarritoProvider);
+    final esOscuro = ref.watch(esModoOscuroProvider);
+
+    final bgColor = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final appBarBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final border = esOscuro ? AppColors.darkBorder : AppColors.border;
 
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
         title: Text(
           'Ticket en Espera',
-          style: AppTypography.headlineSmall.copyWith(
-            color: Colors.white,
+          style: TextStyle(
+            color: textPrimary,
             fontWeight: FontWeight.bold,
+            fontSize: 18,
           ),
         ),
-        backgroundColor: AppColors.primary,
+        backgroundColor: appBarBg,
+        foregroundColor: textPrimary,
         elevation: 0,
         actions: [
           if (itemsCarrito.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.delete_sweep, size: 30, color: Colors.white),
+              icon: const Icon(Icons.delete_sweep, size: 26, color: AppColors.danger),
               tooltip: 'Vaciar Ticket',
               onPressed: () {
                 showDialog(
@@ -112,16 +120,16 @@ class TicketScreen extends ConsumerWidget {
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: appBarBg,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withAlpha(20),
-                    offset: const Offset(0, -4),
-                    blurRadius: 10,
+                    color: Colors.black.withAlpha(esOscuro ? 45 : 12),
+                    offset: const Offset(0, -2),
+                    blurRadius: 4,
                   ),
                 ],
-                border: const Border(
-                  top: BorderSide(color: AppColors.border, width: 2),
+                border: Border(
+                  top: BorderSide(color: border, width: 1.2),
                 ),
               ),
               child: Column(
@@ -133,20 +141,20 @@ class TicketScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
-                      const Text(
+                      Text(
                         'TOTAL A COBRAR:',
                         style: TextStyle(
-                          fontSize: 20,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: textPrimary,
                         ),
                       ),
                       Text(
                         'Bs. ${totalMonto.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 34, // Fuente gigante requerida
+                        style: TextStyle(
+                          fontSize: 32,
                           fontWeight: FontWeight.w900,
-                          color: AppColors.success,
+                          color: esOscuro ? AppColors.darkSuccessBright : AppColors.retailGreen,
                         ),
                       ),
                     ],
@@ -156,21 +164,16 @@ class TicketScreen extends ConsumerWidget {
                   // Botón masivo para proceder al cobro
                   SizedBox(
                     width: double.infinity,
-                    height: 62,
+                    height: 56,
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: esOscuro ? AppColors.darkSuccess : AppColors.retailBlue,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                        elevation: 4,
+                        elevation: 0,
                       ),
                       onPressed: () {
-                        final hayCaja = ref.read(hayCajaAbiertaProvider);
-                        if (!hayCaja) {
-                          _mostrarAlertaCajaCerrada(context);
-                          return;
-                        }
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -178,13 +181,13 @@ class TicketScreen extends ConsumerWidget {
                           ),
                         );
                       },
-                      icon: const Icon(Icons.payment, color: Colors.white, size: 30),
-                      label: const Text(
+                      icon: Icon(Icons.payment, color: esOscuro ? AppColors.darkSuccessDark : Colors.white, size: 26),
+                      label: Text(
                         'PROCEDER AL COBRO',
                         style: TextStyle(
-                          fontSize: 22,
+                          fontSize: 19,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: esOscuro ? AppColors.darkSuccessDark : Colors.white,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -194,49 +197,6 @@ class TicketScreen extends ConsumerWidget {
               ),
             )
           : null,
-    );
-  }
-
-  void _mostrarAlertaCajaCerrada(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.point_of_sale, color: AppColors.warning, size: 30),
-            SizedBox(width: 10),
-            Text('Caja Cerrada', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: const Text(
-          'Debes abrir un turno de caja con el fondo inicial en efectivo antes de registrar cobros y ventas.',
-          style: TextStyle(fontSize: 16),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar', style: TextStyle(fontSize: 16)),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const CierreCajaScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.lock_open, color: Colors.white),
-            label: const Text(
-              'Abrir Caja Ahora',
-              style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -272,16 +232,23 @@ class _ItemTicketTile extends ConsumerWidget {
             ? item.producto.nombreUnidadSuelta
             : (esFraccionable ? 'kg' : 'uds'));
 
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final cardBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.textSecondaryDark : AppColors.textSecondary;
+    final btnBg = esOscuro ? AppColors.darkSurfaceMuted : AppColors.surfaceMuted;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        color: cardBg,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: esEmpaque
               ? AppColors.secondary
-              : (esSuelta ? const Color(0xFFD97706) : AppColors.border),
-          width: (esEmpaque || esSuelta) ? 2.0 : 1.5,
+              : (esSuelta ? const Color(0xFFD97706) : cardBorder),
+          width: (esEmpaque || esSuelta) ? 1.8 : 1.0,
         ),
       ),
       child: Row(
@@ -332,10 +299,10 @@ class _ItemTicketTile extends ConsumerWidget {
                     Expanded(
                       child: Text(
                         item.producto.nombre,
-                        style: const TextStyle(
-                          fontSize: 19,
+                        style: TextStyle(
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: textPrimary,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -352,34 +319,34 @@ class _ItemTicketTile extends ConsumerWidget {
                           : (esFraccionable
                               ? 'Precio: Bs. ${item.producto.precioVenta.toStringAsFixed(2)} / ${item.producto.unidadMedida}'
                               : 'Unitario: Bs. ${item.producto.precioVenta.toStringAsFixed(2)}')),
-                  style: const TextStyle(fontSize: 15, color: AppColors.textSecondary),
+                  style: TextStyle(fontSize: 14, color: textSecondary),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'Subtotal: Bs. ${item.subtotal.toStringAsFixed(2)}',
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.success,
+                    color: AppColors.retailGreen,
                   ),
                 ),
               ],
             ),
           ),
 
-          // Botonera táctil masiva (+ y - con íconos de 40px)
+          // Botonera táctil masiva (+ y - con íconos de 38px)
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               // Botón Disminuir (-)
               IconButton(
-                iconSize: 40,
-                padding: const EdgeInsets.all(8),
+                iconSize: 36,
+                padding: const EdgeInsets.all(6),
                 style: IconButton.styleFrom(
-                  backgroundColor: AppColors.surfaceMuted,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  backgroundColor: btnBg,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                icon: const Icon(Icons.remove_circle, color: AppColors.danger),
+                icon: const Icon(Icons.remove_circle_outline, color: AppColors.danger),
                 tooltip: 'Reducir cantidad',
                 onPressed: () {
                   ref.read(carritoProvider.notifier).ajustarCantidadItem(
@@ -391,28 +358,28 @@ class _ItemTicketTile extends ConsumerWidget {
 
               // Indicador de Cantidad Grande
               Container(
-                constraints: const BoxConstraints(minWidth: 50),
+                constraints: const BoxConstraints(minWidth: 46),
                 alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       cantidadFormateada,
-                      style: const TextStyle(
-                        fontSize: 22,
+                      style: TextStyle(
+                        fontSize: 20,
                         fontWeight: FontWeight.w900,
-                        color: AppColors.textPrimary,
+                        color: textPrimary,
                       ),
                     ),
                     Text(
                       unidadTexto,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: (esEmpaque || esSuelta) ? FontWeight.bold : FontWeight.normal,
                         color: esEmpaque
                             ? AppColors.secondary
-                            : (esSuelta ? const Color(0xFFD97706) : AppColors.textMuted),
+                            : (esSuelta ? const Color(0xFFD97706) : textSecondary),
                       ),
                     ),
                   ],
@@ -421,13 +388,13 @@ class _ItemTicketTile extends ConsumerWidget {
 
               // Botón Aumentar (+)
               IconButton(
-                iconSize: 40,
-                padding: const EdgeInsets.all(8),
+                iconSize: 36,
+                padding: const EdgeInsets.all(6),
                 style: IconButton.styleFrom(
-                  backgroundColor: AppColors.surfaceMuted,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  backgroundColor: btnBg,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                icon: const Icon(Icons.add_circle, color: AppColors.success),
+                icon: const Icon(Icons.add_circle, color: AppColors.retailGreen),
                 tooltip: 'Aumentar cantidad',
                 onPressed: () {
                   final unidadesEnCajasMap = ref.read(unidadesEnEmpaquesPadreProvider);

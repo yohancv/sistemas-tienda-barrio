@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/theme/theme_provider.dart';
 import '../../../punto_de_venta/data/models/item_carrito_model.dart';
 import '../../../punto_de_venta/state/providers/carrito_providers.dart';
 import '../../../punto_de_venta/ui/screens/ticket_screen.dart';
@@ -58,17 +59,30 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
     final subcategoriasConteo = ref.watch(subcategoriasDisponiblesProvider);
     final subcategoriaSeleccionada = ref.watch(filtroSubcategoriaSeleccionadaProvider);
 
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final bgColor = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
         title: Text(
           'Catálogo de Inventario',
-          style: AppTypography.headlineSmall.copyWith(
-            color: Colors.white,
+          style: TextStyle(
+            color: textPrimary,
             fontWeight: FontWeight.bold,
+            fontSize: 18,
           ),
         ),
-        backgroundColor: AppColors.primary,
+        backgroundColor: surfaceColor,
+        foregroundColor: textPrimary,
         elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(color: cardBorder, height: 1.0),
+        ),
         centerTitle: false,
         actions: [
           // Botón de acceso directo a la Lista de Reposición con Badge

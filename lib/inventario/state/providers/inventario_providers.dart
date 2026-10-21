@@ -224,26 +224,10 @@ class ProductoOperacionNotifier extends StateNotifier<ProductoOperacionState> {
           successMessage: '¡Producto "${resultado.nombre}" registrado con éxito!',
         );
       } else {
-        resultado = await _repository.actualizarProducto(producto);
-
-        // Registrar auditoría inmutable si el stock cambió durante la edición
-        if (stockAnterior != null) {
-          final delta = producto.stockActual - stockAnterior;
-          if (delta.abs() > 0.001) {
-            try {
-              await _repository.registrarAjusteManualStock(
-                productoId: producto.id,
-                tenantId: producto.tenantId,
-                cantidadDelta: delta,
-                costoUnitario: producto.costoMayorista,
-                stockAnterior: stockAnterior,
-                stockPosterior: producto.stockActual,
-              );
-            } catch (_) {
-              // No bloquear el guardado si falla el registro de auditoría
-            }
-          }
-        }
+        resultado = await _repository.actualizarProducto(
+          producto,
+          stockAnterior: stockAnterior,
+        );
 
         state = state.copyWith(
           isLoading: false,
