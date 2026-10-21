@@ -606,95 +606,207 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
 
             const SizedBox(height: 10),
 
-            // Selector Paquete vs Unidad (si aplica)
-            if (tieneOpcionesEmpaque && !producto.esFraccionable)
-              Row(
-                children: [
-                  if (producto.permiteVentaEmpaque) ...[
-                    ChoiceChip(
-                      label: Text(producto.nombreEmpaqueLegible),
-                      selected: modoActual == ModoVenta.porEmpaqueMayorista,
-                      selectedColor: AppColors.retailBlue.withAlpha(esOscuro ? 50 : 30),
-                      onSelected: (sel) {
-                        if (sel) {
-                          setState(() {
-                            _modosVentaPorProducto[producto.id] = ModoVenta.porEmpaqueMayorista;
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    ChoiceChip(
-                      label: const Text('Unidad'),
-                      selected: modoActual == ModoVenta.normal,
-                      selectedColor: AppColors.retailBlue.withAlpha(esOscuro ? 50 : 30),
-                      onSelected: (sel) {
-                        if (sel) {
-                          setState(() {
-                            _modosVentaPorProducto[producto.id] = ModoVenta.normal;
-                          });
-                        }
-                      },
-                    ),
-                  ],
-                  if (producto.permiteVentaSuelta) ...[
-                    const SizedBox(width: 8),
-                    ChoiceChip(
-                      label: Text(producto.nombreUnidadSuelta),
-                      selected: modoActual == ModoVenta.suelta,
-                      selectedColor: AppColors.secondary.withAlpha(30),
-                      onSelected: (sel) {
-                        if (sel) {
-                          setState(() {
-                            _modosVentaPorProducto[producto.id] = ModoVenta.suelta;
-                          });
-                        }
-                      },
-                    ),
-                  ],
-                ],
-              ),
-
             const SizedBox(height: 8),
 
-            // Fila inferior: Precio dinámico + Botón '+'
+            // Selector interactivo de alto contraste: Paquete / Caja vs Unidad vs Suelto
+            if (tieneOpcionesEmpaque && !producto.esFraccionable)
+              _buildSelectorModoVenta(producto, modoActual, esOscuro),
+
+            const SizedBox(height: 10),
+
+            // Fila inferior: Precio dinámico + Badge explícito de modo + Botón AÑADIR
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Bs. ${precioAMostrar.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.retailGreen,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Bs. ${precioAMostrar.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: esOscuro ? AppColors.darkSuccessBright : AppColors.retailGreen,
+                        ),
                       ),
-                    ),
-                    Text(
-                      etiquetaModo,
-                      style: TextStyle(fontSize: 11, color: textMuted),
-                    ),
-                  ],
+                      const SizedBox(height: 3),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: (esOscuro ? AppColors.darkAccent : AppColors.retailBlue).withAlpha(esOscuro ? 35 : 18),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: (esOscuro ? AppColors.darkAccent : AppColors.retailBlue).withAlpha(60),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              modoActual == ModoVenta.porEmpaqueMayorista
+                                  ? Icons.inventory_2_rounded
+                                  : (modoActual == ModoVenta.suelta ? Icons.grain_rounded : Icons.sell_outlined),
+                              size: 13,
+                              color: esOscuro ? AppColors.darkAccent : AppColors.retailBlue,
+                            ),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                'Venta: $etiquetaModo',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: esOscuro ? AppColors.darkAccent : AppColors.retailBlue,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+
+                const SizedBox(width: 10),
 
                 // Botón '+' amplio (touch target >= 48dp)
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.retailBlue,
+                    backgroundColor: esOscuro ? AppColors.darkAccent : AppColors.retailBlue,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
                   ),
-                  icon: const Icon(Icons.add, size: 22, color: Colors.white),
-                  label: const Text('AÑADIR', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
+                  icon: Icon(Icons.add_shopping_cart_rounded, size: 20, color: esOscuro ? AppColors.darkTextPrimary : Colors.white),
+                  label: Text(
+                    'AÑADIR',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: esOscuro ? AppColors.darkTextPrimary : Colors.white,
+                    ),
+                  ),
                   onPressed: () => _agregarProductoAlTicket(producto, modoActual),
                 ),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Selector de alto contraste con botones segmentados y confirmación visual
+  Widget _buildSelectorModoVenta(Producto producto, ModoVenta modoActual, bool esOscuro) {
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final containerBg = esOscuro ? AppColors.darkBackground : const Color(0xFFF1F5F9);
+
+    final List<_OpcionModoVenta> opciones = [];
+
+    // 1. Empaque cerrado (Caja, Paquete, Fardo)
+    if (producto.permiteVentaEmpaque) {
+      final uds = producto.unidadesPorEmpaque.toInt();
+      opciones.add(
+        _OpcionModoVenta(
+          modo: ModoVenta.porEmpaqueMayorista,
+          icono: Icons.inventory_2_rounded,
+          titulo: '${producto.nombreEmpaqueLegible} ($uds uds)',
+        ),
+      );
+    }
+
+    // 2. Unidad entera (Botella, Lata, Pieza)
+    opciones.add(
+      const _OpcionModoVenta(
+        modo: ModoVenta.normal,
+        icono: Icons.check_circle_rounded,
+        titulo: 'Unidad',
+      ),
+    );
+
+    // 3. Venta suelta (Cigarro suelto, etc.)
+    if (producto.permiteVentaSuelta) {
+      opciones.add(
+        _OpcionModoVenta(
+          modo: ModoVenta.suelta,
+          icono: Icons.grain_rounded,
+          titulo: '${producto.nombreUnidadSuelta} suelto',
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: containerBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cardBorder, width: 1.2),
+      ),
+      child: Row(
+        children: opciones.map((op) {
+          final seleccionado = modoActual == op.modo;
+          final activeColor = esOscuro ? AppColors.darkAccent : AppColors.retailBlue;
+          final activeTextColor = esOscuro ? AppColors.darkTextPrimary : Colors.white;
+          final inactiveTextColor = esOscuro ? AppColors.darkTextSecondary : const Color(0xFF64748B);
+
+          return Expanded(
+            child: InkWell(
+              onTap: () {
+                AppHaptics.selection();
+                setState(() {
+                  _modosVentaPorProducto[producto.id] = op.modo;
+                });
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                decoration: BoxDecoration(
+                  color: seleccionado ? activeColor : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: seleccionado
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(esOscuro ? 50 : 25),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1.5),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      seleccionado ? Icons.check_circle_rounded : op.icono,
+                      size: 16,
+                      color: seleccionado ? activeTextColor : inactiveTextColor,
+                    ),
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        op.titulo,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: seleccionado ? FontWeight.bold : FontWeight.w600,
+                          color: seleccionado ? activeTextColor : inactiveTextColor,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -725,19 +837,23 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
       return;
     }
 
+    String modoTexto = '1 Unidad';
     if (modo == ModoVenta.porEmpaqueMayorista) {
       ref.read(carritoProvider.notifier).agregarEmpaque(producto, 1.0);
+      modoTexto = '1 ${producto.nombreEmpaqueLegible} (${producto.unidadesPorEmpaque.toInt()} uds)';
     } else if (modo == ModoVenta.suelta) {
       ref.read(carritoProvider.notifier).agregarSuelto(producto, 1.0);
+      modoTexto = '1 ${producto.nombreUnidadSuelta} suelto';
     } else {
       ref.read(carritoProvider.notifier).agregarProducto(producto, 1.0);
+      modoTexto = '1 Unidad';
     }
 
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Añadido: ${producto.nombre}'),
-        duration: const Duration(milliseconds: 900),
+        content: Text('Añadido al ticket: $modoTexto de ${producto.nombre}'),
+        duration: const Duration(milliseconds: 1100),
         backgroundColor: AppColors.primaryDark,
       ),
     );
@@ -826,4 +942,16 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
       ),
     );
   }
+}
+
+class _OpcionModoVenta {
+  final ModoVenta modo;
+  final IconData icono;
+  final String titulo;
+
+  const _OpcionModoVenta({
+    required this.modo,
+    required this.icono,
+    required this.titulo,
+  });
 }
