@@ -49,77 +49,86 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     CierreTabScreen(),
   ];
 
-  void _abrirNuevoProducto() {
-    Navigator.of(context).push(
+  void _abrirNuevoProducto() async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const FormularioProductoScreen(),
       ),
     );
+    if (mounted) FocusManager.instance.primaryFocus?.unfocus();
   }
 
-  void _abrirProveedores() {
-    Navigator.of(context).push(
+  void _abrirProveedores() async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const ComprasProveedoresScreen(),
       ),
     );
+    if (mounted) FocusManager.instance.primaryFocus?.unfocus();
   }
 
-  void _abrirCategorias() {
-    Navigator.of(context).push(
+  void _abrirCategorias() async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const GestionCategoriasScreen(),
       ),
     );
+    if (mounted) FocusManager.instance.primaryFocus?.unfocus();
   }
 
-  void _abrirKardex() {
-    Navigator.of(context).push(
+  void _abrirKardex() async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const KardexScreen(),
       ),
     );
+    if (mounted) FocusManager.instance.primaryFocus?.unfocus();
   }
 
-  void _abrirReportesYMetricas() {
-    Navigator.of(context).push(
+  void _abrirReportesYMetricas() async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const DashboardReportesScreen(),
       ),
     );
+    if (mounted) FocusManager.instance.primaryFocus?.unfocus();
   }
 
-  void _abrirRecargasYServicios() {
-    Navigator.of(context).push(
+  void _abrirRecargasYServicios() async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const GestionRecargasScreen(),
       ),
     );
+    if (mounted) FocusManager.instance.primaryFocus?.unfocus();
   }
 
-  void _abrirMermasYDesempaque() {
-    Navigator.of(context).push(
+  void _abrirMermasYDesempaque() async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const MovimientosInventarioScreen(),
       ),
     );
+    if (mounted) FocusManager.instance.primaryFocus?.unfocus();
   }
 
-  void _abrirNuevoCliente() {
-    showModalBottomSheet(
+  void _abrirNuevoCliente() async {
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const ModalNuevoCliente(),
     );
+    if (mounted) FocusManager.instance.primaryFocus?.unfocus();
   }
 
-  void _abrirCentroRespaldos() {
-    Navigator.of(context).push(
+  void _abrirCentroRespaldos() async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const CentroRespaldosScreen(),
       ),
     );
+    if (mounted) FocusManager.instance.primaryFocus?.unfocus();
   }
 
   void _recargarTodo() {

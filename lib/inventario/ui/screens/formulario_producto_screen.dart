@@ -1037,10 +1037,13 @@ class _FormularioProductoScreenState
                 child: TextFormField(
                   controller: _stockActualController,
                   keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   decoration: const InputDecoration(
-                    labelText: 'Cantidad que tienes hoy *',
+                    labelText: 'Stock actual *',
                     hintText: 'Ej. 10',
                     suffixText: 'uds',
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                     border: OutlineInputBorder(),
                   ),
                   validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
@@ -1051,10 +1054,13 @@ class _FormularioProductoScreenState
                 child: TextFormField(
                   controller: _stockMinimoController,
                   keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   decoration: const InputDecoration(
-                    labelText: 'Avisar si quedan menos de *',
+                    labelText: 'Avisar si queda < *',
                     hintText: 'Ej. 3',
-                    suffixText: 'unidades',
+                    suffixText: 'uds',
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                     border: OutlineInputBorder(),
                   ),
                   onChanged: (_) => setState(() {}),
@@ -1192,12 +1198,14 @@ class _FormularioProductoScreenState
                   children: [
                     Icon(Icons.point_of_sale, size: 20, color: AppColors.primary),
                     SizedBox(width: 8),
-                    Text(
-                      '¿Cómo se venderá este producto en mostrador?',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                    Expanded(
+                      child: Text(
+                        '¿Cómo se venderá este producto en mostrador?',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                     ),
                   ],
@@ -1242,9 +1250,11 @@ class _FormularioProductoScreenState
                                         : AppColors.textMuted,
                                   ),
                                   const SizedBox(width: 6),
-                                  const Text(
-                                    '🍬 Solo por Unidad',
-                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                  const Expanded(
+                                    child: Text(
+                                      '🍬 Solo por Unidad',
+                                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1300,9 +1310,11 @@ class _FormularioProductoScreenState
                                         : AppColors.textMuted,
                                   ),
                                   const SizedBox(width: 6),
-                                  const Text(
-                                    '📦 Unidad y Caja',
-                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                  const Expanded(
+                                    child: Text(
+                                      '📦 Unidad y Caja',
+                                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1379,9 +1391,11 @@ class _FormularioProductoScreenState
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.success),
                         decoration: const InputDecoration(
-                          labelText: 'Venta por Unidad *',
+                          labelText: 'Precio Unidad *',
                           hintText: 'Ej. 7.00',
                           prefixText: 'Bs. ',
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                           border: OutlineInputBorder(),
                         ),
                         onChanged: (_) => setState(() {}),
@@ -1400,9 +1414,11 @@ class _FormularioProductoScreenState
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.secondary),
                         decoration: InputDecoration(
-                          labelText: 'Venta por ${_tipoEmpaque.toLowerCase() == 'caja' ? 'Caja' : _tipoEmpaque.toLowerCase() == 'paquete' ? 'Paquete' : 'Empaque'}',
+                          labelText: 'Precio ${_tipoEmpaque.toLowerCase() == 'caja' ? 'Caja' : 'Paquete'}',
                           hintText: 'Ej. 160.00',
                           prefixText: 'Bs. ',
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                           border: const OutlineInputBorder(),
                         ),
                         onChanged: (_) => setState(() {}),
@@ -1460,9 +1476,11 @@ class _FormularioProductoScreenState
                   children: [
                     Icon(Icons.inventory_2_outlined, size: 20, color: AppColors.secondary),
                     SizedBox(width: 8),
-                    Text(
-                      '¿Cuánto stock tienes hoy en tu tienda?',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    Expanded(
+                      child: Text(
+                        '¿Cuánto stock tienes hoy en tu tienda?',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      ),
                     ),
                   ],
                 ),
@@ -1473,10 +1491,13 @@ class _FormularioProductoScreenState
                       child: TextFormField(
                         controller: _stockEmpaquesController,
                         keyboardType: TextInputType.number,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         decoration: InputDecoration(
-                          labelText: 'Paquetes / ${_tipoEmpaque.toLowerCase()}s',
+                          labelText: _tipoEmpaque.toLowerCase() == 'caja' ? 'Cant. Cajas' : 'Cant. Paquetes',
                           hintText: 'Ej. 9',
-                          suffixText: _tipoEmpaque.toLowerCase() == 'caja' ? 'cajas' : '${_tipoEmpaque.toLowerCase()}s',
+                          suffixText: _tipoEmpaque.toLowerCase() == 'caja' ? 'caj' : 'paq',
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                           border: const OutlineInputBorder(),
                         ),
                         onChanged: (_) => setState(() {}),
@@ -1487,10 +1508,13 @@ class _FormularioProductoScreenState
                       child: TextFormField(
                         controller: _stockActualController,
                         keyboardType: TextInputType.number,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         decoration: const InputDecoration(
-                          labelText: '+ Unidades sueltas',
+                          labelText: '+ Uds. Sueltas',
                           hintText: 'Ej. 11',
                           suffixText: 'uds',
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                           border: OutlineInputBorder(),
                         ),
                         onChanged: (_) => setState(() {}),
@@ -1540,11 +1564,15 @@ class _FormularioProductoScreenState
                   children: [
                     Icon(Icons.notifications_active_outlined, size: 18, color: AppColors.secondary),
                     SizedBox(width: 6),
-                    Text('Avisarme cuando me quede poco stock en:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    Expanded(
+                      child: Text('Avisarme cuando me quede poco stock en:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
                   children: [
                     ChoiceChip(
                       label: Text('📦 ${_tipoEmpaque.toLowerCase() == 'caja' ? 'Cajas' : _tipoEmpaque}'),
@@ -1569,7 +1597,6 @@ class _FormularioProductoScreenState
                         }
                       },
                     ),
-                    const SizedBox(width: 8),
                     ChoiceChip(
                       label: const Text('🍾 Unidades sueltas'),
                       selected: _unidadAlertaPaquete == 'UNIDAD',
@@ -1599,14 +1626,15 @@ class _FormularioProductoScreenState
                 TextFormField(
                   controller: _stockMinimoController,
                   keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   decoration: InputDecoration(
-                    labelText: _unidadAlertaPaquete == 'EMPAQUE'
-                        ? 'Alerta cuando queden menos de ($_tipoEmpaque) *'
-                        : 'Alerta cuando queden menos de (unidades) *',
+                    labelText: 'Avisar cuando queden menos de *',
                     hintText: _unidadAlertaPaquete == 'EMPAQUE' ? 'Ej. 2' : 'Ej. 10',
                     suffixText: _unidadAlertaPaquete == 'EMPAQUE'
-                        ? (_tipoEmpaque.toLowerCase() == 'caja' ? 'cajas' : '${_tipoEmpaque.toLowerCase()}s')
-                        : 'unidades',
+                        ? (_tipoEmpaque.toLowerCase() == 'caja' ? 'caj' : 'paq')
+                        : 'uds',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                     border: const OutlineInputBorder(),
                   ),
                   onChanged: (_) => setState(() {}),
@@ -1819,11 +1847,15 @@ class _FormularioProductoScreenState
                   children: [
                     Icon(Icons.notifications_active_outlined, size: 18, color: AppColors.warning),
                     SizedBox(width: 6),
-                    Text('Avisarme cuando me quede poco stock en:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    Expanded(
+                      child: Text('Avisarme cuando me quede poco stock en:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
                   children: [
                     ChoiceChip(
                       label: const Text('🚬 Cajetillas'),
@@ -1848,7 +1880,6 @@ class _FormularioProductoScreenState
                         }
                       },
                     ),
-                    const SizedBox(width: 8),
                     ChoiceChip(
                       label: const Text('📦 Ruedas / Paquetes'),
                       selected: _unidadAlertaCigarro == 'RUEDA',
@@ -1878,12 +1909,13 @@ class _FormularioProductoScreenState
                 TextFormField(
                   controller: _stockMinimoController,
                   keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   decoration: InputDecoration(
-                    labelText: _unidadAlertaCigarro == 'CAJETILLA'
-                        ? 'Alerta cuando queden menos de (cajetillas) *'
-                        : 'Alerta cuando queden menos de (ruedas) *',
+                    labelText: 'Avisar cuando queden menos de *',
                     hintText: _unidadAlertaCigarro == 'CAJETILLA' ? 'Ej. 3' : 'Ej. 1',
-                    suffixText: _unidadAlertaCigarro == 'CAJETILLA' ? 'cajetillas' : 'ruedas',
+                    suffixText: _unidadAlertaCigarro == 'CAJETILLA' ? 'caj.' : 'ruedas',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                     border: const OutlineInputBorder(),
                   ),
                   onChanged: (_) => setState(() {}),
@@ -2029,10 +2061,13 @@ class _FormularioProductoScreenState
                 child: TextFormField(
                   controller: _stockActualController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   decoration: InputDecoration(
-                    labelText: 'Existencias hoy en tienda *',
+                    labelText: 'Existencias hoy *',
                     hintText: 'Ej. 10.5',
                     suffixText: _unidadMedidaPeso,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                     border: const OutlineInputBorder(),
                   ),
                   validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
@@ -2043,10 +2078,13 @@ class _FormularioProductoScreenState
                 child: TextFormField(
                   controller: _stockMinimoController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   decoration: InputDecoration(
-                    labelText: 'Avisar si quedan menos de *',
+                    labelText: 'Avisar si queda < *',
                     hintText: _unidadMedidaPeso == 'lb' ? 'Ej. 1.5' : 'Ej. 2.0',
-                    suffixText: _unidadMedidaPeso == 'lb' ? 'libras' : 'kilos',
+                    suffixText: _unidadMedidaPeso == 'lb' ? 'lb' : 'kg',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                     border: const OutlineInputBorder(),
                   ),
                   onChanged: (_) => setState(() {}),
@@ -2082,8 +2120,11 @@ class _FormularioProductoScreenState
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: positiva ? AppColors.success : AppColors.danger, width: 1.2),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 8,
+        runSpacing: 4,
         children: [
           Text(
             textoPersonalizado ?? (positiva ? 'Ganancia comercial:' : 'Pérdida detectada:'),
@@ -2094,9 +2135,9 @@ class _FormularioProductoScreenState
             ),
           ),
           Text(
-            '${positiva ? '+' : ''}Bs. ${ganancia.toStringAsFixed(2)}  (${margen.toStringAsFixed(1)}%)',
+            '${positiva ? '+' : ''}Bs. ${ganancia.toStringAsFixed(2)} (${margen.toStringAsFixed(1)}%)',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.w900,
               color: positiva ? AppColors.success : AppColors.danger,
             ),

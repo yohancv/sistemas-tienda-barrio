@@ -33,6 +33,7 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
   String? _categoriaSeleccionada;
   String? _marcaSeleccionada;
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   final Debouncer _debouncer = Debouncer(milliseconds: 220);
   String _debouncedQuery = '';
 
@@ -40,8 +41,19 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
   final Map<String, ModoVenta> _modosVentaPorProducto = {};
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _searchFocusNode.hasFocus) {
+        _searchFocusNode.unfocus();
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     _debouncer.dispose();
     super.dispose();
   }
@@ -94,50 +106,58 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
 
     return Scaffold(
       backgroundColor: bgColor,
-      body: productosAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Text('Error al cargar productos: $err', style: const TextStyle(color: AppColors.danger)),
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () {
+          if (_searchFocusNode.hasFocus) {
+            _searchFocusNode.unfocus();
+          }
+        },
+        child: productosAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Text('Error al cargar productos: $err', style: const TextStyle(color: AppColors.danger)),
+            ),
           ),
-        ),
-        data: (todosLosProductos) {
-          // Si hay búsqueda activa por texto, mostramos directamente los resultados filtrados
-          if (query.isNotEmpty) {
-            final resultados = todosLosProductos.where((p) {
-              final n = p.nombre.toLowerCase();
-              final c = (p.categoria ?? '').toLowerCase();
-              final s = (p.subcategoria ?? '').toLowerCase();
-              final b = (p.codigoBarras ?? '').toLowerCase();
-              return n.contains(query) || c.contains(query) || s.contains(query) || b.contains(query);
-            }).toList();
+          data: (todosLosProductos) {
+            // Si hay búsqueda activa por texto, mostramos directamente los resultados filtrados
+            if (query.isNotEmpty) {
+              final resultados = todosLosProductos.where((p) {
+                final n = p.nombre.toLowerCase();
+                final c = (p.categoria ?? '').toLowerCase();
+                final s = (p.subcategoria ?? '').toLowerCase();
+                final b = (p.codigoBarras ?? '').toLowerCase();
+                return n.contains(query) || c.contains(query) || s.contains(query) || b.contains(query);
+              }).toList();
 
+              return Column(
+                children: [
+                  _buildBarraBusqueda(esOscuro),
+                  Expanded(child: _buildListaProductos(resultados, esOscuro)),
+                  _buildBarraCobroFlotante(totalArticulos, totalMonto, esOscuro),
+                ],
+              );
+            }
+
+            // Flujo Jerárquico normal
             return Column(
               children: [
                 _buildBarraBusqueda(esOscuro),
-                Expanded(child: _buildListaProductos(resultados, esOscuro)),
+                _buildMigasDePan(esOscuro),
+                Expanded(
+                  child: _categoriaSeleccionada == null
+                      ? _buildGridCategorias(todosLosProductos, esOscuro)
+                      : (_marcaSeleccionada == null
+                          ? _buildGridMarcas(todosLosProductos, _categoriaSeleccionada!, esOscuro)
+                          : _buildPresentacionesMarca(todosLosProductos, _categoriaSeleccionada!, _marcaSeleccionada!, esOscuro)),
+                ),
                 _buildBarraCobroFlotante(totalArticulos, totalMonto, esOscuro),
               ],
             );
-          }
-
-          // Flujo Jerárquico normal
-          return Column(
-            children: [
-              _buildBarraBusqueda(esOscuro),
-              _buildMigasDePan(esOscuro),
-              Expanded(
-                child: _categoriaSeleccionada == null
-                    ? _buildGridCategorias(todosLosProductos, esOscuro)
-                    : (_marcaSeleccionada == null
-                        ? _buildGridMarcas(todosLosProductos, _categoriaSeleccionada!, esOscuro)
-                        : _buildPresentacionesMarca(todosLosProductos, _categoriaSeleccionada!, _marcaSeleccionada!, esOscuro)),
-              ),
-              _buildBarraCobroFlotante(totalArticulos, totalMonto, esOscuro),
-            ],
-          );
-        },
+          },
+        ),
       ),
     );
   }
@@ -157,6 +177,7 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
           Expanded(
             child: TextField(
               controller: _searchController,
+              focusNode: _searchFocusNode,
               onChanged: (val) {
                 _debouncer.run(() {
                   if (mounted) setState(() => _debouncedQuery = val.trim().toLowerCase());
@@ -306,7 +327,7 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 1.15,
+        childAspectRatio: 0.92,
         crossAxisSpacing: 14,
         mainAxisSpacing: 14,
       ),
@@ -327,27 +348,38 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
             borderRadius: BorderRadius.circular(16),
             onTap: () => _irACategoria(cat),
             child: Padding(
-              padding: const EdgeInsets.all(14.0),
+              padding: const EdgeInsets.all(12.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(emoji, style: const TextStyle(fontSize: 42)),
+                  Text(emoji, style: const TextStyle(fontSize: 38)),
                   const SizedBox(height: 8),
-                  Text(
-                    cat,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: textPrimary,
+                  Flexible(
+                    child: Text(
+                      cat,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: textPrimary,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$cant opciones',
-                    style: TextStyle(fontSize: 13, color: textMuted),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: esOscuro ? Colors.white.withAlpha(15) : AppColors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: cardBorder.withAlpha(100), width: 0.8),
+                    ),
+                    child: Text(
+                      '$cant ${cant == 1 ? 'opción' : 'opciones'}',
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: textMuted),
+                    ),
                   ),
                 ],
               ),
@@ -379,7 +411,7 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 1.25,
+        childAspectRatio: 0.92,
         crossAxisSpacing: 14,
         mainAxisSpacing: 14,
       ),
@@ -402,9 +434,10 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
             borderRadius: BorderRadius.circular(16),
             onTap: () => _irAMarca(marca),
             child: Padding(
-              padding: const EdgeInsets.all(14.0),
+              padding: const EdgeInsets.all(12.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
                     padding: const EdgeInsets.all(8),
@@ -412,24 +445,34 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
                       color: AppColors.retailBlue.withAlpha(esOscuro ? 35 : 20),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.sell_outlined, color: AppColors.retailBlue, size: 28),
+                    child: const Icon(Icons.sell_outlined, color: AppColors.retailBlue, size: 26),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    marca,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: textPrimary,
+                  Flexible(
+                    child: Text(
+                      marca,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: textPrimary,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$cant presentaciones',
-                    style: TextStyle(fontSize: 12, color: textMuted),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: esOscuro ? Colors.white.withAlpha(15) : AppColors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: cardBorder.withAlpha(100), width: 0.8),
+                    ),
+                    child: Text(
+                      '$cant ${cant == 1 ? 'presentación' : 'presentaciones'}',
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: textMuted),
+                    ),
                   ),
                 ],
               ),

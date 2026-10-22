@@ -137,7 +137,7 @@ class _ModalNuevoClienteState extends ConsumerState<ModalNuevoCliente> {
 
               // Límite de Crédito
               const Text(
-                'LÍMITE MÁXIMO DE FIADO SUGERIDO (BS.):',
+                'LÍMITE MÁXIMO DE FIADO (BS.):',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
@@ -147,44 +147,61 @@ class _ModalNuevoClienteState extends ConsumerState<ModalNuevoCliente> {
               ),
               const SizedBox(height: 8),
 
-              // Chips de límites rápidos
-              Row(
-                children: [50.0, 100.0, 200.0, 300.0].map((limite) {
-                  final seleccionado = _limiteSeleccionado == limite;
-                  return Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 3),
-                      child: SizedBox(
-                        height: 46,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            backgroundColor: seleccionado
-                                ? AppColors.primary
-                                : AppColors.surfaceMuted,
-                            elevation: seleccionado ? 2 : 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              side: BorderSide(
-                                color: seleccionado ? AppColors.primary : AppColors.border,
-                                width: seleccionado ? 2 : 1,
-                              ),
-                            ),
-                          ),
-                          onPressed: () => _seleccionarLimite(limite),
-                          child: Text(
-                            'Bs. ${limite.toInt()}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: seleccionado ? Colors.white : AppColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                      ),
+              // Campo de texto editable para cualquier monto personalizado
+              TextFormField(
+                controller: _limiteController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                decoration: InputDecoration(
+                  labelText: 'Monto Límite de Fiado *',
+                  hintText: 'Ej. 100, 500, 1000...',
+                  prefixText: 'Bs. ',
+                  prefixStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  prefixIcon: const Icon(Icons.credit_card, color: AppColors.primary),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onChanged: (val) {
+                  final parsed = double.tryParse(val.trim().replaceAll(',', '.'));
+                  setState(() {
+                    _limiteSeleccionado = parsed ?? 0.0;
+                  });
+                },
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Ingresa un monto límite';
+                  }
+                  final n = double.tryParse(val.replaceAll(',', '.'));
+                  if (n == null || n < 0) {
+                    return 'Ingresa un número válido';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 10),
+
+              // Chips sugeridos rápidos (Wrap responsivo sin desbordamiento)
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [50.0, 100.0, 150.0, 200.0, 300.0, 500.0, 1000.0].map((limite) {
+                  final seleccionado = (_limiteSeleccionado == limite);
+                  return ChoiceChip(
+                    label: Text('Bs. ${limite.toInt()}'),
+                    selected: seleccionado,
+                    selectedColor: AppColors.primary,
+                    labelStyle: TextStyle(
+                      color: seleccionado ? Colors.white : AppColors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
                     ),
+                    onSelected: (_) => _seleccionarLimite(limite),
                   );
                 }).toList(),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                '💡 Puedes escribir cualquier monto personalizado en el cuadro o tocar un botón rápido.',
+                style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
               ),
 
               const SizedBox(height: 24),
