@@ -19,9 +19,12 @@ import '../../../reportes/state/providers/reportes_providers.dart';
 import '../../../reportes/ui/screens/dashboard_reportes_screen.dart';
 import '../../../recargas/ui/screens/gestion_recargas_screen.dart';
 import '../screens/centro_respaldos_screen.dart';
+import '../../database/app_database.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/theme_provider.dart';
 import '../../utils/app_haptics.dart';
+import '../../../punto_de_venta/state/providers/carrito_providers.dart';
+import '../../../inventario/state/providers/movimientos_providers.dart';
 
 /// Pantalla Principal con Navegación Inferior de 4 Pestañas:
 /// 1. Productos / Ventas (POS con navegación jerárquica)
@@ -148,6 +151,96 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     );
   }
 
+  Future<void> _confirmarYVaciarBaseDeDatos() async {
+    final esOscuro = ref.read(esModoOscuroProvider);
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: esOscuro ? const Color(0xFF1E293B) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 28),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Vaciar Base de Datos',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          '¿Estás seguro de que deseas vaciar toda la base de datos?\n\n'
+          '• Se borrarán TODOS los productos y categorías.\n'
+          '• Se borrarán todas las ventas, fiados, compras y turnos de caja.\n'
+          '• La app quedará completamente en 0, lista para entregar al cliente.\n\n'
+          '⚠️ Esta acción no se puede deshacer.',
+          style: TextStyle(
+            fontSize: 14,
+            height: 1.4,
+            color: esOscuro ? Colors.white70 : AppColors.textPrimary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: esOscuro ? Colors.white70 : AppColors.textMuted),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sí, Vaciar Todo', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true || !mounted) return;
+
+    try {
+      await AppDatabase.instance.vaciarTodaLaBaseDeDatos();
+
+      ref.invalidate(productosListProvider);
+      ref.invalidate(clientesListProvider);
+      ref.invalidate(carritoProvider);
+      ref.invalidate(cajaTurnoActivaProvider);
+      ref.invalidate(resumenCajaTurnoProvider);
+      ref.invalidate(ventasTurnoProvider);
+      ref.invalidate(categoriasPrincipalesProvider);
+      ref.invalidate(arbolCategoriasProvider);
+      ref.invalidate(totalDeudaCalleProvider);
+      ref.invalidate(reporteDashboardProvider);
+      ref.invalidate(historialMovimientosProvider);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.success,
+          content: Text('¡Base de datos vaciada con éxito! La tienda está en 0 y lista para el cliente.'),
+          duration: Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.redAccent,
+          content: Text('Error al vaciar la base de datos: $e'),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
   String _tituloPorTab(int index) {
     switch (index) {
       case 0:
@@ -258,6 +351,9 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                 case 'recargar':
                   _recargarTodo();
                   break;
+                case 'vaciar_bd':
+                  _confirmarYVaciarBaseDeDatos();
+                  break;
               }
             },
             itemBuilder: (context) {
@@ -364,6 +460,20 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                       Icon(Icons.sync_rounded, color: esOscuro ? Colors.white70 : AppColors.textMuted, size: 20),
                       const SizedBox(width: 12),
                       Text('Recargar Base Local SQLite', style: TextStyle(color: esOscuro ? Colors.white70 : AppColors.textMuted)),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(height: 1),
+                PopupMenuItem(
+                  value: 'vaciar_bd',
+                  child: const Row(
+                    children: [
+                      Icon(Icons.delete_forever_rounded, color: Color(0xFFEF4444), size: 20),
+                      SizedBox(width: 12),
+                      Text(
+                        'Vaciar Base de Datos (Reset a 0)',
+                        style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.bold),
+                      ),
                     ],
                   ),
                 ),

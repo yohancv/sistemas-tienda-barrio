@@ -315,6 +315,7 @@ class _CierreTabScreenState extends ConsumerState<CierreTabScreen> {
           onRefresh: () async {
             ref.invalidate(cajaTurnoActivaProvider);
             ref.invalidate(resumenCajaTurnoProvider);
+            ref.invalidate(ventasTurnoProvider);
             ref.invalidate(sugerenciasInteligentesProvider);
             ref.invalidate(resumenRecargasTurnoProvider);
           },
@@ -368,11 +369,13 @@ class _CierreTabScreenState extends ConsumerState<CierreTabScreen> {
                       data: (resumen) {
                         final double fondo = turno?.montoInicial ?? resumen?.montoInicial ?? 0.0;
                         final double ventasEfectivo = resumen?.totalVentasEfectivo ?? 0.0;
-                        final double cobrosQr = (resumen?.totalVentasQr ?? 0.0) +
-                            (resumen?.totalFiadosCobradosQr ?? 0.0);
+                        final double cobrosQr = resumen?.totalCobrosQr ??
+                            ((resumen?.totalVentasQr ?? 0.0) + (resumen?.totalFiadosCobradosQr ?? 0.0));
                         final double egresos = (resumen?.totalSalidasManuales ?? 0.0) +
                             (resumen?.totalRetirosQr ?? 0.0);
                         final double esperado = resumen?.montoEsperadoEfectivo ?? fondo;
+                        final double saldoQr = resumen?.saldoNetoQr ?? cobrosQr;
+                        final double totalDisponible = resumen?.totalDineroDisponible ?? (esperado + saldoQr);
 
                         return Column(
                           children: [
@@ -384,10 +387,12 @@ class _CierreTabScreenState extends ConsumerState<CierreTabScreen> {
                               esOscuro: esOscuro,
                             ),
                             const SizedBox(height: 14),
-                            // 4. BANNER EFECTIVO FÍSICO ESPERADO
+                            // 4. BANNER EFECTIVO FÍSICO ESPERADO + SALDO DIGITAL QR
                             _buildEsperadoBanner(
                               fondo: fondo,
                               esperado: esperado,
+                              saldoQr: saldoQr,
+                              totalDisponible: totalDisponible,
                               esOscuro: esOscuro,
                             ),
                             // 4.1 Resumen de Recargas Telefónicas si hubo en el turno
@@ -396,6 +401,11 @@ class _CierreTabScreenState extends ConsumerState<CierreTabScreen> {
                         );
                       },
                     ),
+
+                    const SizedBox(height: 18),
+
+                    // 4.2 LISTA DE VENTAS Y COBROS DEL TURNO (EFECTIVO Y QR)
+                    _buildVentasTurnoCard(esOscuro),
 
                     const SizedBox(height: 18),
 
@@ -707,7 +717,7 @@ class _CierreTabScreenState extends ConsumerState<CierreTabScreen> {
                 titulo: 'FONDO FIJO (APERTURA)',
                 monto: 'Bs. ${fondo.toStringAsFixed(2)}',
                 colorMonto: textPrimary,
-                subtitulo: 'Monedas y sencillo',
+                subtitulo: fondo > 0 ? 'Monedas y sencillo' : 'Caja continua (0 Bs)',
                 colorSubtitulo: esOscuro ? AppColors.darkTextSecondary : AppColors.textMuted,
                 esOscuro: esOscuro,
               ),
@@ -831,10 +841,12 @@ class _CierreTabScreenState extends ConsumerState<CierreTabScreen> {
     );
   }
 
-  /// 4. Banner "Efectivo Físico Esperado en Cajón"
+  /// 4. Banners de Dinero Esperado (Cajón Físico + Banco QR + Total Disponible)
   Widget _buildEsperadoBanner({
     required double fondo,
     required double esperado,
+    required double saldoQr,
+    required double totalDisponible,
     required bool esOscuro,
   }) {
     final cardBg = esOscuro ? AppColors.darkSurface : const Color(0xFFF0FDF4);
@@ -842,74 +854,425 @@ class _CierreTabScreenState extends ConsumerState<CierreTabScreen> {
     final textPrimary = esOscuro ? AppColors.darkTextPrimary : const Color(0xFF14532D);
     final textMuted = esOscuro ? AppColors.darkTextSecondary : const Color(0xFF15803D);
     final greenAmount = esOscuro ? AppColors.darkSuccessBright : AppColors.retailGreen;
+    final skyColor = esOscuro ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
+
+    return Column(
+      children: [
+        // 4.1 Banner Efectivo Físico en Cajón
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: cardBorder),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.point_of_sale, size: 16, color: Color(0xFF16A34A)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Efectivo Físico en Cajón:',
+                          style: TextStyle(
+                            color: textPrimary,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      fondo > 0
+                          ? 'Fondo Fijo (Bs. ${fondo.toStringAsFixed(0)}) + Ventas Efectivo - Egresos'
+                          : 'Ventas Efectivo del Día - Egresos',
+                      style: TextStyle(
+                        color: textMuted,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'Bs. ${esperado.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      color: greenAmount,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: esOscuro ? const Color(0xFF0C243B) : const Color(0xFFDCFCE7),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: esOscuro
+                            ? const Color(0xFF0284C7).withValues(alpha: 0.4)
+                            : const Color(0xFF86EFAC),
+                      ),
+                    ),
+                    child: Text(
+                      'En gaveta física',
+                      style: TextStyle(
+                        color: esOscuro ? const Color(0xFF38BDF8) : const Color(0xFF16A34A),
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        // 4.2 Banner Saldo Digital QR y Total Líquido
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: esOscuro ? AppColors.darkSurface : const Color(0xFFF0F9FF),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: esOscuro ? AppColors.darkBorder : const Color(0xFFBAE6FD),
+            ),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0284C7).withValues(alpha: esOscuro ? 0.2 : 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.qr_code_2_rounded, color: Color(0xFF0284C7), size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Saldo en Cuenta Digital / QR',
+                          style: TextStyle(
+                            color: esOscuro ? AppColors.darkTextPrimary : const Color(0xFF0369A1),
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'Ventas QR + Fiados Cobrados QR - Retiros ATM',
+                          style: TextStyle(
+                            color: esOscuro ? AppColors.darkTextSecondary : const Color(0xFF0284C7),
+                            fontSize: 10.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    'Bs. ${saldoQr.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      color: skyColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.savings_outlined, color: Color(0xFF8B5CF6), size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Total Dinero del Turno (Cajón + QR):',
+                        style: TextStyle(
+                          color: esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'Bs. ${totalDisponible.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      color: Color(0xFF8B5CF6),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 4.2 Lista de Ventas y Cobros de este Turno (Efectivo & QR en vivo)
+  Widget _buildVentasTurnoCard(bool esOscuro) {
+    final ventasAsync = ref.watch(ventasTurnoProvider);
+    final cardBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMuted = esOscuro ? AppColors.darkTextSecondary : AppColors.textMuted;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: cardBorder),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Efectivo Físico Esperado en Cajón:',
-                  style: TextStyle(
-                    color: textPrimary,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Fondo Fijo (Bs. ${fondo.toStringAsFixed(0)}) + Ventas Efectivo - Egresos',
-                  style: TextStyle(
-                    color: textMuted,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
             children: [
-              Text(
-                'Bs. ${esperado.toStringAsFixed(2)}',
-                style: TextStyle(
-                  color: greenAmount,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w900,
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: esOscuro ? const Color(0xFF1E293B) : const Color(0xFFEEF2FF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.receipt_long_rounded,
+                  color: Color(0xFF6366F1),
+                  size: 20,
                 ),
               ),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(
-                  color: esOscuro ? const Color(0xFF0C243B) : const Color(0xFFDCFCE7),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: esOscuro
-                        ? const Color(0xFF0284C7).withValues(alpha: 0.4)
-                        : const Color(0xFF86EFAC),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ventas y Cobros del Turno',
+                      style: TextStyle(
+                        color: textPrimary,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Tickets cobrados por Efectivo y QR en vivo',
+                      style: TextStyle(color: textMuted, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              ventasAsync.maybeWhen(
+                data: (ventas) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: esOscuro ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: cardBorder),
+                  ),
+                  child: Text(
+                    '${ventas.length} ${ventas.length == 1 ? "venta" : "ventas"}',
+                    style: TextStyle(
+                      color: textMuted,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-                child: Text(
-                  'Calculado en sistema',
-                  style: TextStyle(
-                    color: esOscuro ? const Color(0xFF38BDF8) : const Color(0xFF16A34A),
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                orElse: () => const SizedBox.shrink(),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          ventasAsync.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF6366F1)),
+                ),
+              ),
+            ),
+            error: (err, _) => Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text('Error al cargar ventas: $err', style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+            ),
+            data: (ventas) {
+              if (ventas.isEmpty) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: esOscuro ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: cardBorder),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(Icons.point_of_sale_outlined, color: textMuted, size: 28),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Aún no hay ventas registradas en este turno.',
+                        style: TextStyle(color: textPrimary, fontSize: 12.5, fontWeight: FontWeight.w600),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Las ventas cobradas por Efectivo y QR se mostrarán aquí con su detalle en vivo.',
+                        style: TextStyle(color: textMuted, fontSize: 11),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: ventas.length > 8 ? 8 : ventas.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
+                itemBuilder: (context, idx) {
+                  final v = ventas[idx];
+
+                  Color badgeBg;
+                  Color badgeText;
+                  String metodoLabel;
+                  IconData icono;
+
+                  if (v.esQr) {
+                    badgeBg = esOscuro ? const Color(0xFF082F49) : const Color(0xFFE0F2FE);
+                    badgeText = esOscuro ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
+                    metodoLabel = '📱 QR / BANCO';
+                    icono = Icons.qr_code_2_rounded;
+                  } else if (v.esMixto) {
+                    badgeBg = esOscuro ? const Color(0xFF2E1065) : const Color(0xFFF3E8FF);
+                    badgeText = esOscuro ? const Color(0xFFC084FC) : const Color(0xFF7C3AED);
+                    metodoLabel = '🔄 MIXTO';
+                    icono = Icons.alt_route_rounded;
+                  } else if (v.esFiado) {
+                    badgeBg = esOscuro ? const Color(0xFF451A03) : const Color(0xFFFEF3C7);
+                    badgeText = esOscuro ? const Color(0xFFFBBF24) : const Color(0xFFD97706);
+                    metodoLabel = '💳 FIADO';
+                    icono = Icons.pending_actions_rounded;
+                  } else {
+                    badgeBg = esOscuro ? const Color(0xFF064E3B) : const Color(0xFFDCFCE7);
+                    badgeText = esOscuro ? const Color(0xFF34D399) : const Color(0xFF16A34A);
+                    metodoLabel = '💵 EFECTIVO';
+                    icono = Icons.payments_rounded;
+                  }
+
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: esOscuro ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: cardBorder),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 17,
+                          backgroundColor: badgeBg,
+                          child: Icon(icono, color: badgeText, size: 18),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    'Ticket #${v.ticketCorto}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12.5,
+                                      color: textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                    decoration: BoxDecoration(
+                                      color: badgeBg,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      metodoLabel,
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: badgeText,
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    '${v.fechaVenta.hour.toString().padLeft(2, '0')}:${v.fechaVenta.minute.toString().padLeft(2, '0')}',
+                                    style: TextStyle(fontSize: 11, color: textMuted),
+                                  ),
+                                ],
+                              ),
+                              if (v.itemsResumen.isNotEmpty) ...[
+                                const SizedBox(height: 3),
+                                Text(
+                                  v.itemsResumen,
+                                  style: TextStyle(fontSize: 11, color: textMuted),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                              if (v.esMixto) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Efe: Bs. ${v.totalEfectivo.toStringAsFixed(2)} • QR: Bs. ${v.totalQr.toStringAsFixed(2)}',
+                                  style: TextStyle(fontSize: 10, color: badgeText, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Bs. ${v.totalVenta.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w800,
+                            color: v.esQr ? badgeText : textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
           ),
         ],
       ),

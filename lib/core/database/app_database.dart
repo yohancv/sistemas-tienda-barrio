@@ -56,6 +56,18 @@ class AppDatabase {
       if (!columnas.contains('created_at')) {
         await db.execute('ALTER TABLE compras ADD COLUMN created_at TEXT');
       }
+      // Actualizar trigger para sincronizar exactamente el saldo fiado (restando anticipos)
+      await db.execute('DROP TRIGGER IF EXISTS trg_saldo_cliente_por_venta');
+      await db.execute('''
+        CREATE TRIGGER trg_saldo_cliente_por_venta AFTER INSERT ON ventas
+        WHEN (NEW.metodo_pago = 'CREDITO_FIADO' OR NEW.metodo_pago = 'FIADO') AND NEW.cliente_id IS NOT NULL
+        BEGIN
+          UPDATE clientes
+          SET saldo_actual = saldo_actual + (NEW.total_venta - COALESCE(NEW.monto_recibido, 0)),
+              updated_at = NEW.fecha_venta
+          WHERE id = NEW.cliente_id;
+        END
+      ''');
       _columnasAseguradas = true;
     } catch (_) {}
   }
@@ -151,6 +163,19 @@ class AppDatabase {
       CREATE TRIGGER IF NOT EXISTS trg_clientes_no_delete BEFORE DELETE ON clientes
       BEGIN SELECT RAISE(ABORT, 'No se permite eliminar clientes. Use desactivación lógica para preservar el historial.'); END;
       ''',
+      '''
+      DROP TRIGGER IF EXISTS trg_saldo_cliente_por_venta;
+      ''',
+      '''
+      CREATE TRIGGER trg_saldo_cliente_por_venta AFTER INSERT ON ventas
+      WHEN (NEW.metodo_pago = 'CREDITO_FIADO' OR NEW.metodo_pago = 'FIADO') AND NEW.cliente_id IS NOT NULL
+      BEGIN
+        UPDATE clientes
+        SET saldo_actual = saldo_actual + (NEW.total_venta - COALESCE(NEW.monto_recibido, 0)),
+            updated_at = NEW.fecha_venta
+        WHERE id = NEW.cliente_id;
+      END;
+      ''',
     ];
     for (final q in queries) {
       try {
@@ -167,15 +192,68 @@ class AppDatabase {
   }
 
   /// Elimina por completo la base de datos local y la vuelve a crear limpia
-  /// (0 productos, 0 clientes, 0 ventas) con únicamente las categorías base.
+  /// (0 productos, 0 categorías, 0 clientes, 0 ventas, 0 compras, 0 turnos)
+  /// lista para entregar la aplicación al cliente.
   Future<void> recrearBaseDeDatosLimpia() async {
     final factory = obtenerDatabaseFactory();
     final ruta = await obtenerRutaBaseDatos(AppConfig.nombreBaseDatos);
     await cerrar();
-    await factory.deleteDatabase(ruta);
+    try {
+      await factory.deleteDatabase(ruta);
+    } catch (_) {}
     _columnasAseguradas = false;
-    await database;
+    final db = await database;
+
+    // Respaldo de seguridad en caso de bloqueo de archivo o almacenamiento web persistente:
+    try {
+      await db.transaction((txn) async {
+        await txn.execute('PRAGMA foreign_keys = OFF');
+        final triggers = [
+          'trg_ventas_no_delete',
+          'trg_ventas_no_update',
+          'trg_detalle_ventas_no_delete',
+          'trg_detalle_ventas_no_update',
+          'trg_pagos_ventas_no_delete',
+          'trg_pagos_ventas_no_update',
+          'trg_abonos_deuda_no_delete',
+          'trg_abonos_deuda_no_update',
+          'trg_movimientos_inventario_no_delete',
+          'trg_movimientos_inventario_no_update',
+          'trg_compras_no_delete',
+          'trg_compras_no_update',
+          'trg_productos_no_delete',
+          'trg_clientes_no_delete',
+        ];
+        for (final t in triggers) {
+          await txn.execute('DROP TRIGGER IF EXISTS $t');
+        }
+        final tablas = [
+          'pagos_ventas',
+          'detalle_ventas',
+          'ventas',
+          'abonos_deuda',
+          'movimientos_caja',
+          'cajas_turnos',
+          'movimientos_inventario',
+          'recargas_telefonicas',
+          'detalle_compras',
+          'compras',
+          'productos',
+          'categorias',
+          'clientes',
+          'proveedores',
+        ];
+        for (final tabla in tablas) {
+          await txn.execute('DELETE FROM $tabla');
+        }
+        await txn.execute('PRAGMA foreign_keys = ON');
+      });
+      await _instalarTriggersSeguridad(db);
+    } catch (_) {}
   }
+
+  /// Vacía por completo la base de datos para entregar al cliente.
+  Future<void> vaciarTodaLaBaseDeDatos() => recrearBaseDeDatosLimpia();
 
   // ---------------------------------------------------------------------------
   // ESQUEMA
@@ -501,10 +579,10 @@ class AppDatabase {
     // -------------------------------------------------------------------------
     batch.execute('''
       CREATE TRIGGER trg_saldo_cliente_por_venta AFTER INSERT ON ventas
-      WHEN NEW.metodo_pago = 'CREDITO_FIADO' AND NEW.cliente_id IS NOT NULL
+      WHEN (NEW.metodo_pago = 'CREDITO_FIADO' OR NEW.metodo_pago = 'FIADO') AND NEW.cliente_id IS NOT NULL
       BEGIN
         UPDATE clientes
-        SET saldo_actual = saldo_actual + NEW.total_venta,
+        SET saldo_actual = saldo_actual + (NEW.total_venta - COALESCE(NEW.monto_recibido, 0)),
             updated_at = NEW.fecha_venta
         WHERE id = NEW.cliente_id;
       END

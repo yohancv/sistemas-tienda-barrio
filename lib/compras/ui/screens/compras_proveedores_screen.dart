@@ -96,6 +96,16 @@ class _ComprasProveedoresScreenState
     }
   }
 
+  bool get esOscuro => ref.watch(esModoOscuroProvider);
+  Color get bgColor => esOscuro ? AppColors.darkBackground : AppColors.background;
+  Color get surfaceColor => esOscuro ? AppColors.darkSurface : AppColors.surface;
+  Color get surfaceMuted => esOscuro ? AppColors.darkSurfaceMuted : AppColors.surfaceMuted;
+  Color get cardBorder => esOscuro ? AppColors.darkBorder : AppColors.border;
+  Color get textPrimary => esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+  Color get textSecondary => esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+  Color get textMuted => esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+  Color get inputBg => esOscuro ? AppColors.darkBackground : AppColors.background;
+
   @override
   Widget build(BuildContext context) {
     final carrito = ref.watch(carritoComprasProvider);
@@ -107,13 +117,6 @@ class _ComprasProveedoresScreenState
     final efectivoCajaDisponible = resumenCaja.valueOrNull?.montoEsperadoEfectivo ?? 0.0;
     final pedidosPendientesAsync = ref.watch(pedidosPendientesProvider);
     final conteoPendientes = pedidosPendientesAsync.valueOrNull?.length ?? 0;
-
-    final esOscuro = ref.watch(esModoOscuroProvider);
-    final bgColor = esOscuro ? AppColors.darkBackground : AppColors.background;
-    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
-    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
-    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
-    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -282,7 +285,7 @@ class _ComprasProveedoresScreenState
             curve: Curves.easeInOut,
             child: (_subTabCompra == 0 && _mostrarHeaderEmpresa)
                 ? Container(
-                    color: AppColors.surface,
+                    color: surfaceColor,
                     padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -395,7 +398,7 @@ class _ComprasProveedoresScreenState
 
           // 2. Selector Segmentado: [Catálogo del Proveedor] vs [Orden de Compra]
           Container(
-            color: AppColors.surface,
+            color: surfaceColor,
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
             child: Row(
               children: [
@@ -464,7 +467,7 @@ class _ComprasProveedoresScreenState
       children: [
         // Buscador
         Container(
-          color: AppColors.surface,
+          color: surfaceColor,
           padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
           child: Row(
             children: [
@@ -473,14 +476,16 @@ class _ComprasProveedoresScreenState
                   height: 40,
                   child: TextField(
                     controller: _searchProductoController,
+                    style: TextStyle(color: textPrimary, fontSize: 13),
                     decoration: InputDecoration(
                       hintText: tieneProveedor && !_buscarEnTodoElCatalogo
                           ? 'Buscar en ${carrito.proveedorSeleccionado!.nombreEmpresa}...'
                           : 'Buscar en todo el inventario...',
-                      prefixIcon: const Icon(Icons.search, size: 18),
+                      hintStyle: TextStyle(color: textSecondary, fontSize: 13),
+                      prefixIcon: Icon(Icons.search, size: 18, color: textSecondary),
                       suffixIcon: _filtroTextoProducto.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear, size: 16),
+                              icon: Icon(Icons.clear, size: 16, color: textSecondary),
                               onPressed: () {
                                 _searchProductoController.clear();
                                 setState(() => _filtroTextoProducto = '');
@@ -488,7 +493,7 @@ class _ComprasProveedoresScreenState
                             )
                           : null,
                       filled: true,
-                      fillColor: AppColors.background,
+                      fillColor: inputBg,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -710,9 +715,9 @@ class _ComprasProveedoresScreenState
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: surfaceColor,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: cardBorder),
               ),
               child: Row(
                 children: [
@@ -724,7 +729,7 @@ class _ComprasProveedoresScreenState
                       children: [
                         Text(
                           '📦 Otros Productos con Stock (${productosConStock.length})',
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textPrimary),
                         ),
                         const Text(
                           'Promociones del camión (ej. 10+1), feriados o compra preventiva',
@@ -925,11 +930,11 @@ class _ComprasProveedoresScreenState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.inventory_outlined, size: 70, color: Colors.grey.shade400),
+              Icon(Icons.inventory_outlined, size: 70, color: textMuted),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'La orden de compra está vacía',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary),
               ),
               const SizedBox(height: 6),
               Text(
@@ -937,7 +942,7 @@ class _ComprasProveedoresScreenState
                     ? 'Ve a la pestaña del catálogo de ${carrito.proveedorSeleccionado!.nombreEmpresa} para agregar mercadería.'
                     : 'Explora el catálogo o selecciona un proveedor para abastecer tu inventario.',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                style: TextStyle(fontSize: 13, color: textMuted),
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
@@ -959,7 +964,7 @@ class _ComprasProveedoresScreenState
       children: [
         // Barra superior de la orden con botón para regresar al catálogo
         Container(
-          color: AppColors.background,
+          color: bgColor,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -976,7 +981,7 @@ class _ComprasProveedoresScreenState
                     tieneProveedor
                         ? '${carrito.proveedorSeleccionado!.nombreEmpresa} (${carrito.items.length} prods)'
                         : '${carrito.items.length} productos en la orden (${carrito.totalArticulos.toInt()} uds)',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textSecondary),
                   ),
                 ],
               ),
@@ -989,7 +994,7 @@ class _ComprasProveedoresScreenState
             ],
           ),
         ),
-        const Divider(height: 1),
+        Divider(height: 1, color: cardBorder),
 
         // Lista de ítems en la orden (¡Con amplio espacio vertical para scroll!)
         Expanded(
@@ -1074,8 +1079,8 @@ class _ComprasProveedoresScreenState
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: const Border(top: BorderSide(color: AppColors.border, width: 1.5)),
+        color: surfaceColor,
+        border: Border(top: BorderSide(color: cardBorder, width: 1.5)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(20),
@@ -1277,20 +1282,24 @@ class _ComprasProveedoresScreenState
       children: [
         // Buscador de Proveedores y Botón Crear
         Container(
-          color: AppColors.surface,
+          color: surfaceColor,
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: _searchProveedorController,
+                  style: TextStyle(color: textPrimary),
                   decoration: InputDecoration(
                     hintText: 'Buscar proveedor o preventista...',
-                    prefixIcon: const Icon(Icons.search),
+                    hintStyle: TextStyle(color: textMuted),
+                    prefixIcon: Icon(Icons.search, color: textMuted),
                     filled: true,
-                    fillColor: AppColors.background,
+                    fillColor: inputBg,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: cardBorder)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: cardBorder)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
                   ),
                   onChanged: (val) => setState(() => _filtroTextoProveedor = val.toLowerCase().trim()),
                 ),
@@ -1309,13 +1318,13 @@ class _ComprasProveedoresScreenState
             ],
           ),
         ),
-        const Divider(height: 1),
+        Divider(height: 1, color: cardBorder),
 
         // Lista de Proveedores
         Expanded(
           child: proveedoresAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error al cargar proveedores: $e')),
+            error: (e, _) => Center(child: Text('Error al cargar proveedores: $e', style: TextStyle(color: textSecondary))),
             data: (proveedores) {
               final filtrados = proveedores.where((p) {
                 if (_filtroTextoProveedor.isEmpty) return true;
@@ -1326,7 +1335,7 @@ class _ComprasProveedoresScreenState
               }).toList();
 
               if (filtrados.isEmpty) {
-                return const Center(child: Text('No hay proveedores registrados.'));
+                return Center(child: Text('No hay proveedores registrados.', style: TextStyle(color: textMuted)));
               }
 
               return ListView.separated(
@@ -1337,7 +1346,11 @@ class _ComprasProveedoresScreenState
                   final p = filtrados[index];
                   return Card(
                     elevation: 1,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    color: surfaceColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: cardBorder),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(14.0),
                       child: Column(
@@ -1349,11 +1362,11 @@ class _ComprasProveedoresScreenState
                               Expanded(
                                 child: Text(
                                   p.nombreEmpresa,
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary),
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.edit_note_rounded, color: AppColors.textSecondary),
+                                icon: Icon(Icons.edit_note_rounded, color: textSecondary),
                                 tooltip: 'Editar Proveedor',
                                 onPressed: () => _abrirModalNuevoProveedor(p),
                               ),
@@ -1363,9 +1376,9 @@ class _ComprasProveedoresScreenState
                             const SizedBox(height: 2),
                             Row(
                               children: [
-                                const Icon(Icons.person_outline, size: 16, color: AppColors.textSecondary),
+                                Icon(Icons.person_outline, size: 16, color: textSecondary),
                                 const SizedBox(width: 4),
-                                Text(p.nombreContacto!, style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                                Text(p.nombreContacto!, style: TextStyle(fontSize: 14, color: textSecondary)),
                               ],
                             ),
                           ],
@@ -1397,10 +1410,12 @@ class _ComprasProveedoresScreenState
                                 OutlinedButton.icon(
                                   style: OutlinedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    side: BorderSide(color: cardBorder),
+                                    foregroundColor: textPrimary,
                                   ),
                                   onPressed: () => _abrirWhatsApp(p.telefono, p.nombreEmpresa),
                                   icon: const Icon(Icons.chat_bubble_outline, color: Color(0xFF25D366), size: 16),
-                                  label: Text(p.telefono!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                  label: Text(p.telefono!, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textPrimary)),
                                 ),
                                 const SizedBox(width: 8),
                               ],
@@ -1443,18 +1458,18 @@ class _ComprasProveedoresScreenState
       children: [
         // Barra informativa superior
         Container(
-          color: AppColors.surface,
+          color: surfaceColor,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.local_shipping_outlined, color: AppColors.primary, size: 22),
-                  SizedBox(width: 8),
+                  const Icon(Icons.local_shipping_outlined, color: AppColors.primary, size: 22),
+                  const SizedBox(width: 8),
                   Text(
                     'Pedidos en Espera de Camión',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textPrimary),
                   ),
                 ],
               ),
@@ -1466,7 +1481,7 @@ class _ComprasProveedoresScreenState
             ],
           ),
         ),
-        const Divider(height: 1),
+        Divider(height: 1, color: cardBorder),
 
         // Lista de pedidos pendientes agrupados por empresa
         Expanded(
@@ -1480,7 +1495,7 @@ class _ComprasProveedoresScreenState
                   children: [
                     const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
                     const SizedBox(height: 10),
-                    Text('Error al cargar pedidos: $err', textAlign: TextAlign.center),
+                    Text('Error al cargar pedidos: $err', textAlign: TextAlign.center, style: TextStyle(color: textSecondary)),
                     const SizedBox(height: 12),
                     ElevatedButton.icon(
                       onPressed: () => ref.invalidate(pedidosPendientesProvider),
@@ -1505,17 +1520,17 @@ class _ComprasProveedoresScreenState
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.local_shipping_outlined, size: 64, color: Colors.grey.shade400),
+                              Icon(Icons.local_shipping_outlined, size: 64, color: textMuted),
                               const SizedBox(height: 12),
-                              const Text(
+                              Text(
                                 'No hay pedidos pendientes de entrega',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
                               ),
                               const SizedBox(height: 6),
-                              const Text(
+                              Text(
                                 'Cuando hagas un pedido por la app de la empresa (ej. BEES) o con el preventista, guárdalo con "Guardar Pedido" para confirmar lo que realmente llegó cuando el camión esté en tu puerta.',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                                style: TextStyle(fontSize: 13, color: textMuted),
                               ),
                               const SizedBox(height: 16),
                               OutlinedButton.icon(
@@ -1535,144 +1550,144 @@ class _ComprasProveedoresScreenState
               return RefreshIndicator(
                 onRefresh: () async => ref.invalidate(pedidosPendientesProvider),
                 child: ListView.separated(
-                padding: const EdgeInsets.all(14),
-                itemCount: pedidos.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  final p = pedidos[index];
-                  final fecha = p.fechaCompra;
-                  final fechaStr = '${fecha.day}/${fecha.month} - ${fecha.hour}:${fecha.minute.toString().padLeft(2, '0')}';
+                  padding: const EdgeInsets.all(14),
+                  itemCount: pedidos.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final p = pedidos[index];
+                    final fecha = p.fechaCompra;
+                    final fechaStr = '${fecha.day}/${fecha.month} - ${fecha.hour}:${fecha.minute.toString().padLeft(2, '0')}';
 
-                  return Card(
-                    elevation: 1.5,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      side: BorderSide(color: AppColors.warning.withAlpha(120), width: 1.5),
-                    ),
-                    color: Colors.white,
-                    child: Padding(
-                      padding: const EdgeInsets.all(14.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Row(
+                    return Card(
+                      elevation: 1.5,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: BorderSide(color: AppColors.warning.withAlpha(120), width: 1.5),
+                      ),
+                      color: surfaceColor,
+                      child: Padding(
+                        padding: const EdgeInsets.all(14.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 42,
+                                        height: 42,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary.withAlpha(15),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: const Icon(Icons.business_rounded, color: AppColors.primary, size: 24),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              p.nombreProveedor ?? 'Proveedor',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textPrimary),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            Text(
+                                              'Pedido: $fechaStr',
+                                              style: TextStyle(fontSize: 12, color: textMuted),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.warning.withAlpha(25),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: AppColors.warning.withAlpha(90)),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.schedule, size: 14, color: AppColors.warning),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Esperando Camión',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.warning,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Divider(height: 1, color: cardBorder),
+                            const SizedBox(height: 10),
+
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      width: 42,
-                                      height: 42,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.primary.withAlpha(15),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      alignment: Alignment.center,
-                                      child: const Icon(Icons.business_rounded, color: AppColors.primary, size: 24),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            p.nombreProveedor ?? 'Proveedor',
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          Text(
-                                            'Pedido: $fechaStr',
-                                            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-                                          ),
-                                        ],
-                                      ),
+                                    Text('Total Estimado', style: TextStyle(fontSize: 11, color: textMuted)),
+                                    Text(
+                                      'Bs. ${p.totalCompra.toStringAsFixed(2)}',
+                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.primary),
                                     ),
                                   ],
                                 ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: AppColors.warning.withAlpha(25),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppColors.warning.withAlpha(90)),
-                                ),
-                                child: const Row(
+                                Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.schedule, size: 14, color: AppColors.warning),
-                                    SizedBox(width: 4),
-                                    Text(
-                                      'Esperando Camión',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.warning,
+                                    IconButton(
+                                      tooltip: 'Cancelar o eliminar pedido',
+                                      icon: const Icon(Icons.delete_outline, color: AppColors.danger),
+                                      onPressed: () => _mostrarDialogoCancelarPedido(p),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.success,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                       ),
+                                      onPressed: () {
+                                        showModalBottomSheet(
+                                          context: context,
+                                          isScrollControlled: true,
+                                          backgroundColor: Colors.transparent,
+                                          builder: (_) => ModalRecepcionPedido(pedido: p),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.done_all_rounded, size: 18),
+                                      label: const Text('¡Llegó el Camión! Recibir', style: TextStyle(fontWeight: FontWeight.bold)),
                                     ),
                                   ],
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          const Divider(height: 1),
-                          const SizedBox(height: 10),
-
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Total Estimado', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                                  Text(
-                                    'Bs. ${p.totalCompra.toStringAsFixed(2)}',
-                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.primary),
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    tooltip: 'Cancelar o eliminar pedido',
-                                    icon: const Icon(Icons.delete_outline, color: AppColors.danger),
-                                    onPressed: () => _mostrarDialogoCancelarPedido(p),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.success,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    ),
-                                    onPressed: () {
-                                      showModalBottomSheet(
-                                        context: context,
-                                        isScrollControlled: true,
-                                        backgroundColor: Colors.transparent,
-                                        builder: (_) => ModalRecepcionPedido(pedido: p),
-                                      );
-                                    },
-                                    icon: const Icon(Icons.done_all_rounded, size: 18),
-                                    label: const Text('¡Llegó el Camión! Recibir', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
+                    );
+                  },
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -1683,16 +1698,22 @@ class _ComprasProveedoresScreenState
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        backgroundColor: surfaceColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: cardBorder),
+        ),
+        title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: AppColors.danger),
-            SizedBox(width: 8),
-            Text('¿Eliminar Pedido?'),
+            const Icon(Icons.warning_amber_rounded, color: AppColors.danger),
+            const SizedBox(width: 8),
+            Text('¿Eliminar Pedido?', style: TextStyle(color: textPrimary)),
           ],
         ),
         content: Text(
           '¿Deseas eliminar el pedido pendiente a "${pedido.nombreProveedor ?? 'Proveedor'}"?\n\n'
           'Esta acción es segura: no afectará tu stock ni tu dinero de caja.',
+          style: TextStyle(color: textSecondary),
         ),
         actions: [
           TextButton(
@@ -1737,14 +1758,14 @@ class _ComprasProveedoresScreenState
       children: [
         // Barra superior con botón refrescar
         Container(
-          color: AppColors.surface,
+          color: surfaceColor,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Notas de Compra y Entregas',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textPrimary),
               ),
               IconButton(
                 icon: const Icon(Icons.refresh, color: AppColors.primary),
@@ -1754,16 +1775,16 @@ class _ComprasProveedoresScreenState
             ],
           ),
         ),
-        const Divider(height: 1),
+        Divider(height: 1, color: cardBorder),
 
         // Listado de compras pasadas
         Expanded(
           child: historialAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error al cargar historial: $e')),
+            error: (e, _) => Center(child: Text('Error al cargar historial: $e', style: TextStyle(color: textSecondary))),
             data: (compras) {
               if (compras.isEmpty) {
-                return const Center(child: Text('No hay compras registradas aún.'));
+                return Center(child: Text('No hay compras registradas aún.', style: TextStyle(color: textMuted)));
               }
 
               return ListView.separated(
@@ -1777,7 +1798,11 @@ class _ComprasProveedoresScreenState
 
                   return Card(
                     elevation: 1,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    color: surfaceColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: cardBorder),
+                    ),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(12),
                       onTap: () => _abrirDetalleCompra(c),
@@ -1801,12 +1826,12 @@ class _ComprasProveedoresScreenState
                                 children: [
                                   Text(
                                     c.nombreProveedor ?? 'Compra General',
-                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
                                     '$fechaStr  •  ${c.etiquetaMetodoPago}',
-                                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                    style: TextStyle(fontSize: 12, color: textSecondary),
                                   ),
                                 ],
                               ),
@@ -1823,10 +1848,10 @@ class _ComprasProveedoresScreenState
                                   ),
                                 ),
                                 const SizedBox(height: 4),
-                                const Row(
+                                Row(
                                   children: [
-                                    Text('Ver detalle', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                                    Icon(Icons.chevron_right, size: 16, color: AppColors.textMuted),
+                                    Text('Ver detalle', style: TextStyle(fontSize: 11, color: textMuted)),
+                                    Icon(Icons.chevron_right, size: 16, color: textMuted),
                                   ],
                                 ),
                               ],
@@ -1863,16 +1888,21 @@ class _ChipMetodoPago extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceMuted = esOscuro ? AppColors.darkSurfaceMuted : AppColors.surfaceMuted;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: seleccionado ? AppColors.primary : AppColors.surfaceMuted,
+          color: seleccionado ? AppColors.primary : surfaceMuted,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: seleccionado ? AppColors.primary : AppColors.border,
+            color: seleccionado ? AppColors.primary : cardBorder,
           ),
         ),
         child: Text(
@@ -1880,7 +1910,7 @@ class _ChipMetodoPago extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.bold,
-            color: seleccionado ? Colors.white : AppColors.textPrimary,
+            color: seleccionado ? Colors.white : textPrimary,
           ),
         ),
       ),
@@ -1923,14 +1953,22 @@ class _CardItemCompraState extends State<_CardItemCompra> {
         _mostrarAjustePrecio ||
         (item.nuevoPrecioVenta != null && item.nuevoPrecioVenta! > 0);
 
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final innerBg = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: cardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: item.costoSubio
               ? AppColors.warning
-              : (item.costoBajo ? AppColors.secondary : AppColors.border),
+              : (item.costoBajo ? AppColors.secondary : cardBorder),
           width: (item.costoSubio || item.costoBajo) ? 1.8 : 1.0,
         ),
       ),
@@ -1947,14 +1985,14 @@ class _CardItemCompraState extends State<_CardItemCompra> {
                   children: [
                     Text(
                       item.nombreProducto,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textPrimary),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (item.codigoBarras != null && item.codigoBarras!.isNotEmpty)
                       Text(
                         '#${item.codigoBarras}',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        style: TextStyle(fontSize: 12, color: textMuted),
                       ),
                   ],
                 ),
@@ -1974,9 +2012,9 @@ class _CardItemCompraState extends State<_CardItemCompra> {
               margin: const EdgeInsets.only(top: 4, bottom: 8),
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
-                color: AppColors.background,
+                color: innerBg,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: cardBorder),
               ),
               child: Row(
                 children: [
@@ -1996,7 +2034,7 @@ class _CardItemCompraState extends State<_CardItemCompra> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: item.esPorEmpaque ? Colors.white : AppColors.textPrimary,
+                            color: item.esPorEmpaque ? Colors.white : textPrimary,
                           ),
                         ),
                       ),
@@ -2018,7 +2056,7 @@ class _CardItemCompraState extends State<_CardItemCompra> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: !item.esPorEmpaque ? Colors.white : AppColors.textPrimary,
+                            color: !item.esPorEmpaque ? Colors.white : textPrimary,
                           ),
                         ),
                       ),
@@ -2137,10 +2175,10 @@ class _CardItemCompraState extends State<_CardItemCompra> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text('Subtotal', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                  Text('Subtotal', style: TextStyle(fontSize: 11, color: textMuted)),
                   Text(
                     'Bs. ${item.subtotal.toStringAsFixed(2)}',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: textPrimary),
                   ),
                 ],
               ),
@@ -2155,12 +2193,12 @@ class _CardItemCompraState extends State<_CardItemCompra> {
               decoration: BoxDecoration(
                 color: item.costoSubio
                     ? AppColors.warning.withAlpha(15)
-                    : (item.costoBajo ? AppColors.secondary.withAlpha(15) : AppColors.background),
+                    : (item.costoBajo ? AppColors.secondary.withAlpha(15) : innerBg),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: item.costoSubio
                       ? AppColors.warning.withAlpha(60)
-                      : (item.costoBajo ? AppColors.secondary.withAlpha(60) : AppColors.border.withAlpha(70)),
+                      : (item.costoBajo ? AppColors.secondary.withAlpha(60) : cardBorder.withAlpha(70)),
                 ),
               ),
               child: Column(
@@ -2203,11 +2241,11 @@ class _CardItemCompraState extends State<_CardItemCompra> {
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.sell_outlined, size: 15, color: AppColors.textSecondary),
+                                Icon(Icons.sell_outlined, size: 15, color: textSecondary),
                                 const SizedBox(width: 4),
                                 Text(
                                   'P. Venta: Bs. ${item.precioVentaActual.toStringAsFixed(2)}',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
                                 ),
                               ],
                             ),
@@ -2233,6 +2271,7 @@ class _CardItemCompraState extends State<_CardItemCompra> {
                         child: TextFormField(
                           initialValue: item.nuevoPrecioVenta != null ? item.nuevoPrecioVenta!.toStringAsFixed(2) : '',
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          style: TextStyle(color: textPrimary),
                           decoration: InputDecoration(
                             labelText: 'Nuevo P. Venta',
                             prefixText: 'Bs. ',
@@ -2241,7 +2280,7 @@ class _CardItemCompraState extends State<_CardItemCompra> {
                             contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                             filled: true,
-                            fillColor: AppColors.surface,
+                            fillColor: innerBg,
                           ),
                           onChanged: (val) {
                             final pv = double.tryParse(val.trim().replaceAll(',', '.'));
@@ -2262,17 +2301,17 @@ class _CardItemCompraState extends State<_CardItemCompra> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.background,
+                  color: innerBg,
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppColors.border.withAlpha(50)),
+                  border: Border.all(color: cardBorder.withAlpha(50)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.sell_outlined, size: 12, color: AppColors.textSecondary),
+                    Icon(Icons.sell_outlined, size: 12, color: textSecondary),
                     const SizedBox(width: 4),
                     Text(
                       'P. Venta mostrador: Bs. ${item.precioVentaActual.toStringAsFixed(2)}',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textSecondary),
                     ),
                     const SizedBox(width: 6),
                     Text(
@@ -2319,6 +2358,13 @@ class _CardProductoProveedor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+
     final stockTotal = producto.stockActual + unidadesEnAlmacen;
     final faltante = (producto.stockMinimo - stockTotal) > 0
         ? (producto.stockMinimo - stockTotal)
@@ -2329,12 +2375,13 @@ class _CardProductoProveedor extends StatelessWidget {
 
     return Card(
       elevation: 0.5,
+      color: surfaceColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
           color: enOrden
               ? AppColors.primary
-              : (esStockBajo ? AppColors.danger.withAlpha(80) : AppColors.border),
+              : (esStockBajo ? AppColors.danger.withAlpha(80) : cardBorder),
           width: enOrden ? 1.8 : 1.0,
         ),
       ),
@@ -2367,10 +2414,10 @@ class _CardProductoProveedor extends StatelessWidget {
                 children: [
                   Text(
                     producto.nombre,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+                      color: textPrimary,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -2401,7 +2448,7 @@ class _CardProductoProveedor extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: esStockBajo ? AppColors.danger : AppColors.textSecondary,
+                          color: esStockBajo ? AppColors.danger : textSecondary,
                         ),
                       ),
                       if (unidadesEnAlmacen > 0)
@@ -2446,7 +2493,7 @@ class _CardProductoProveedor extends StatelessWidget {
                     producto.tieneEmpaqueMayorista
                         ? '${producto.nombreEmpaqueLegible} x${producto.unidadesPorEmpaque.toInt()}u  •  Costo: Bs. ${producto.costoMayorista.toStringAsFixed(2)}/u'
                         : 'Costo: Bs. ${producto.costoMayorista.toStringAsFixed(2)}  •  P. Venta: Bs. ${producto.precioVenta.toStringAsFixed(2)}',
-                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 11, color: textMuted),
                   ),
                 ],
               ),
@@ -2491,7 +2538,7 @@ class _CardProductoProveedor extends StatelessWidget {
                         if (itemEnCarrito!.esPorEmpaque && producto.unidadesPorEmpaque > 1)
                           Text(
                             '(${cantEnOrden.toInt()} uds)',
-                            style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                            style: TextStyle(fontSize: 10, color: textMuted),
                           ),
                       ],
                     ),
@@ -2583,16 +2630,21 @@ class _SegmentoBoton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
     return InkWell(
       borderRadius: BorderRadius.circular(10),
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
         decoration: BoxDecoration(
-          color: seleccionado ? AppColors.primary : AppColors.surface,
+          color: seleccionado ? AppColors.primary : surfaceColor,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: seleccionado ? AppColors.primary : AppColors.border,
+            color: seleccionado ? AppColors.primary : cardBorder,
             width: seleccionado ? 1.5 : 1.0,
           ),
           boxShadow: seleccionado
@@ -2611,7 +2663,7 @@ class _SegmentoBoton extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: seleccionado ? Colors.white : AppColors.textPrimary,
+            color: seleccionado ? Colors.white : textPrimary,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -2671,10 +2723,18 @@ class _ModalConfirmacionPagoContentState
     final cajaTurnoId = widget.cajaTurnoId;
     final efectivoCajaDisponible = widget.efectivoCajaDisponible;
 
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final bgColor = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: EdgeInsets.only(
         top: 12,
@@ -2694,7 +2754,7 @@ class _ModalConfirmacionPagoContentState
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: esOscuro ? Colors.grey.shade700 : Colors.grey.shade300,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -2708,34 +2768,34 @@ class _ModalConfirmacionPagoContentState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Confirmar Ingreso y Pago',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary),
                       ),
                       Text(
                         carrito.proveedorSeleccionado != null
                             ? '🏢 ${carrito.proveedorSeleccionado!.nombreEmpresa} • ${carrito.items.length} productos'
                             : '📦 Compra General • ${carrito.items.length} productos',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        style: TextStyle(fontSize: 12, color: textSecondary),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: Icon(Icons.close, color: textSecondary),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
-            const Divider(height: 16),
+            Divider(height: 16, color: cardBorder),
 
             // Tarjeta de Resumen del Total
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.background,
+                color: bgColor,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: cardBorder),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2743,10 +2803,10 @@ class _ModalConfirmacionPagoContentState
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Total de la Mercadería', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      Text('Total de la Mercadería', style: TextStyle(fontSize: 12, color: textSecondary)),
                       Text(
                         '${carrito.items.length} productos (${carrito.totalArticulos.toInt()} uds totales)',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textPrimary),
                       ),
                     ],
                   ),
@@ -2760,9 +2820,9 @@ class _ModalConfirmacionPagoContentState
             const SizedBox(height: 14),
 
             // Selector de Origen de Fondos
-            const Text(
+            Text(
               'Origen del Dinero para pagar:',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary),
             ),
             const SizedBox(height: 8),
             SingleChildScrollView(
@@ -2890,16 +2950,19 @@ class _ModalConfirmacionPagoContentState
                     child: TextFormField(
                       controller: _montoCajaController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      style: TextStyle(color: textPrimary),
                       decoration: InputDecoration(
                         labelText: 'Del Cajón (Caja)',
                         prefixText: 'Bs. ',
                         isDense: true,
+                        filled: true,
+                        fillColor: bgColor,
                         border: const OutlineInputBorder(),
                         helperText: cajaTurnoId != null
                             ? 'Máx disp: Bs. ${efectivoCajaDisponible.toStringAsFixed(2)}'
                             : 'Sin caja abierta',
                         helperStyle: TextStyle(
-                          color: cajaTurnoId != null ? AppColors.textMuted : AppColors.danger,
+                          color: cajaTurnoId != null ? textMuted : AppColors.danger,
                           fontSize: 11,
                         ),
                       ),
@@ -2914,13 +2977,16 @@ class _ModalConfirmacionPagoContentState
                     child: TextFormField(
                       controller: _montoExternoController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
+                      style: TextStyle(color: textPrimary),
+                      decoration: InputDecoration(
                         labelText: 'Dinero Personal/ATM',
                         prefixText: 'Bs. ',
                         isDense: true,
-                        border: OutlineInputBorder(),
+                        filled: true,
+                        fillColor: bgColor,
+                        border: const OutlineInputBorder(),
                         helperText: 'Billetera, QR o Cajero',
-                        helperStyle: TextStyle(fontSize: 11),
+                        helperStyle: TextStyle(fontSize: 11, color: textMuted),
                       ),
                       onChanged: (val) {
                         final ext = double.tryParse(val.replaceAll(',', '.')) ?? 0.0;
@@ -3052,20 +3118,26 @@ class _ModalConfirmacionPagoContentState
                           final aplicarMixto = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: const Row(
+                              backgroundColor: surfaceColor,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                side: BorderSide(color: cardBorder),
+                              ),
+                              title: Row(
                                 children: [
-                                  Icon(Icons.savings_outlined, color: AppColors.warning),
-                                  SizedBox(width: 8),
-                                  Text('Efectivo Insuficiente'),
+                                  const Icon(Icons.savings_outlined, color: AppColors.warning),
+                                  const SizedBox(width: 8),
+                                  Text('Efectivo Insuficiente', style: TextStyle(color: textPrimary)),
                                 ],
                               ),
                               content: Text(
                                 'El cajón solo tiene Bs. ${efectivoCajaDisponible.toStringAsFixed(2)}, insuficiente para cubrir el total de Bs. ${total.toStringAsFixed(2)}.\n\n¿Deseas aplicar Pago Mixto automáticamente usando Bs. ${efectivoCajaDisponible.toStringAsFixed(2)} del cajón y Bs. ${(total - efectivoCajaDisponible).toStringAsFixed(2)} de dinero externo/cajero?',
+                                style: TextStyle(color: textSecondary),
                               ),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, false),
-                                  child: const Text('Cancelar'),
+                                  child: Text('Cancelar', style: TextStyle(color: textMuted)),
                                 ),
                                 ElevatedButton(
                                   style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),

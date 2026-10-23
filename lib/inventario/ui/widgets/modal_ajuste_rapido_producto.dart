@@ -120,11 +120,18 @@ class _ModalAjusteRapidoProductoState
   @override
   Widget build(BuildContext context) {
     final prod = widget.producto;
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final inputBg = esOscuro ? AppColors.darkBackground : AppColors.background;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: EdgeInsets.only(
         top: 16,
@@ -144,7 +151,7 @@ class _ModalAjusteRapidoProductoState
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: AppColors.border,
+                  color: cardBorder,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -173,10 +180,10 @@ class _ModalAjusteRapidoProductoState
                     children: [
                       Text(
                         prod.nombre,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: textPrimary,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -184,34 +191,34 @@ class _ModalAjusteRapidoProductoState
                       const SizedBox(height: 2),
                       Text(
                         '${prod.categoria ?? "General"} • ${prod.subcategoria ?? ""}',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        style: TextStyle(fontSize: 12, color: textMuted),
                       ),
                       if (prod.codigoBarras != null && prod.codigoBarras!.isNotEmpty)
                         Text(
                           'Cód: #${prod.codigoBarras}',
-                          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                          style: TextStyle(fontSize: 11, color: textMuted),
                         ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: Icon(Icons.close, color: textMuted),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
 
             const SizedBox(height: 14),
-            const Divider(height: 1),
+            Divider(height: 1, color: cardBorder),
             const SizedBox(height: 14),
 
             // Tarjeta de Stock y Rentabilidad
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.background,
+                color: inputBg,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: cardBorder),
               ),
               child: Row(
                 children: [
@@ -220,17 +227,17 @@ class _ModalAjusteRapidoProductoState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Stock en Tienda',
-                          style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                          style: TextStyle(fontSize: 11, color: textSecondary),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           prod.stockLegibleDesglosado,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
+                            color: textPrimary,
                           ),
                         ),
                         Text(
@@ -246,7 +253,7 @@ class _ModalAjusteRapidoProductoState
                       ],
                     ),
                   ),
-                  Container(width: 1, height: 40, color: AppColors.border),
+                  Container(width: 1, height: 40, color: cardBorder),
                   const SizedBox(width: 12),
 
                   // Costo vs Ganancia
@@ -254,14 +261,14 @@ class _ModalAjusteRapidoProductoState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Rentabilidad por Ud.',
-                          style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                          style: TextStyle(fontSize: 11, color: textSecondary),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           'Costo: Bs. ${prod.costoMayorista.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          style: TextStyle(fontSize: 12, color: textMuted),
                         ),
                         Text(
                           'Ganas: +Bs. ${_gananciaUnitaria.toStringAsFixed(2)} (${_margenPorcentual.toStringAsFixed(0)}%)',
@@ -281,12 +288,12 @@ class _ModalAjusteRapidoProductoState
             const SizedBox(height: 16),
 
             // Campos de Modificación Rápida de Precio
-            const Text(
+            Text(
               'MODIFICAR PRECIO DE VENTA AL CLIENTE:',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: AppColors.textMuted,
+                color: textMuted,
                 letterSpacing: 0.5,
               ),
             ),
@@ -299,12 +306,14 @@ class _ModalAjusteRapidoProductoState
                   child: TextFormField(
                     controller: _precioVentaController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
                     decoration: InputDecoration(
                       labelText: 'Precio Venta Unitario',
                       prefixText: 'Bs. ',
                       helperText: 'Por unidad suelta',
+                      helperStyle: TextStyle(color: textMuted),
                       filled: true,
-                      fillColor: AppColors.surface,
+                      fillColor: inputBg,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     ),
@@ -319,12 +328,14 @@ class _ModalAjusteRapidoProductoState
                     child: TextFormField(
                       controller: _precioEmpaqueController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
                       decoration: InputDecoration(
                         labelText: 'Precio ${prod.nombreEmpaqueLegible}',
                         prefixText: 'Bs. ',
                         helperText: 'Caja x${prod.unidadesPorEmpaque.toInt()} uds',
+                        helperStyle: TextStyle(color: textMuted),
                         filled: true,
-                        fillColor: AppColors.surface,
+                        fillColor: inputBg,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       ),
@@ -363,16 +374,16 @@ class _ModalAjusteRapidoProductoState
             ),
 
             const SizedBox(height: 16),
-            const Divider(height: 1),
+            Divider(height: 1, color: cardBorder),
             const SizedBox(height: 12),
 
             // Acciones Adicionales
-            const Text(
+            Text(
               'OTRAS ACCIONES PARA ESTE PRODUCTO:',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
-                color: AppColors.textMuted,
+                color: textMuted,
               ),
             ),
             const SizedBox(height: 8),
@@ -383,7 +394,7 @@ class _ModalAjusteRapidoProductoState
                 Expanded(
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.border),
+                      side: BorderSide(color: cardBorder),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
@@ -396,10 +407,10 @@ class _ModalAjusteRapidoProductoState
                         ),
                       );
                     },
-                    icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.textPrimary),
-                    label: const Text(
+                    icon: Icon(Icons.edit_outlined, size: 16, color: textPrimary),
+                    label: Text(
                       'Ficha Completa',
-                      style: TextStyle(fontSize: 12, color: AppColors.textPrimary),
+                      style: TextStyle(fontSize: 12, color: textPrimary),
                     ),
                   ),
                 ),

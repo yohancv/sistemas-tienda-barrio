@@ -108,14 +108,21 @@ class _ModalRegistrarMermaState extends ConsumerState<ModalRegistrarMerma> {
   Widget build(BuildContext context) {
     final productosAsync = ref.watch(productosListProvider);
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final inputBg = esOscuro ? AppColors.darkBackground : AppColors.background;
 
     return Padding(
       padding: EdgeInsets.only(bottom: keyboardHeight),
       child: Container(
         padding: const EdgeInsets.fromLTRB(22, 18, 22, 24),
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          color: surfaceColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: SingleChildScrollView(
           child: Column(
@@ -128,7 +135,7 @@ class _ModalRegistrarMermaState extends ConsumerState<ModalRegistrarMerma> {
                   width: 44,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: cardBorder,
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -147,36 +154,36 @@ class _ModalRegistrarMermaState extends ConsumerState<ModalRegistrarMerma> {
                     child: const Icon(Icons.broken_image, color: AppColors.danger, size: 28),
                   ),
                   const SizedBox(width: 14),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Registrar Merma / Rotura',
-                          style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
+                          style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: textPrimary),
                         ),
                         Text(
                           'Baja de stock por accidente, rotura o vencimiento',
-                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          style: TextStyle(fontSize: 12, color: textMuted),
                         ),
                       ],
                     ),
                   ),
                 ],
               ),
-              const Divider(height: 26),
+              Divider(height: 26, color: cardBorder),
 
               // 1. Selector de Producto
-              const Text(
+              Text(
                 'Producto Afectado',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary),
               ),
               const SizedBox(height: 6),
               if (_productoSeleccionado != null) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: AppColors.background,
+                    color: inputBg,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppColors.primary, width: 1.5),
                   ),
@@ -190,17 +197,17 @@ class _ModalRegistrarMermaState extends ConsumerState<ModalRegistrarMerma> {
                           children: [
                             Text(
                               _productoSeleccionado!.nombre,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textPrimary),
                             ),
                             Text(
                               'Stock: ${_productoSeleccionado!.stockActual.toStringAsFixed(_productoSeleccionado!.esFraccionable ? 2 : 0)} | Costo: Bs. ${_productoSeleccionado!.costoMayorista.toStringAsFixed(2)}',
-                              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                              style: TextStyle(fontSize: 12, color: textMuted),
                             ),
                           ],
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, size: 20),
+                        icon: Icon(Icons.close, size: 20, color: textMuted),
                         tooltip: 'Cambiar producto',
                         onPressed: () => setState(() => _productoSeleccionado = null),
                       ),
@@ -210,7 +217,7 @@ class _ModalRegistrarMermaState extends ConsumerState<ModalRegistrarMerma> {
               ] else ...[
                 productosAsync.when(
                   loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('Error al cargar productos: $e'),
+                  error: (e, _) => Text('Error al cargar productos: $e', style: TextStyle(color: textPrimary)),
                   data: (todos) {
                     final query = _busquedaController.text.toLowerCase().trim();
                     final filtrados = query.isEmpty
@@ -228,11 +235,13 @@ class _ModalRegistrarMermaState extends ConsumerState<ModalRegistrarMerma> {
                         TextField(
                           controller: _busquedaController,
                           onChanged: (_) => setState(() {}),
+                          style: TextStyle(color: textPrimary),
                           decoration: InputDecoration(
                             hintText: 'Buscar por nombre o código...',
-                            prefixIcon: const Icon(Icons.search),
+                            hintStyle: TextStyle(color: textMuted),
+                            prefixIcon: Icon(Icons.search, color: textMuted),
                             filled: true,
-                            fillColor: AppColors.background,
+                            fillColor: inputBg,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                           ),
@@ -241,10 +250,10 @@ class _ModalRegistrarMermaState extends ConsumerState<ModalRegistrarMerma> {
                         ...filtrados.map((p) => ListTile(
                               dense: true,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              tileColor: AppColors.background,
-                              title: Text(p.nombre, style: const TextStyle(fontWeight: FontWeight.w600)),
-                              subtitle: Text('Stock: ${p.stockActual.toStringAsFixed(p.esFraccionable ? 2 : 0)}'),
-                              trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                              tileColor: inputBg,
+                              title: Text(p.nombre, style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary)),
+                              subtitle: Text('Stock: ${p.stockActual.toStringAsFixed(p.esFraccionable ? 2 : 0)}', style: TextStyle(color: textSecondary)),
+                              trailing: Icon(Icons.arrow_forward_ios, size: 14, color: textMuted),
                               onTap: () {
                                 setState(() {
                                   _productoSeleccionado = p;
@@ -260,9 +269,9 @@ class _ModalRegistrarMermaState extends ConsumerState<ModalRegistrarMerma> {
               const SizedBox(height: 16),
 
               // 2. Tipo de Merma
-              const Text(
+              Text(
                 'Tipo de Merma',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary),
               ),
               const SizedBox(height: 6),
               SegmentedButton<String>(
@@ -285,9 +294,9 @@ class _ModalRegistrarMermaState extends ConsumerState<ModalRegistrarMerma> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Cantidad a dar de baja',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary),
                         ),
                         const SizedBox(height: 6),
                         TextField(
@@ -297,7 +306,7 @@ class _ModalRegistrarMermaState extends ConsumerState<ModalRegistrarMerma> {
                           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.danger),
                           decoration: InputDecoration(
                             filled: true,
-                            fillColor: AppColors.background,
+                            fillColor: inputBg,
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                           inputFormatters: [
@@ -313,9 +322,9 @@ class _ModalRegistrarMermaState extends ConsumerState<ModalRegistrarMerma> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Pérdida en Costo',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary),
                         ),
                         const SizedBox(height: 6),
                         Container(
@@ -344,17 +353,17 @@ class _ModalRegistrarMermaState extends ConsumerState<ModalRegistrarMerma> {
               const SizedBox(height: 14),
 
               // 4. Motivo / Justificación
-              const Text(
+              Text(
                 'Motivo u Observación',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary),
               ),
               const SizedBox(height: 6),
               TextField(
                 controller: _motivoController,
+                style: TextStyle(color: textPrimary),
                 decoration: InputDecoration(
-                  hintText: 'Ej. Se cayó al acomodar el mostrador',
                   filled: true,
-                  fillColor: AppColors.background,
+                  fillColor: inputBg,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),

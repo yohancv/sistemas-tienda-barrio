@@ -95,6 +95,8 @@ class _GestionFiadosScreenState extends ConsumerState<GestionFiadosScreen> {
     final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
     final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
     final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final inputBg = esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -129,7 +131,7 @@ class _GestionFiadosScreenState extends ConsumerState<GestionFiadosScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
-              color: AppColors.surface,
+              color: surfaceColor,
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -202,14 +204,15 @@ class _GestionFiadosScreenState extends ConsumerState<GestionFiadosScreen> {
             // 2. Buscador y Filtro Rápido
             Container(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              color: AppColors.surface,
+              color: surfaceColor,
               child: Column(
                 children: [
                   TextField(
                     controller: _searchController,
-                    style: const TextStyle(fontSize: 18),
+                    style: TextStyle(fontSize: 18, color: textPrimary),
                     decoration: InputDecoration(
                       hintText: 'Buscar vecino por nombre...',
+                      hintStyle: TextStyle(color: textSecondary),
                       prefixIcon: const Icon(Icons.search, size: 26, color: AppColors.primary),
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
@@ -220,7 +223,10 @@ class _GestionFiadosScreenState extends ConsumerState<GestionFiadosScreen> {
                               },
                             )
                           : null,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: inputBg,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: cardBorder)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: cardBorder)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
                     onChanged: (val) {
@@ -237,11 +243,11 @@ class _GestionFiadosScreenState extends ConsumerState<GestionFiadosScreen> {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: soloDeudores ? Colors.white : AppColors.textPrimary,
+                            color: soloDeudores ? Colors.white : textPrimary,
                           ),
                         ),
                         selectedColor: AppColors.danger,
-                        backgroundColor: AppColors.surfaceMuted,
+                        backgroundColor: esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted,
                         onSelected: (val) {
                           ref.read(filtroSoloDeudoresProvider.notifier).state = val;
                         },
@@ -335,13 +341,20 @@ class _ClienteCard extends StatelessWidget {
     final tieneDeuda = cliente.tieneDeuda;
     final semaforo = cliente.semaforo;
 
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+
     Color colorBorde;
     Color colorFondoSem;
     String textoSem;
 
     switch (semaforo) {
       case SemaforoCredito.alDia:
-        colorBorde = AppColors.border;
+        colorBorde = cardBorder;
         colorFondoSem = AppColors.success;
         textoSem = 'Al Día';
         break;
@@ -360,10 +373,10 @@ class _ClienteCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: surfaceColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: colorBorde, width: tieneDeuda ? 2.0 : 1.2),
-        boxShadow: [
+        boxShadow: esOscuro ? null : [
           BoxShadow(
             color: Colors.black.withAlpha(8),
             blurRadius: 4,
@@ -381,10 +394,10 @@ class _ClienteCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   cliente.nombre,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
+                    color: textPrimary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -413,17 +426,17 @@ class _ClienteCard extends StatelessWidget {
             const SizedBox(height: 4),
             Row(
               children: [
-                const Icon(Icons.phone, size: 16, color: AppColors.textMuted),
+                Icon(Icons.phone, size: 16, color: textMuted),
                 const SizedBox(width: 6),
                 Text(
                   cliente.telefono!,
-                  style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                  style: TextStyle(fontSize: 14, color: textSecondary),
                 ),
               ],
             ),
           ],
 
-          const Divider(height: 18),
+          Divider(height: 18, color: cardBorder),
 
           // Fila Central: Deuda y Límite
           Row(
@@ -432,7 +445,7 @@ class _ClienteCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Saldo Adeudado:', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
+                  Text('Saldo Adeudado:', style: TextStyle(fontSize: 13, color: textMuted)),
                   Text(
                     'Bs. ${cliente.saldoActual.toStringAsFixed(2)}',
                     style: TextStyle(
@@ -451,17 +464,17 @@ class _ClienteCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Row(
+                      Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('Límite de Fiado:', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
-                          SizedBox(width: 4),
-                          Icon(Icons.edit_outlined, size: 14, color: AppColors.primary),
+                          Text('Límite de Fiado:', style: TextStyle(fontSize: 13, color: textMuted)),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.edit_outlined, size: 14, color: AppColors.primary),
                         ],
                       ),
                       Text(
                         'Bs. ${cliente.limiteCredito.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textSecondary),
                       ),
                       Text(
                         'Disp: Bs. ${cliente.creditoDisponible.toStringAsFixed(2)}',
@@ -507,13 +520,13 @@ class _ClienteCard extends StatelessWidget {
                   height: 50,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: tieneDeuda ? AppColors.primary : AppColors.surfaceMuted,
+                      backgroundColor: tieneDeuda ? AppColors.primary : (esOscuro ? AppColors.darkBorder : AppColors.surfaceMuted),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     onPressed: tieneDeuda ? onAbonar : null,
                     icon: Icon(
                       Icons.payment,
-                      color: tieneDeuda ? Colors.white : AppColors.textMuted,
+                      color: tieneDeuda ? Colors.white : textMuted,
                       size: 22,
                     ),
                     label: Text(
@@ -521,7 +534,7 @@ class _ClienteCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: tieneDeuda ? Colors.white : AppColors.textMuted,
+                        color: tieneDeuda ? Colors.white : textMuted,
                       ),
                     ),
                   ),

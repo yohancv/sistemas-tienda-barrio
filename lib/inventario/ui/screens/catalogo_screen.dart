@@ -62,8 +62,10 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
     final esOscuro = ref.watch(esModoOscuroProvider);
     final bgColor = esOscuro ? AppColors.darkBackground : AppColors.background;
     final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final surfaceMuted = esOscuro ? AppColors.darkSurfaceMuted : AppColors.surfaceMuted;
     final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
     final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -202,8 +204,13 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
 
           // Menú con opciones adicionales
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white, size: 28),
+            icon: Icon(Icons.more_vert, color: textPrimary, size: 28),
             tooltip: 'Más opciones',
+            color: surfaceColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: cardBorder),
+            ),
             onSelected: (value) async {
               if (value == 'categorias') {
                 await Navigator.push(
@@ -216,23 +223,23 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'categorias',
                 child: Row(
                   children: [
-                    Icon(Icons.category_outlined, color: AppColors.primary),
-                    SizedBox(width: 10),
-                    Text('Categorías y Familias', style: TextStyle(fontSize: 16)),
+                    const Icon(Icons.category_outlined, color: AppColors.primary),
+                    const SizedBox(width: 10),
+                    Text('Categorías y Familias', style: TextStyle(fontSize: 15, color: textPrimary)),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'retirados',
                 child: Row(
                   children: [
-                    Icon(Icons.restore, color: AppColors.warning),
-                    SizedBox(width: 10),
-                    Text('Productos Retirados', style: TextStyle(fontSize: 16)),
+                    const Icon(Icons.restore, color: AppColors.warning),
+                    const SizedBox(width: 10),
+                    Text('Productos Retirados', style: TextStyle(fontSize: 15, color: textPrimary)),
                   ],
                 ),
               ),
@@ -246,13 +253,13 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
             // Barra de Búsqueda de alta accesibilidad
             Container(
               padding: const EdgeInsets.fromLTRB(16.0, 14.0, 16.0, 8.0),
-              color: AppColors.surface,
+              color: surfaceColor,
               child: TextField(
                 controller: _searchController,
-                style: const TextStyle(fontSize: 20.0, fontWeight: FontWeight.w500),
+                style: TextStyle(fontSize: 20.0, fontWeight: FontWeight.w500, color: textPrimary),
                 decoration: InputDecoration(
                   hintText: 'Buscar por nombre o código...',
-                  hintStyle: const TextStyle(fontSize: 18.0, color: AppColors.textMuted),
+                  hintStyle: TextStyle(fontSize: 18.0, color: textMuted),
                   prefixIcon: const Icon(Icons.search, size: 30, color: AppColors.primary),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
@@ -266,15 +273,15 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                         )
                       : null,
                   filled: true,
-                  fillColor: AppColors.background,
+                  fillColor: bgColor,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.border, width: 2),
+                    borderSide: BorderSide(color: cardBorder, width: 2),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.primary, width: 2.5),
+                  focusedBorder: const OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                    borderSide: BorderSide(color: AppColors.primary, width: 2.5),
                   ),
                 ),
                 onChanged: (value) {
@@ -287,7 +294,7 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
             // Chips accesibles de filtrado rápido (Todos vs Por Reponer)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              color: AppColors.surface,
+              color: surfaceColor,
               child: Row(
                 children: [
                   // Selector 'Todos'
@@ -300,10 +307,10 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                       child: Container(
                         height: 48,
                         decoration: BoxDecoration(
-                          color: !soloStockBajo ? AppColors.primary : AppColors.surfaceMuted,
+                          color: !soloStockBajo ? AppColors.primary : surfaceMuted,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: !soloStockBajo ? AppColors.primary : AppColors.border,
+                            color: !soloStockBajo ? AppColors.primary : cardBorder,
                             width: 1.5,
                           ),
                         ),
@@ -313,7 +320,7 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: !soloStockBajo ? Colors.white : AppColors.textPrimary,
+                              color: !soloStockBajo ? Colors.white : textPrimary,
                             ),
                           ),
                         ),
@@ -332,10 +339,10 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                       child: Container(
                         height: 48,
                         decoration: BoxDecoration(
-                          color: soloStockBajo ? AppColors.danger : AppColors.surfaceMuted,
+                          color: soloStockBajo ? AppColors.danger : surfaceMuted,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: soloStockBajo ? AppColors.danger : AppColors.danger.withAlpha(90),
+                            color: soloStockBajo ? AppColors.danger : (esOscuro ? AppColors.danger.withAlpha(120) : AppColors.danger.withAlpha(90)),
                             width: 1.5,
                           ),
                         ),
@@ -345,7 +352,7 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                             Icon(
                               Icons.warning_amber_rounded,
                               size: 20,
-                              color: soloStockBajo ? Colors.white : AppColors.danger,
+                              color: soloStockBajo ? Colors.white : (esOscuro ? const Color(0xFFF87171) : AppColors.danger),
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -353,7 +360,7 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: soloStockBajo ? Colors.white : AppColors.danger,
+                                color: soloStockBajo ? Colors.white : (esOscuro ? const Color(0xFFF87171) : AppColors.danger),
                               ),
                             ),
                           ],
@@ -368,7 +375,7 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
             // Carrusel horizontal de Categorías de la Tienda (Fase 4)
             if (categoriasConteo.isNotEmpty)
               Container(
-                color: AppColors.surface,
+                color: surfaceColor,
                 padding: const EdgeInsets.only(left: 14.0, right: 14.0, bottom: 8.0),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -442,7 +449,7 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
             // Carrusel horizontal de Subcategorías (Nivel 2 de jerarquía: tamaños, sabores o tipos)
             if (categoriaSeleccionada != null && subcategoriasConteo.isNotEmpty)
               Container(
-                color: AppColors.surface,
+                color: surfaceColor,
                 padding: const EdgeInsets.only(left: 14.0, right: 14.0, bottom: 8.0),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -707,9 +714,17 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
 
   /// Muestra un BottomSheet con los productos retirados (inactivos) para reactivación (Fase 6)
   void _mostrarProductosRetirados(BuildContext context) {
+    final esOscuro = ref.read(esModoOscuroProvider);
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+    final cardBg = esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: surfaceColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -732,7 +747,7 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: AppColors.border,
+                        color: cardBorder,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -744,34 +759,37 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                           const SizedBox(width: 10),
                           Text(
                             'Productos Retirados',
-                            style: AppTypography.headlineSmall.copyWith(fontWeight: FontWeight.bold),
+                            style: AppTypography.headlineSmall.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: textPrimary,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const Divider(height: 1),
+                    Divider(height: 1, color: cardBorder),
                     Expanded(
                       child: inactivosAsync.when(
                         loading: () => const Center(child: CircularProgressIndicator()),
-                        error: (e, _) => Center(child: Text('Error: $e')),
+                        error: (e, _) => Center(child: Text('Error: $e', style: const TextStyle(color: AppColors.danger))),
                         data: (inactivos) {
                           if (inactivos.isEmpty) {
-                            return const Center(
+                            return Center(
                               child: Padding(
-                                padding: EdgeInsets.all(32),
+                                padding: const EdgeInsets.all(32),
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.check_circle_outline, size: 64, color: AppColors.success),
-                                    SizedBox(height: 16),
+                                    const Icon(Icons.check_circle_outline, size: 64, color: AppColors.success),
+                                    const SizedBox(height: 16),
                                     Text(
                                       'No hay productos retirados',
-                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary),
                                     ),
-                                    SizedBox(height: 8),
+                                    const SizedBox(height: 8),
                                     Text(
                                       'Todos los productos están activos en el catálogo.',
-                                      style: TextStyle(fontSize: 14, color: AppColors.textMuted),
+                                      style: TextStyle(fontSize: 14, color: textMuted),
                                       textAlign: TextAlign.center,
                                     ),
                                   ],
@@ -790,9 +808,9 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                               return Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: AppColors.surfaceMuted,
+                                  color: cardBg,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: AppColors.border),
+                                  border: Border.all(color: cardBorder),
                                 ),
                                 child: Row(
                                   children: [
@@ -802,18 +820,18 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                                         children: [
                                           Text(
                                             prod.nombre,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.bold,
-                                              color: AppColors.textSecondary,
+                                              color: textPrimary,
                                             ),
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
                                             'Bs. ${prod.precioVenta.toStringAsFixed(2)} · Stock: ${prod.stockActual.toStringAsFixed(0)}',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 14,
-                                              color: AppColors.textMuted,
+                                              color: textMuted,
                                             ),
                                           ),
                                         ],
@@ -824,6 +842,7 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                                       child: ElevatedButton.icon(
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: AppColors.success,
+                                          foregroundColor: Colors.white,
                                           shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(10),
                                           ),
@@ -890,15 +909,23 @@ class _ProductoCard extends ConsumerWidget {
     final bool alertaCompraDistribuidor =
         stockBajo && (!tieneCajasEnAlmacen || (producto.stockActual + unidadesEnCajas <= producto.stockMinimo));
 
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final cardBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+    final editBg = esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted;
+
     return Container(
       constraints: const BoxConstraints(minHeight: 80.0),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: cardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: alertaCompraDistribuidor
               ? AppColors.danger
-              : (tieneCajasEnAlmacen && stockBajo ? AppColors.secondary : AppColors.border),
+              : (tieneCajasEnAlmacen && stockBajo ? AppColors.secondary : cardBorder),
           width: (alertaCompraDistribuidor || (tieneCajasEnAlmacen && stockBajo)) ? 2.0 : 1.2,
         ),
       ),
@@ -1030,10 +1057,10 @@ class _ProductoCard extends ConsumerWidget {
                     children: [
                       Text(
                         producto.nombre,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: textPrimary,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -1078,13 +1105,13 @@ class _ProductoCard extends ConsumerWidget {
                               fontWeight: (alertaCompraDistribuidor || producto.tieneEmpaqueMayorista)
                                   ? FontWeight.w800
                                   : FontWeight.w500,
-                              color: alertaCompraDistribuidor ? AppColors.danger : AppColors.textSecondary,
+                              color: alertaCompraDistribuidor ? AppColors.danger : textSecondary,
                             ),
                           ),
                           if (producto.codigoBarras != null && producto.codigoBarras!.isNotEmpty)
                             Text(
                               '• #${producto.codigoBarras}',
-                              style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                              style: TextStyle(fontSize: 13, color: textMuted),
                             ),
                         ],
                       ),
@@ -1266,18 +1293,18 @@ class _ProductoCard extends ConsumerWidget {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
                               decoration: BoxDecoration(
-                                color: AppColors.surfaceMuted,
+                                color: editBg,
                                 borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: AppColors.border),
+                                border: Border.all(color: cardBorder),
                               ),
-                              child: const Row(
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.edit_note_rounded, size: 15, color: AppColors.textSecondary),
-                                  SizedBox(width: 2),
+                                  Icon(Icons.edit_note_rounded, size: 15, color: textSecondary),
+                                  const SizedBox(width: 2),
                                   Text(
                                     'Editar',
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textSecondary),
                                   ),
                                 ],
                               ),
@@ -1333,6 +1360,13 @@ class _ProductoCard extends ConsumerWidget {
     WidgetRef ref,
     Producto producto,
   ) {
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final inputBg = esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted;
+
     final precioCtrl = TextEditingController(
       text: producto.precioVenta.toStringAsFixed(2),
     );
@@ -1366,7 +1400,11 @@ class _ProductoCard extends ConsumerWidget {
             }
 
             return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              backgroundColor: surfaceColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: cardBorder),
+              ),
               title: Row(
                 children: [
                   Container(
@@ -1379,10 +1417,10 @@ class _ProductoCard extends ConsumerWidget {
                         color: AppColors.primary, size: 24),
                   ),
                   const SizedBox(width: 10),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Cambiar Precio de Venta',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary),
                     ),
                   ),
                 ],
@@ -1395,16 +1433,16 @@ class _ProductoCard extends ConsumerWidget {
                     // Nombre del producto
                     Text(
                       '${Producto.emojiCategoria(producto.categoria)} ${producto.nombre}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                        color: textPrimary,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Costo actual: Bs. ${producto.costoMayorista.toStringAsFixed(2)}  •  Precio actual: Bs. ${producto.precioVenta.toStringAsFixed(2)}',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      style: TextStyle(fontSize: 12, color: textSecondary),
                     ),
                     const Divider(height: 20),
 
@@ -1424,7 +1462,7 @@ class _ProductoCard extends ConsumerWidget {
                         border:
                             OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         filled: true,
-                        fillColor: AppColors.surface,
+                        fillColor: inputBg,
                       ),
                       onChanged: (_) => setStateDialog(() {}),
                     ),
@@ -1512,8 +1550,8 @@ class _ProductoCard extends ConsumerWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Ganancia neta x unidad:',
-                                  style: TextStyle(fontSize: 12)),
+                              Text('Ganancia neta x unidad:',
+                                  style: TextStyle(fontSize: 12, color: textSecondary)),
                               Text(
                                 'Bs. ${ganancia.toStringAsFixed(2)}',
                                 style: TextStyle(
@@ -1521,7 +1559,7 @@ class _ProductoCard extends ConsumerWidget {
                                   fontWeight: FontWeight.bold,
                                   color: ganancia < 0
                                       ? AppColors.danger
-                                      : AppColors.textPrimary,
+                                      : textPrimary,
                                 ),
                               ),
                             ],
@@ -1530,8 +1568,8 @@ class _ProductoCard extends ConsumerWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Margen s/ venta:',
-                                  style: TextStyle(fontSize: 12)),
+                              Text('Margen s/ venta:',
+                                  style: TextStyle(fontSize: 12, color: textSecondary)),
                               Text(
                                 '${margen.toStringAsFixed(1)}% (Markup: ${markup.toStringAsFixed(1)}%)',
                                 style: TextStyle(

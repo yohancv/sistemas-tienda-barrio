@@ -135,11 +135,17 @@ class _ModalNuevoProveedorState extends ConsumerState<ModalNuevoProveedor> {
   @override
   Widget build(BuildContext context) {
     final esEdicion = widget.proveedorParaEditar != null;
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+    final inputBg = esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: EdgeInsets.only(
         top: 20,
@@ -177,12 +183,13 @@ class _ModalNuevoProveedorState extends ConsumerState<ModalNuevoProveedor> {
                         esEdicion ? 'Editar Proveedor' : 'Nuevo Proveedor',
                         style: AppTypography.headlineSmall.copyWith(
                           fontWeight: FontWeight.bold,
+                          color: textPrimary,
                         ),
                       ),
                     ],
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: Icon(Icons.close, color: textMuted),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -193,10 +200,12 @@ class _ModalNuevoProveedorState extends ConsumerState<ModalNuevoProveedor> {
               TextFormField(
                 controller: _empresaController,
                 textCapitalization: TextCapitalization.words,
+                style: TextStyle(color: textPrimary),
                 decoration: InputDecoration(
                   labelText: 'Nombre de Empresa / Distribuidor *',
-                  hintText: 'ej. Cervecería Boliviana Nacional - CBN',
                   prefixIcon: const Icon(Icons.business_rounded),
+                  filled: true,
+                  fillColor: inputBg,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 validator: (val) {
@@ -212,10 +221,12 @@ class _ModalNuevoProveedorState extends ConsumerState<ModalNuevoProveedor> {
               TextFormField(
                 controller: _contactoController,
                 textCapitalization: TextCapitalization.words,
+                style: TextStyle(color: textPrimary),
                 decoration: InputDecoration(
                   labelText: 'Preventista / Vendedor (Opcional)',
-                  hintText: 'ej. Carlos Gómez',
                   prefixIcon: const Icon(Icons.person_outline),
+                  filled: true,
+                  fillColor: inputBg,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
@@ -225,10 +236,12 @@ class _ModalNuevoProveedorState extends ConsumerState<ModalNuevoProveedor> {
               TextFormField(
                 controller: _telefonoController,
                 keyboardType: TextInputType.phone,
+                style: TextStyle(color: textPrimary),
                 decoration: InputDecoration(
                   labelText: 'Teléfono / WhatsApp',
-                  hintText: 'ej. 77712345',
                   prefixIcon: const Icon(Icons.phone_outlined),
+                  filled: true,
+                  fillColor: inputBg,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
@@ -238,12 +251,12 @@ class _ModalNuevoProveedorState extends ConsumerState<ModalNuevoProveedor> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Días de visita del preventista:',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textSecondary,
+                      color: textSecondary,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -258,7 +271,7 @@ class _ModalNuevoProveedorState extends ConsumerState<ModalNuevoProveedor> {
                         selectedColor: AppColors.primary.withAlpha(30),
                         checkmarkColor: AppColors.primary,
                         labelStyle: TextStyle(
-                          color: sel ? AppColors.primary : AppColors.textPrimary,
+                          color: sel ? AppColors.primary : textPrimary,
                           fontWeight: sel ? FontWeight.bold : FontWeight.normal,
                           fontSize: 12,
                         ),
@@ -269,9 +282,12 @@ class _ModalNuevoProveedorState extends ConsumerState<ModalNuevoProveedor> {
                   const SizedBox(height: 6),
                   TextFormField(
                     controller: _diasVisitaController,
+                    style: TextStyle(color: textPrimary),
                     decoration: InputDecoration(
-                      hintText: 'O escribe: ej. Lunes por la mañana y Jueves',
+                      labelText: 'Horario o notas adicionales de visita',
                       prefixIcon: const Icon(Icons.calendar_today_outlined, size: 20),
+                      filled: true,
+                      fillColor: inputBg,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
@@ -284,10 +300,12 @@ class _ModalNuevoProveedorState extends ConsumerState<ModalNuevoProveedor> {
               TextFormField(
                 controller: _nitController,
                 keyboardType: TextInputType.number,
+                style: TextStyle(color: textPrimary),
                 decoration: InputDecoration(
                   labelText: 'NIT / CI (Opcional)',
-                  hintText: 'ej. 1020304050',
                   prefixIcon: const Icon(Icons.badge_outlined),
+                  filled: true,
+                  fillColor: inputBg,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),

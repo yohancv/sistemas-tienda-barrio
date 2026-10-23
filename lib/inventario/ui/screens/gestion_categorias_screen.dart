@@ -40,6 +40,13 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
     final TextEditingController nombreCtrl = TextEditingController(text: categoriaParaEditar?.nombre ?? '');
     String iconoSeleccionado = categoriaParaEditar?.icono ?? (esSubcategoria ? '' : '📁');
 
+    final esOscuro = ref.read(esModoOscuroProvider);
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final inputBg = esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -54,9 +61,9 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
                 left: 20,
                 right: 20,
               ),
-              decoration: const BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              decoration: BoxDecoration(
+                color: surfaceColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: SingleChildScrollView(
                 child: Column(
@@ -68,7 +75,7 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: AppColors.border,
+                          color: cardBorder,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -78,7 +85,7 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
                       tituloModal,
                       style: AppTypography.headlineSmall.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                        color: textPrimary,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -86,15 +93,15 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
                       esSubcategoria
                           ? 'Agrega marcas, sabores o tamaños bajo esta categoría'
                           : 'Crea una familia general de productos para tu tienda',
-                      style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                      style: TextStyle(fontSize: 13, color: textSecondary),
                     ),
                     const SizedBox(height: 18),
 
                     // Selector de emoji si es principal
                     if (!esSubcategoria) ...[
-                      const Text(
+                      Text(
                         'Ícono / Emoji identificador:',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary),
                       ),
                       const SizedBox(height: 8),
                       SizedBox(
@@ -113,10 +120,10 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
                                 width: 44,
                                 height: 44,
                                 decoration: BoxDecoration(
-                                  color: seleccionado ? AppColors.primary.withAlpha(30) : AppColors.surfaceMuted,
+                                  color: seleccionado ? AppColors.primary.withAlpha(30) : inputBg,
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
-                                    color: seleccionado ? AppColors.primary : AppColors.border,
+                                    color: seleccionado ? AppColors.primary : cardBorder,
                                     width: seleccionado ? 2 : 1,
                                   ),
                                 ),
@@ -135,12 +142,12 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
                       controller: nombreCtrl,
                       autofocus: true,
                       textCapitalization: TextCapitalization.sentences,
+                      style: TextStyle(color: textPrimary),
                       decoration: InputDecoration(
-                        labelText: esSubcategoria ? 'Nombre de la subcategoría (ej. Huari, Menta, 2 Litros)' : 'Nombre de la categoría (ej. Cervezas, Gaseosas)',
-                        hintText: esSubcategoria ? 'Ej. Huari 710cc o Menta' : 'Ej. Cervezas',
+                        labelText: esSubcategoria ? 'Nombre de la subcategoría' : 'Nombre de la categoría',
                         prefixIcon: Icon(esSubcategoria ? Icons.subdirectory_arrow_right : Icons.category, color: AppColors.primary),
                         filled: true,
-                        fillColor: AppColors.surfaceMuted,
+                        fillColor: inputBg,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
@@ -264,6 +271,9 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
     final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
     final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
     final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+    final inputBg = esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -292,11 +302,13 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
           // Barra de Búsqueda
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            color: AppColors.surface,
+            color: surfaceColor,
             child: TextField(
               controller: _searchController,
+              style: TextStyle(color: textPrimary),
               decoration: InputDecoration(
                 hintText: 'Buscar categoría o subcategoría...',
+                hintStyle: TextStyle(color: textMuted),
                 prefixIcon: const Icon(Icons.search, color: AppColors.primary),
                 suffixIcon: _filtroTexto.isNotEmpty
                     ? IconButton(
@@ -308,17 +320,21 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
                       )
                     : null,
                 filled: true,
-                fillColor: AppColors.background,
+                fillColor: inputBg,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.border),
+                  borderSide: BorderSide(color: cardBorder),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: cardBorder),
                 ),
               ),
               onChanged: (val) => setState(() => _filtroTexto = val.trim().toLowerCase()),
             ),
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: cardBorder),
 
           // Lista de Categorías en Árbol
           Expanded(
@@ -394,10 +410,11 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
                     final subs = padre.subcategorias;
 
                     return Card(
+                      color: surfaceColor,
                       elevation: 1,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
-                        side: const BorderSide(color: AppColors.border),
+                        side: BorderSide(color: cardBorder),
                       ),
                       child: Theme(
                         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -418,15 +435,15 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
                           ),
                           title: Text(
                             padre.nombre,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
+                              color: textPrimary,
                             ),
                           ),
                           subtitle: Text(
                             '${subs.length} ${subs.length == 1 ? 'subcategoría' : 'subcategorías'}',
-                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                            style: TextStyle(fontSize: 12, color: textSecondary),
                           ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -437,7 +454,12 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
                                 onPressed: () => _abrirModalCrearOEditarCategoria(categoriaPadre: padre),
                               ),
                               PopupMenuButton<String>(
-                                icon: const Icon(Icons.more_vert, size: 20, color: AppColors.textMuted),
+                                icon: Icon(Icons.more_vert, size: 20, color: textMuted),
+                                color: surfaceColor,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  side: BorderSide(color: cardBorder),
+                                ),
                                 onSelected: (val) {
                                   if (val == 'editar') {
                                     _abrirModalCrearOEditarCategoria(categoriaParaEditar: padre);
@@ -446,13 +468,13 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
                                   }
                                 },
                                 itemBuilder: (ctx) => [
-                                  const PopupMenuItem(
+                                  PopupMenuItem(
                                     value: 'editar',
                                     child: Row(
                                       children: [
-                                        Icon(Icons.edit_outlined, size: 18),
-                                        SizedBox(width: 8),
-                                        Text('Editar Categoría'),
+                                        const Icon(Icons.edit_outlined, size: 18),
+                                        const SizedBox(width: 8),
+                                        Text('Editar Categoría', style: TextStyle(color: textPrimary)),
                                       ],
                                     ),
                                   ),
@@ -471,18 +493,18 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
                             ],
                           ),
                           children: [
-                            const Divider(height: 1),
+                            Divider(height: 1, color: cardBorder),
                             if (subs.isEmpty)
                               Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.info_outline, size: 18, color: AppColors.textMuted),
+                                    Icon(Icons.info_outline, size: 18, color: textMuted),
                                     const SizedBox(width: 8),
-                                    const Expanded(
+                                    Expanded(
                                       child: Text(
                                         'Sin subcategorías registradas.',
-                                        style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                                        style: TextStyle(fontSize: 13, color: textMuted),
                                       ),
                                     ),
                                     TextButton.icon(
@@ -498,7 +520,7 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
                                 shrinkWrap: true,
                                 physics: const NeverScrollableScrollPhysics(),
                                 itemCount: subs.length,
-                                separatorBuilder: (_, _) => const Divider(height: 1, indent: 40),
+                                separatorBuilder: (_, _) => Divider(height: 1, indent: 40, color: cardBorder),
                                 itemBuilder: (context, subIndex) {
                                   final sub = subs[subIndex];
                                   return ListTile(
@@ -506,13 +528,13 @@ class _GestionCategoriasScreenState extends ConsumerState<GestionCategoriasScree
                                     leading: const Text('↳', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.secondary)),
                                     title: Text(
                                       sub.nombre,
-                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary),
                                     ),
                                     trailing: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         IconButton(
-                                          icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.textMuted),
+                                          icon: Icon(Icons.edit_outlined, size: 18, color: textMuted),
                                           tooltip: 'Editar subcategoría',
                                           onPressed: () => _abrirModalCrearOEditarCategoria(categoriaParaEditar: sub),
                                         ),

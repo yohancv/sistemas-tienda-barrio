@@ -56,6 +56,13 @@ class _ModalNuevoClienteState extends ConsumerState<ModalNuevoCliente> {
 
   @override
   Widget build(BuildContext context) {
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final inputBg = esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted;
+
     return Container(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -63,9 +70,9 @@ class _ModalNuevoClienteState extends ConsumerState<ModalNuevoCliente> {
         20,
         MediaQuery.of(context).viewInsets.bottom + 24,
       ),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SingleChildScrollView(
         child: Form(
@@ -81,7 +88,7 @@ class _ModalNuevoClienteState extends ConsumerState<ModalNuevoCliente> {
                   height: 5,
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
-                    color: AppColors.border,
+                    color: cardBorder,
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
@@ -90,12 +97,12 @@ class _ModalNuevoClienteState extends ConsumerState<ModalNuevoCliente> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     '➕ Registrar Nuevo Vecino / Cliente',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textPrimary),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: Icon(Icons.close, color: textMuted),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -105,11 +112,12 @@ class _ModalNuevoClienteState extends ConsumerState<ModalNuevoCliente> {
               // Nombre (Obligatorio)
               TextFormField(
                 controller: _nombreController,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: textPrimary),
                 decoration: InputDecoration(
                   labelText: 'Nombre Completo o Apodo *',
-                  hintText: 'Ej. Don Carlos, Doña Martha...',
                   prefixIcon: const Icon(Icons.person, color: AppColors.primary),
+                  filled: true,
+                  fillColor: inputBg,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 validator: (val) {
@@ -125,23 +133,24 @@ class _ModalNuevoClienteState extends ConsumerState<ModalNuevoCliente> {
               TextFormField(
                 controller: _telefonoController,
                 keyboardType: TextInputType.phone,
-                style: const TextStyle(fontSize: 18),
+                style: TextStyle(fontSize: 18, color: textPrimary),
                 decoration: InputDecoration(
                   labelText: 'Celular / WhatsApp (Opcional)',
-                  hintText: 'Ej. 71234567',
                   prefixIcon: const Icon(Icons.phone, color: AppColors.secondary),
+                  filled: true,
+                  fillColor: inputBg,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
               const SizedBox(height: 16),
 
               // Límite de Crédito
-              const Text(
+              Text(
                 'LÍMITE MÁXIMO DE FIADO (BS.):',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.textMuted,
+                  color: textMuted,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -151,13 +160,14 @@ class _ModalNuevoClienteState extends ConsumerState<ModalNuevoCliente> {
               TextFormField(
                 controller: _limiteController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary),
                 decoration: InputDecoration(
                   labelText: 'Monto Límite de Fiado *',
-                  hintText: 'Ej. 100, 500, 1000...',
                   prefixText: 'Bs. ',
-                  prefixStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  prefixStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary),
                   prefixIcon: const Icon(Icons.credit_card, color: AppColors.primary),
+                  filled: true,
+                  fillColor: inputBg,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 onChanged: (val) {
@@ -190,7 +200,7 @@ class _ModalNuevoClienteState extends ConsumerState<ModalNuevoCliente> {
                     selected: seleccionado,
                     selectedColor: AppColors.primary,
                     labelStyle: TextStyle(
-                      color: seleccionado ? Colors.white : AppColors.textPrimary,
+                      color: seleccionado ? Colors.white : textPrimary,
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
                     ),
@@ -199,9 +209,9 @@ class _ModalNuevoClienteState extends ConsumerState<ModalNuevoCliente> {
                 }).toList(),
               ),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 '💡 Puedes escribir cualquier monto personalizado en el cuadro o tocar un botón rápido.',
-                style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+                style: TextStyle(fontSize: 11.5, color: textMuted),
               ),
 
               const SizedBox(height: 24),

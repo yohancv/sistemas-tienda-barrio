@@ -124,16 +124,16 @@ class _VistaCajaCerrada extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              const Text(
+              Text(
                 'No hay Turno de Caja Abierto',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: textPrimary),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Inicia el turno ingresando el fondo inicial en efectivo (cambio sencillo) para habilitar las ventas y cuadrar el dinero del día.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: AppColors.textMuted, height: 1.4),
+                style: TextStyle(fontSize: 16, color: esOscuro ? AppColors.darkTextMuted : AppColors.textMuted, height: 1.4),
               ),
               const SizedBox(height: 36),
 
@@ -157,11 +157,11 @@ class _VistaCajaCerrada extends ConsumerWidget {
               const SizedBox(height: 40),
 
               // Sección Historial de Turnos
-              const Divider(),
+              Divider(color: cardBorder),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Turnos Cerrados Recientes',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary),
               ),
               const SizedBox(height: 12),
               FutureBuilder<List<CajaTurnoModel>>(
@@ -175,11 +175,15 @@ class _VistaCajaCerrada extends ConsumerWidget {
                     return Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: AppColors.background,
+                        color: bgColor,
                         borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: cardBorder),
                       ),
-                      child: const Center(
-                        child: Text('Aún no hay turnos históricos registrados.', style: TextStyle(color: AppColors.textMuted)),
+                      child: Center(
+                        child: Text(
+                          'Aún no hay turnos históricos registrados.',
+                          style: TextStyle(color: esOscuro ? AppColors.darkTextMuted : AppColors.textMuted),
+                        ),
                       ),
                     );
                   }
@@ -195,8 +199,12 @@ class _VistaCajaCerrada extends ConsumerWidget {
                       final bool esCuadrado = dif.abs() <= 1.0;
 
                       return Card(
-                        elevation: 1,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                        color: surfaceColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: cardBorder),
+                        ),
                         child: ListTile(
                           onTap: () {
                             showDialog(
@@ -213,13 +221,13 @@ class _VistaCajaCerrada extends ConsumerWidget {
                           ),
                           title: Text(
                             'Turno del ${item.fechaApertura.day}/${item.fechaApertura.month}/${item.fechaApertura.year}',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary),
                           ),
                           subtitle: Text(
                             'Esperado: Bs. ${item.montoEsperadoEfectivo.toStringAsFixed(2)} | Real: Bs. ${(item.montoRealContado ?? 0).toStringAsFixed(2)}',
-                            style: const TextStyle(fontSize: 12),
+                            style: TextStyle(fontSize: 12, color: esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary),
                           ),
-                          trailing: const Icon(Icons.chevron_right),
+                          trailing: Icon(Icons.chevron_right, color: esOscuro ? AppColors.darkTextMuted : AppColors.textMuted),
                         ),
                       );
                     },
@@ -256,6 +264,7 @@ class _VistaCajaAbierta extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final resumenAsync = ref.watch(resumenCajaTurnoProvider);
     final movimientosAsync = ref.watch(movimientosCajaTurnoProvider);
+    final ventasAsync = ref.watch(ventasTurnoProvider);
     final esOscuro = ref.watch(esModoOscuroProvider);
     final bgColor = esOscuro ? AppColors.darkBackground : AppColors.background;
     final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
@@ -280,6 +289,7 @@ class _VistaCajaAbierta extends ConsumerWidget {
             onPressed: () {
               ref.invalidate(resumenCajaTurnoProvider);
               ref.invalidate(movimientosCajaTurnoProvider);
+              ref.invalidate(ventasTurnoProvider);
             },
           ),
         ],
@@ -294,9 +304,10 @@ class _VistaCajaAbierta extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: surfaceColor,
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
+                  border: Border.all(color: cardBorder),
+                  boxShadow: esOscuro ? null : [
                     BoxShadow(color: Colors.black.withAlpha(12), blurRadius: 4, offset: const Offset(0, 2)),
                   ],
                 ),
@@ -550,7 +561,7 @@ class _VistaCajaAbierta extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: AppColors.surface,
+                          color: surfaceColor,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: tieneBuenMargen
@@ -558,7 +569,7 @@ class _VistaCajaAbierta extends ConsumerWidget {
                                 : Colors.amber.withAlpha(120),
                             width: 1.5,
                           ),
-                          boxShadow: [
+                          boxShadow: esOscuro ? null : [
                             BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 6, offset: const Offset(0, 2)),
                           ],
                         ),
@@ -772,6 +783,136 @@ class _VistaCajaAbierta extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
 
+              // Ventas y Cobros de este Turno (Efectivo & QR)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Ventas Cobradas en este Turno',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  ventasAsync.maybeWhen(
+                    data: (v) => Text(
+                      '${v.length} ${v.length == 1 ? "venta" : "ventas"}',
+                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                    ),
+                    orElse: () => const SizedBox.shrink(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ventasAsync.when(
+                loading: () => const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator())),
+                error: (e, _) => Text('Error al cargar ventas: $e'),
+                data: (ventas) {
+                  if (ventas.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: surfaceColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: cardBorder),
+                      ),
+                      child: Center(
+                        child: Text(
+                          'No hay ventas registradas aún en este turno.',
+                          style: TextStyle(color: esOscuro ? AppColors.darkTextMuted : AppColors.textMuted),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: ventas.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, idx) {
+                      final v = ventas[idx];
+                      final bool esQr = v.esQr;
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: surfaceColor,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: cardBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundColor: esQr ? Colors.blue.withAlpha(25) : AppColors.success.withAlpha(25),
+                              child: Icon(
+                                esQr ? Icons.qr_code_2_rounded : Icons.payments_rounded,
+                                color: esQr ? Colors.blue[800] : AppColors.success,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Ticket #${v.ticketCorto}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: esQr ? Colors.blue[50] : Colors.green[50],
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          esQr ? 'QR / BANCO' : (v.esMixto ? 'MIXTO' : (v.esFiado ? 'FIADO' : 'EFECTIVO')),
+                                          style: TextStyle(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: esQr ? Colors.blue[800] : Colors.green[800],
+                                          ),
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Text(
+                                        '${v.fechaVenta.hour.toString().padLeft(2, '0')}:${v.fechaVenta.minute.toString().padLeft(2, '0')}',
+                                        style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                                      ),
+                                    ],
+                                  ),
+                                  if (v.itemsResumen.isNotEmpty) ...[
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      v.itemsResumen,
+                                      style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Bs. ${v.totalVenta.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: esQr ? Colors.blue[800] : AppColors.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+
               // Historial de Movimientos Manuales del Turno con tags de Origen y Categoría
               const Text(
                 'Retiros y Movimientos de este turno',
@@ -808,9 +949,9 @@ class _VistaCajaAbierta extends ConsumerWidget {
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
-                          color: AppColors.surface,
+                          color: surfaceColor,
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.border),
+                          border: Border.all(color: cardBorder),
                         ),
                         child: Row(
                           children: [
@@ -953,12 +1094,18 @@ class _CardMetrica extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: surfaceColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -970,7 +1117,7 @@ class _CardMetrica extends StatelessWidget {
               Expanded(
                 child: Text(
                   titulo,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -979,7 +1126,7 @@ class _CardMetrica extends StatelessWidget {
           ),
           if (subtitulo != null) ...[
             const SizedBox(height: 2),
-            Text(subtitulo!, style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+            Text(subtitulo!, style: TextStyle(fontSize: 10, color: textMuted)),
           ],
           const SizedBox(height: 8),
           Text(

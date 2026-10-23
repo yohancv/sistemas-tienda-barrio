@@ -9,6 +9,7 @@ class ResumenCajaModel {
   final double totalFiadosCobradosEfectivo;
   final double totalFiadosCobradosQr;
   final double totalEntradasManuales;
+  final double totalEntradasQr;
   final double totalSalidasManuales;
   final double totalRetirosQr;
   final double totalSalidasTienda;
@@ -28,6 +29,7 @@ class ResumenCajaModel {
     required this.totalFiadosCobradosEfectivo,
     required this.totalFiadosCobradosQr,
     required this.totalEntradasManuales,
+    this.totalEntradasQr = 0.0,
     required this.totalSalidasManuales,
     this.totalRetirosQr = 0.0,
     this.totalSalidasTienda = 0.0,
@@ -36,6 +38,10 @@ class ResumenCajaModel {
     this.saldoNetoQr = 0.0,
     required this.montoEsperadoEfectivo,
   });
+
+  /// Total bruto ingresado por QR en el turno (Ventas directas + Abonos de fiados + Entradas directas/recargas)
+  double get totalCobrosQr =>
+      totalVentasQr + totalFiadosCobradosQr + totalEntradasQr;
 
   /// Total de ingresos brutos cobrados en el turno (Ventas efectivo + Ventas QR + Abonos de fiados)
   double get totalIngresosDia =>
@@ -71,6 +77,7 @@ class ResumenCajaModel {
       totalFiadosCobradosEfectivo: _toDouble(map['total_fiados_cobrados_efectivo']),
       totalFiadosCobradosQr: _toDouble(map['total_fiados_cobrados_qr']),
       totalEntradasManuales: _toDouble(map['total_entradas_manuales']),
+      totalEntradasQr: _toDouble(map['total_entradas_qr']),
       totalSalidasManuales: _toDouble(map['total_salidas_manuales']),
       totalRetirosQr: _toDouble(map['total_retiros_qr']),
       totalSalidasTienda: _toDouble(map['total_salidas_tienda']),

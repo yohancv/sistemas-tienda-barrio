@@ -66,11 +66,19 @@ class _ModalCobroWhatsAppState extends ConsumerState<ModalCobroWhatsApp> {
     final mensajeActual = _generarTextoActual();
     final tieneTelefono = c.telefono != null && c.telefono!.trim().isNotEmpty;
 
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : Colors.white;
+    final cardBg = esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.90,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         children: [
@@ -80,7 +88,7 @@ class _ModalCobroWhatsAppState extends ConsumerState<ModalCobroWhatsApp> {
             width: 48,
             height: 5,
             decoration: BoxDecoration(
-              color: Colors.grey.shade300,
+              color: cardBorder,
               borderRadius: BorderRadius.circular(10),
             ),
           ),
@@ -108,7 +116,7 @@ class _ModalCobroWhatsAppState extends ConsumerState<ModalCobroWhatsApp> {
                       children: [
                         Text(
                           c.nombre,
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary),
                         ),
                         Text(
                           tieneTelefono ? 'WhatsApp: ${c.telefono}' : 'Sin número guardado',
@@ -141,7 +149,7 @@ class _ModalCobroWhatsAppState extends ConsumerState<ModalCobroWhatsApp> {
               ],
             ),
           ),
-          const Divider(height: 24),
+          Divider(height: 24, color: cardBorder),
 
           // 3. Contenido scrolleable de opciones y vista previa
           Expanded(
@@ -149,9 +157,9 @@ class _ModalCobroWhatsAppState extends ConsumerState<ModalCobroWhatsApp> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               children: [
                 // Selector de Tono del Mensaje
-                const Text(
+                Text(
                   '1. SELECCIONA EL TONO DEL COBRO:',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -160,6 +168,10 @@ class _ModalCobroWhatsAppState extends ConsumerState<ModalCobroWhatsApp> {
                       label: 'Amable',
                       icono: Icons.sentiment_satisfied_alt_rounded,
                       seleccionado: _tono == TonoCobro.amable,
+                      cardBg: cardBg,
+                      cardBorder: cardBorder,
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
                       onTap: () => setState(() => _tono = TonoCobro.amable),
                     ),
                     const SizedBox(width: 8),
@@ -167,6 +179,10 @@ class _ModalCobroWhatsAppState extends ConsumerState<ModalCobroWhatsApp> {
                       label: 'Quincena',
                       icono: Icons.calendar_month_rounded,
                       seleccionado: _tono == TonoCobro.quincena,
+                      cardBg: cardBg,
+                      cardBorder: cardBorder,
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
                       onTap: () => setState(() => _tono = TonoCobro.quincena),
                     ),
                     const SizedBox(width: 8),
@@ -174,6 +190,10 @@ class _ModalCobroWhatsAppState extends ConsumerState<ModalCobroWhatsApp> {
                       label: 'Formal',
                       icono: Icons.priority_high_rounded,
                       seleccionado: _tono == TonoCobro.formal,
+                      cardBg: cardBg,
+                      cardBorder: cardBorder,
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
                       onTap: () => setState(() => _tono = TonoCobro.formal),
                     ),
                   ],
@@ -181,44 +201,45 @@ class _ModalCobroWhatsAppState extends ConsumerState<ModalCobroWhatsApp> {
                 const SizedBox(height: 16),
 
                 // Opciones adicionales (Switches)
-                const Text(
+                Text(
                   '2. CONTENIDO DEL MENSAJE:',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted),
                 ),
                 const SizedBox(height: 6),
                 Container(
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceMuted,
+                    color: cardBg,
                     borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: cardBorder),
                   ),
                   child: Column(
                     children: [
                       SwitchListTile(
                         dense: true,
-                        title: const Text(
+                        title: Text(
                           'Incluir detalle de compras fiadas',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textPrimary),
                         ),
                         subtitle: Text(
                           _cargando
                               ? 'Cargando compras...'
                               : (_compras.isNotEmpty ? '${_compras.length} compras recientes registradas' : 'Sin compras detalladas'),
-                          style: const TextStyle(fontSize: 11),
+                          style: TextStyle(fontSize: 11, color: textSecondary),
                         ),
                         value: _incluirProductos,
                         activeThumbColor: const Color(0xFF25D366),
                         onChanged: _compras.isNotEmpty ? (val) => setState(() => _incluirProductos = val) : null,
                       ),
-                      const Divider(height: 1),
+                      Divider(height: 1, color: cardBorder),
                       SwitchListTile(
                         dense: true,
-                        title: const Text(
+                        title: Text(
                           'Indicar medios de pago (Efectivo y QR)',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textPrimary),
                         ),
-                        subtitle: const Text(
+                        subtitle: Text(
                           'Recuerda al cliente que puede pagar en efectivo o por QR',
-                          style: TextStyle(fontSize: 11),
+                          style: TextStyle(fontSize: 11, color: textSecondary),
                         ),
                         value: _incluirQr,
                         activeThumbColor: const Color(0xFF25D366),
@@ -233,9 +254,9 @@ class _ModalCobroWhatsAppState extends ConsumerState<ModalCobroWhatsApp> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       '3. VISTA PREVIA DEL WHATSAPP:',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted),
                     ),
                     TextButton.icon(
                       style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
@@ -257,9 +278,9 @@ class _ModalCobroWhatsAppState extends ConsumerState<ModalCobroWhatsApp> {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE7FBD3), // verde claro de burbuja de WhatsApp
+                    color: esOscuro ? const Color(0xFF143E2C) : const Color(0xFFE7FBD3),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFC8E6C9)),
+                    border: Border.all(color: esOscuro ? const Color(0xFF25D366).withAlpha(60) : const Color(0xFFC8E6C9)),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withAlpha(10),
@@ -270,10 +291,10 @@ class _ModalCobroWhatsAppState extends ConsumerState<ModalCobroWhatsApp> {
                   ),
                   child: Text(
                     mensajeActual,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       height: 1.45,
-                      color: Color(0xFF1B2E1E),
+                      color: esOscuro ? const Color(0xFFE9EDEF) : const Color(0xFF1B2E1E),
                     ),
                   ),
                 ),
@@ -286,8 +307,9 @@ class _ModalCobroWhatsAppState extends ConsumerState<ModalCobroWhatsApp> {
           Container(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
             decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
+              color: surfaceColor,
+              border: Border(top: BorderSide(color: cardBorder)),
+              boxShadow: esOscuro ? null : [
                 BoxShadow(
                   color: Colors.black.withAlpha(15),
                   blurRadius: 4,
@@ -342,6 +364,10 @@ class _ModalCobroWhatsAppState extends ConsumerState<ModalCobroWhatsApp> {
     required String label,
     required IconData icono,
     required bool seleccionado,
+    required Color cardBg,
+    required Color cardBorder,
+    required Color textPrimary,
+    required Color textSecondary,
     required VoidCallback onTap,
   }) {
     return Expanded(
@@ -351,10 +377,10 @@ class _ModalCobroWhatsAppState extends ConsumerState<ModalCobroWhatsApp> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: seleccionado ? const Color(0xFF15803D) : AppColors.surfaceMuted,
+            color: seleccionado ? const Color(0xFF15803D) : cardBg,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: seleccionado ? const Color(0xFF15803D) : AppColors.border,
+              color: seleccionado ? const Color(0xFF15803D) : cardBorder,
             ),
           ),
           child: Row(
@@ -363,7 +389,7 @@ class _ModalCobroWhatsAppState extends ConsumerState<ModalCobroWhatsApp> {
               Icon(
                 icono,
                 size: 16,
-                color: seleccionado ? Colors.white : AppColors.textSecondary,
+                color: seleccionado ? Colors.white : textSecondary,
               ),
               const SizedBox(width: 4),
               Text(
@@ -371,7 +397,7 @@ class _ModalCobroWhatsAppState extends ConsumerState<ModalCobroWhatsApp> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: seleccionado ? Colors.white : AppColors.textPrimary,
+                  color: seleccionado ? Colors.white : textPrimary,
                 ),
               ),
             ],

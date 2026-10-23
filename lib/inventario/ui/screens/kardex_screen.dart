@@ -120,7 +120,7 @@ class _KardexScreenState extends ConsumerState<KardexScreen> {
             // 1. Barra de Filtros (Período, Tipos y Búsqueda)
             // ================================================================
             Container(
-              color: AppColors.surface,
+              color: surfaceColor,
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -287,7 +287,7 @@ class _KardexScreenState extends ConsumerState<KardexScreen> {
             // ================================================================
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              color: AppColors.background,
+              color: bgColor,
               child: Row(
                 children: [
                   Expanded(
@@ -324,7 +324,7 @@ class _KardexScreenState extends ConsumerState<KardexScreen> {
                 ],
               ),
             ),
-            const Divider(height: 1),
+            Divider(height: 1, color: cardBorder),
 
             // ================================================================
             // 3. Lista de Movimientos (Kardex)
@@ -451,6 +451,13 @@ class _KardexItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+
     final color = _obtenerColor(movimiento);
     final icon = _obtenerIcono(movimiento);
     final bool esResta = movimiento.esSalida;
@@ -462,8 +469,12 @@ class _KardexItemTile extends StatelessWidget {
         movimiento.stockPosterior != null;
 
     return Card(
+      color: cardBg,
       elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: cardBorder),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
@@ -485,10 +496,10 @@ class _KardexItemTile extends StatelessWidget {
                   // Nombre del Producto
                   Text(
                     movimiento.nombreProducto ?? 'Producto #${movimiento.productoId.substring(0, 6)}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
-                      color: AppColors.textPrimary,
+                      color: textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -515,8 +526,8 @@ class _KardexItemTile extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(
                         fechaFormateada,
-                        style: const TextStyle(
-                            fontSize: 11, color: AppColors.textMuted),
+                        style: TextStyle(
+                            fontSize: 11, color: textMuted),
                       ),
                     ],
                   ),
@@ -527,10 +538,10 @@ class _KardexItemTile extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       movimiento.motivo!,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontStyle: FontStyle.italic,
-                        color: AppColors.textSecondary,
+                        color: textSecondary,
                       ),
                     ),
                   ],
@@ -540,23 +551,23 @@ class _KardexItemTile extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Text(
+                        Text(
                           'Stock: ',
                           style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textMuted),
+                              color: textMuted),
                         ),
                         Text(
                           movimiento.stockAnterior!.toStringAsFixed(
                               movimiento.stockAnterior! % 1 == 0 ? 0 : 1),
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.textSecondary),
+                              color: textSecondary),
                         ),
-                        const Icon(Icons.arrow_right_alt,
-                            size: 16, color: AppColors.textMuted),
+                        Icon(Icons.arrow_right_alt,
+                            size: 16, color: textMuted),
                         Text(
                           movimiento.stockPosterior!.toStringAsFixed(
                               movimiento.stockPosterior! % 1 == 0 ? 0 : 1),
@@ -622,16 +633,24 @@ class _ChipPeriodo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final chipBg = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
     return FilterChip(
       label: Text(label),
       selected: seleccionado,
       onSelected: (_) => onTap(),
-      backgroundColor: AppColors.background,
-      selectedColor: AppColors.primary.withAlpha(30),
+      backgroundColor: chipBg,
+      selectedColor: AppColors.primary.withAlpha(40),
+      side: BorderSide(
+        color: seleccionado ? AppColors.primary : cardBorder,
+      ),
       labelStyle: TextStyle(
         fontSize: 12,
         fontWeight: seleccionado ? FontWeight.bold : FontWeight.normal,
-        color: seleccionado ? AppColors.primary : AppColors.textPrimary,
+        color: seleccionado ? (esOscuro ? AppColors.darkAccent : AppColors.primary) : textPrimary,
       ),
     );
   }
@@ -652,16 +671,24 @@ class _ChipTipo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final chipBg = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
     return ChoiceChip(
       label: Text(label),
       selected: seleccionado,
       onSelected: (_) => onTap(),
-      backgroundColor: AppColors.background,
+      backgroundColor: chipBg,
       selectedColor: AppColors.primary,
+      side: BorderSide(
+        color: seleccionado ? AppColors.primary : cardBorder,
+      ),
       labelStyle: TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.bold,
-        color: seleccionado ? Colors.white : AppColors.textPrimary,
+        color: seleccionado ? Colors.white : textPrimary,
       ),
     );
   }
@@ -684,12 +711,16 @@ class _MiniCardResumen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final titleColor = esOscuro ? AppColors.darkTextSecondary : Colors.grey[700];
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: cardBg,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withAlpha(50)),
+        border: Border.all(color: color.withAlpha(esOscuro ? 80 : 50)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -704,7 +735,7 @@ class _MiniCardResumen extends StatelessWidget {
                   style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: Colors.grey[700]),
+                      color: titleColor),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),

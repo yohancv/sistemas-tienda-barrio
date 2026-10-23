@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/supabase_client.dart';
 import '../../../cierre_caja/state/providers/caja_providers.dart';
+import '../../../reportes/state/providers/reportes_providers.dart';
 import '../../data/models/cliente_model.dart';
 import '../../data/repositories/clientes_repository.dart';
 
@@ -199,7 +200,10 @@ class ClientesNotifier extends StateNotifier<ClienteOperacionState> {
       );
 
       _ref.invalidate(clientesListProvider);
+      _ref.invalidate(cajaTurnoActivaProvider);
       _ref.invalidate(resumenCajaTurnoProvider);
+      _ref.invalidate(ventasTurnoProvider);
+      _ref.invalidate(reporteDashboardProvider);
 
       final nuevoSaldo = (res['nuevo_saldo'] as num?)?.toDouble() ?? 0.0;
       final nombre = res['nombre_cliente'] ?? 'Cliente';

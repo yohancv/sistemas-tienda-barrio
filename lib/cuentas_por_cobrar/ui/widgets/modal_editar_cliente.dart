@@ -374,7 +374,6 @@ class _ModalEditarClienteState extends ConsumerState<ModalEditarCliente> {
                 style: TextStyle(fontSize: 13, color: textPrimary),
                 decoration: InputDecoration(
                   labelText: 'Notas / Dirección (opcional)',
-                  hintText: 'Ej. Casa de rejas blancas, hermano de don Juan...',
                   filled: true,
                   fillColor: esOscuro ? const Color(0xFF0F172A) : Colors.white,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

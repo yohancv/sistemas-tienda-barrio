@@ -222,16 +222,20 @@ class ClientesRepository {
         id,
         monto,
         metodo_pago AS detalle,
-        fecha_abono AS fecha
+        fecha_abono AS fecha,
+        0.0 AS anticipo,
+        0.0 AS total_cuenta
       FROM abonos_deuda
       WHERE cliente_id = ?
       UNION ALL
       SELECT 
         'FIADO' AS tipo,
         id,
-        total_venta AS monto,
+        (total_venta - COALESCE(monto_recibido, 0)) AS monto,
         metodo_pago AS detalle,
-        fecha_venta AS fecha
+        fecha_venta AS fecha,
+        COALESCE(monto_recibido, 0) AS anticipo,
+        total_venta AS total_cuenta
       FROM ventas
       WHERE cliente_id = ? AND (metodo_pago = 'CREDITO_FIADO' OR metodo_pago = 'FIADO')
       ORDER BY fecha DESC
@@ -243,6 +247,9 @@ class ClientesRepository {
 
     for (final r in rows) {
       final mapa = AppDatabase.aMapa(r);
+      mapa['anticipo'] = (r['anticipo'] as num?)?.toDouble() ?? 0.0;
+      mapa['total_cuenta'] = (r['total_cuenta'] as num?)?.toDouble() ?? mapa['monto'];
+
       if (mapa['tipo'] == 'FIADO') {
         final ventaId = mapa['id'] as String;
         try {
@@ -250,8 +257,8 @@ class ClientesRepository {
             SELECT 
               dv.cantidad,
               COALESCE(p.nombre, 'Producto') AS nombre,
-              COALESCE(p.tipo_unidad, 'UNIDAD') AS tipo_unidad,
-              p.unidad_medida
+              COALESCE(p.tipo_empaque, 'UNIDAD') AS tipo_unidad,
+              p.nombre_unidad_suelta AS unidad_medida
             FROM detalle_ventas dv
             LEFT JOIN productos p ON dv.producto_id = p.id
             WHERE dv.venta_id = ?
@@ -326,12 +333,15 @@ class ClientesRepository {
       final ventaId = v['id'] as String;
       final fechaVentaStr = v['fecha_venta'] as String;
       final totalVenta = (v['total_venta'] as num?)?.toDouble() ?? 0.0;
+      final montoRecibido = (v['monto_recibido'] as num?)?.toDouble() ?? 0.0;
+      final saldoFiado = totalVenta - montoRecibido;
 
       final detalles = await db.rawQuery('''
         SELECT 
           dv.cantidad,
           COALESCE(p.nombre, 'Producto') AS nombre,
-          COALESCE(p.tipo_unidad, 'UNIDAD') AS tipo_unidad,
+          COALESCE(p.tipo_empaque, 'UNIDAD') AS tipo_unidad,
+          p.nombre_unidad_suelta AS unidad_medida,
           dv.subtotal
         FROM detalle_ventas dv
         LEFT JOIN productos p ON dv.producto_id = p.id
@@ -345,6 +355,7 @@ class ClientesRepository {
           'cantidad': cant is num ? cant.toDouble() : (double.tryParse(cant.toString()) ?? 1.0),
           'nombre': d['nombre']?.toString() ?? 'Producto',
           'tipo_unidad': d['tipo_unidad']?.toString() ?? 'UNIDAD',
+          'unidad_medida': d['unidad_medida']?.toString(),
           'subtotal': sub is num ? sub.toDouble() : (double.tryParse(sub.toString()) ?? 0.0),
         };
       }).toList();
@@ -353,6 +364,8 @@ class ClientesRepository {
         'venta_id': ventaId,
         'fecha': fechaVentaStr,
         'total': totalVenta,
+        'anticipo': montoRecibido,
+        'saldo_fiado': saldoFiado,
         'items': items,
       });
     }

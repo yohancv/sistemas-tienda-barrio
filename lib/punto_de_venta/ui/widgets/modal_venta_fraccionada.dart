@@ -126,11 +126,20 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
 
   @override
   Widget build(BuildContext context) {
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final inputBg = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final surfaceMuted = esOscuro ? AppColors.darkSurfaceMuted : AppColors.surfaceMuted;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -144,7 +153,7 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
                 height: 5,
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: AppColors.border,
+                  color: cardBorder,
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -169,10 +178,10 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
                     children: [
                       Text(
                         widget.producto.nombre,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: textPrimary,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -189,7 +198,7 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, size: 26, color: AppColors.textMuted),
+                  icon: Icon(Icons.close, size: 26, color: textMuted),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -198,12 +207,12 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
             const SizedBox(height: 18),
 
             // 1. RECUADRO PRINCIPAL: PRECIO POR DINERO
-            const Text(
+            Text(
               '💵 PRECIO POR DINERO (MONTO A COBRAR):',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
-                color: AppColors.textMuted,
+                color: textMuted,
                 letterSpacing: 0.5,
               ),
             ),
@@ -212,10 +221,10 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: AppColors.background,
+                color: inputBg,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: _totalCobrar > 0 ? AppColors.primary : AppColors.border,
+                  color: _totalCobrar > 0 ? AppColors.primary : cardBorder,
                   width: 2.5,
                 ),
               ),
@@ -236,13 +245,14 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
                         child: TextField(
                           controller: _dineroController,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 34,
                             fontWeight: FontWeight.w900,
-                            color: AppColors.textPrimary,
+                            color: textPrimary,
                           ),
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             hintText: '0.00',
+                            hintStyle: TextStyle(color: textMuted),
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.zero,
                           ),
@@ -259,17 +269,17 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
                         ),
                     ],
                   ),
-                  const Divider(height: 16, thickness: 1),
+                  Divider(height: 16, thickness: 1, color: cardBorder),
                   // Equivalencia sincronizada en peso
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Equivale a:',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
+                          color: textSecondary,
                         ),
                       ),
                       Container(
@@ -277,7 +287,7 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
                         decoration: BoxDecoration(
                           color: _pesoActual > 0
                               ? AppColors.secondary.withAlpha(20)
-                              : AppColors.surfaceMuted,
+                              : surfaceMuted,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -285,7 +295,7 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
-                            color: _pesoActual > 0 ? AppColors.secondary : AppColors.textMuted,
+                            color: _pesoActual > 0 ? AppColors.secondary : textMuted,
                           ),
                         ),
                       ),
@@ -298,12 +308,12 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
             const SizedBox(height: 16),
 
             // 2. VENTA RÁPIDA POR PESO (1/4, 1/2, 3/4, 1 kg)
-            const Text(
+            Text(
               '⚖️ VENTA RÁPIDA POR PESO:',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
-                color: AppColors.textMuted,
+                color: textMuted,
                 letterSpacing: 0.5,
               ),
             ),
@@ -311,13 +321,13 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
 
             Row(
               children: [
-                _buildBotonFraccion('¼ $_unidadMedida', 0.25),
+                _buildBotonFraccion('¼ $_unidadMedida', 0.25, surfaceMuted, cardBorder, textPrimary),
                 const SizedBox(width: 8),
-                _buildBotonFraccion('½ $_unidadMedida', 0.50),
+                _buildBotonFraccion('½ $_unidadMedida', 0.50, surfaceMuted, cardBorder, textPrimary),
                 const SizedBox(width: 8),
-                _buildBotonFraccion('¾ $_unidadMedida', 0.75),
+                _buildBotonFraccion('¾ $_unidadMedida', 0.75, surfaceMuted, cardBorder, textPrimary),
                 const SizedBox(width: 8),
-                _buildBotonFraccion('1 $_unidadMedida', 1.00),
+                _buildBotonFraccion('1 $_unidadMedida', 1.00, surfaceMuted, cardBorder, textPrimary),
               ],
             ),
 
@@ -328,7 +338,7 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 50),
                 side: BorderSide(
-                  color: _mostrarBalanza ? AppColors.secondary : AppColors.borderStrong,
+                  color: _mostrarBalanza ? AppColors.secondary : cardBorder,
                   width: 1.8,
                 ),
                 backgroundColor: _mostrarBalanza
@@ -343,7 +353,7 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
               },
               icon: Icon(
                 _mostrarBalanza ? Icons.expand_less : Icons.scale_outlined,
-                color: _mostrarBalanza ? AppColors.secondary : AppColors.textPrimary,
+                color: _mostrarBalanza ? AppColors.secondary : textPrimary,
                 size: 24,
               ),
               label: Text(
@@ -353,7 +363,7 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: _mostrarBalanza ? AppColors.secondary : AppColors.textPrimary,
+                  color: _mostrarBalanza ? AppColors.secondary : textPrimary,
                 ),
               ),
             ),
@@ -364,7 +374,7 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceMuted,
+                  color: surfaceMuted,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: AppColors.secondary.withAlpha(80), width: 1.5),
                 ),
@@ -375,10 +385,10 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
                       children: [
                         Text(
                           'Peso en balanza ($_unidadMedida):',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.textSecondary,
+                            color: textSecondary,
                           ),
                         ),
                         if (_inputPesoBalanza.isNotEmpty)
@@ -400,22 +410,22 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       margin: const EdgeInsets.only(bottom: 10),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: esOscuro ? AppColors.darkSurface : Colors.white,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: AppColors.secondary, width: 2),
                       ),
                       child: Text(
                         _inputPesoBalanza.isEmpty ? '0.000' : _inputPesoBalanza,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w900,
                           fontFamily: 'monospace',
-                          color: AppColors.textPrimary,
+                          color: textPrimary,
                         ),
                         textAlign: TextAlign.center,
                       ),
                     ),
-                    _buildTecladoNumerico(),
+                    _buildTecladoNumerico(esOscuro, cardBorder, textPrimary),
                   ],
                 ),
               ),
@@ -429,7 +439,7 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
               height: 60,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _totalCobrar > 0 ? AppColors.success : AppColors.surfaceMuted,
+                  backgroundColor: _totalCobrar > 0 ? AppColors.success : surfaceMuted,
                   elevation: _totalCobrar > 0 ? 3 : 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -444,7 +454,7 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
                 icon: Icon(
                   Icons.add_shopping_cart,
                   size: 26,
-                  color: _totalCobrar > 0 ? Colors.white : AppColors.textMuted,
+                  color: _totalCobrar > 0 ? Colors.white : textMuted,
                 ),
                 label: Text(
                   _totalCobrar > 0
@@ -453,7 +463,7 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: _totalCobrar > 0 ? Colors.white : AppColors.textMuted,
+                    color: _totalCobrar > 0 ? Colors.white : textMuted,
                   ),
                 ),
               ),
@@ -464,7 +474,13 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
     );
   }
 
-  Widget _buildBotonFraccion(String texto, double valor) {
+  Widget _buildBotonFraccion(
+    String texto,
+    double valor,
+    Color surfaceMuted,
+    Color cardBorder,
+    Color textPrimary,
+  ) {
     final seleccionado = _fraccionSeleccionada == valor;
     return Expanded(
       child: SizedBox(
@@ -472,12 +488,12 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
             padding: EdgeInsets.zero,
-            backgroundColor: seleccionado ? AppColors.secondary : AppColors.surfaceMuted,
+            backgroundColor: seleccionado ? AppColors.secondary : surfaceMuted,
             elevation: seleccionado ? 2 : 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
               side: BorderSide(
-                color: seleccionado ? AppColors.secondary : AppColors.border,
+                color: seleccionado ? AppColors.secondary : cardBorder,
                 width: seleccionado ? 2 : 1.2,
               ),
             ),
@@ -488,7 +504,7 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: seleccionado ? Colors.white : AppColors.textPrimary,
+              color: seleccionado ? Colors.white : textPrimary,
             ),
           ),
         ),
@@ -496,13 +512,15 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
     );
   }
 
-  Widget _buildTecladoNumerico() {
+  Widget _buildTecladoNumerico(bool esOscuro, Color cardBorder, Color textPrimary) {
     const teclas = [
       ['1', '2', '3'],
       ['4', '5', '6'],
       ['7', '8', '9'],
       ['.', '0', '⌫'],
     ];
+
+    final teclaBg = esOscuro ? AppColors.darkSurface : Colors.white;
 
     return Column(
       children: teclas.map((fila) {
@@ -519,11 +537,11 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: tecla == '⌫'
                             ? AppColors.danger.withAlpha(20)
-                            : Colors.white,
+                            : teclaBg,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
-                          side: const BorderSide(color: AppColors.border, width: 1),
+                          side: BorderSide(color: cardBorder, width: 1),
                         ),
                       ),
                       onPressed: () => _onTeclaBalanza(tecla),
@@ -532,7 +550,7 @@ class _ModalVentaFraccionadaState extends State<ModalVentaFraccionada> {
                         style: TextStyle(
                           fontSize: tecla == '⌫' ? 20 : 22,
                           fontWeight: FontWeight.bold,
-                          color: tecla == '⌫' ? AppColors.danger : AppColors.textPrimary,
+                          color: tecla == '⌫' ? AppColors.danger : textPrimary,
                         ),
                       ),
                     ),

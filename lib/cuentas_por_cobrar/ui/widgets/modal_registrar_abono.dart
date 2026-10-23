@@ -87,6 +87,14 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
     final nuevoSaldo = saldoActual - _montoAbono;
     final nuevoSaldoSeguro = nuevoSaldo < 0 ? 0.0 : nuevoSaldo;
 
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBg = esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted;
+    final inputBg = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+
     return Container(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -94,9 +102,9 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
         20,
         MediaQuery.of(context).viewInsets.bottom + 24,
       ),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -110,7 +118,7 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
                 height: 5,
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: AppColors.border,
+                  color: cardBorder,
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -135,7 +143,7 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
                     children: [
                       Text(
                         widget.cliente.nombre,
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textPrimary),
                       ),
                       Text(
                         'Deuda pendiente: Bs. ${saldoActual.toStringAsFixed(2)}',
@@ -149,7 +157,7 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: Icon(Icons.close, color: textMuted),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -184,12 +192,12 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
             ],
 
             // Input del monto a abonar
-            const Text(
+            Text(
               'MONTO DEL ABONO (BS.):',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
-                color: AppColors.textMuted,
+                color: textMuted,
                 letterSpacing: 0.5,
               ),
             ),
@@ -198,7 +206,7 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.background,
+                color: inputBg,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: AppColors.primary, width: 2),
               ),
@@ -217,7 +225,7 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
                     child: TextField(
                       controller: _montoController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900),
+                      style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: textPrimary),
                       decoration: const InputDecoration(
                         hintText: '0.00',
                         border: InputBorder.none,
@@ -244,12 +252,12 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
                         style: ElevatedButton.styleFrom(
                           padding: EdgeInsets.zero,
                           backgroundColor:
-                              seleccionado ? AppColors.primary : AppColors.surfaceMuted,
+                              seleccionado ? AppColors.primary : cardBg,
                           elevation: seleccionado ? 2 : 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                             side: BorderSide(
-                              color: seleccionado ? AppColors.primary : AppColors.border,
+                              color: seleccionado ? AppColors.primary : cardBorder,
                               width: seleccionado ? 2 : 1,
                             ),
                           ),
@@ -260,7 +268,7 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: seleccionado ? Colors.white : AppColors.textPrimary,
+                            color: seleccionado ? Colors.white : textPrimary,
                           ),
                         ),
                       ),
@@ -276,9 +284,9 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: AppColors.surfaceMuted,
+                color: cardBg,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: cardBorder),
               ),
               child: Row(
                 children: [
@@ -298,7 +306,7 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
                             Icon(
                               Icons.payments_outlined,
                               size: 19,
-                              color: _metodoPago == 'EFECTIVO' ? Colors.white : AppColors.textPrimary,
+                              color: _metodoPago == 'EFECTIVO' ? Colors.white : textPrimary,
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -306,7 +314,7 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: _metodoPago == 'EFECTIVO' ? Colors.white : AppColors.textPrimary,
+                                color: _metodoPago == 'EFECTIVO' ? Colors.white : textPrimary,
                               ),
                             ),
                           ],
@@ -330,7 +338,7 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
                             Icon(
                               Icons.qr_code_rounded,
                               size: 19,
-                              color: _metodoPago == 'QR' ? Colors.white : AppColors.textPrimary,
+                              color: _metodoPago == 'QR' ? Colors.white : textPrimary,
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -338,7 +346,7 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: _metodoPago == 'QR' ? Colors.white : AppColors.textPrimary,
+                                color: _metodoPago == 'QR' ? Colors.white : textPrimary,
                               ),
                             ),
                           ],
@@ -356,9 +364,9 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.surfaceMuted,
+                color: cardBg,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border, width: 1.2),
+                border: Border.all(color: cardBorder, width: 1.2),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -366,18 +374,18 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Debía antes:', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
+                      Text('Debía antes:', style: TextStyle(fontSize: 13, color: textMuted)),
                       Text(
                         'Bs. ${saldoActual.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: textPrimary),
                       ),
                     ],
                   ),
-                  const Icon(Icons.arrow_forward, color: AppColors.textMuted),
+                  Icon(Icons.arrow_forward, color: textMuted),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Text('Nuevo Saldo:', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
+                      Text('Nuevo Saldo:', style: TextStyle(fontSize: 13, color: textMuted)),
                       Text(
                         'Bs. ${nuevoSaldoSeguro.toStringAsFixed(2)}',
                         style: TextStyle(
@@ -399,7 +407,7 @@ class _ModalRegistrarAbonoState extends ConsumerState<ModalRegistrarAbono> {
               height: 58,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _montoAbono > 0 ? AppColors.success : AppColors.surfaceMuted,
+                  backgroundColor: _montoAbono > 0 ? AppColors.success : (esOscuro ? AppColors.darkBorder : AppColors.surfaceMuted),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 onPressed: (_montoAbono > 0 && !_procesando) ? _confirmarAbono : null,

@@ -8,13 +8,13 @@ import '../../data/models/resumen_caja_model.dart';
 import '../../state/providers/caja_providers.dart';
 import 'dialogo_ticket_arqueo.dart';
 
-/// Modal simplificado de Corte de Caja Diario para el Dueño
+/// Modal simplificado de Corte de Caja Diario para el Dueño (Fricción Cero)
 ///
 /// Diseñado para tiendas atendidas por sus propios dueños:
-/// - No exige contar billete por billete (sin conteo ciego innecesario).
-/// - Presenta de inmediato los totales reales en gaveta y banco.
-/// - Permite definir con 1 toque cuánto cambio queda para mañana.
-/// - Cierra la jornada en SQLite y reactiva la caja continua sin fricción.
+/// - 1 Solo Toque: Sin preguntas de cuánto dinero deja en gaveta.
+/// - Cero conteo ciego o estrés nocturno.
+/// - Presenta de inmediato los totales reales cobrados en gaveta y banco QR.
+/// - El nuevo turno de mañana arranca en Bs. 0.00 de forma inmediata para seguir vendiendo.
 class ModalCorteDiario extends ConsumerStatefulWidget {
   final CajaTurnoModel turno;
   final ResumenCajaModel resumen;
@@ -30,45 +30,17 @@ class ModalCorteDiario extends ConsumerStatefulWidget {
 }
 
 class _ModalCorteDiarioState extends ConsumerState<ModalCorteDiario> {
-  late final TextEditingController _fondoMananaController;
   final TextEditingController _observacionesController = TextEditingController();
   bool _isProcessing = false;
   String? _error;
 
   @override
-  void initState() {
-    super.initState();
-    // Sugerencia inteligente de fondo para mañana:
-    // Si hay suficiente efectivo en gaveta, sugerimos 100 Bs de cambio o el total
-    final esperado = widget.resumen.montoEsperadoEfectivo;
-    final sugerido = esperado >= 100.0 ? 100.0 : (esperado > 0 ? esperado : 0.0);
-    _fondoMananaController = TextEditingController(text: sugerido.toStringAsFixed(2));
-  }
-
-  @override
   void dispose() {
-    _fondoMananaController.dispose();
     _observacionesController.dispose();
     super.dispose();
   }
 
-  void _fijarFondo(double valor) {
-    AppHaptics.selection();
-    setState(() {
-      _fondoMananaController.text = valor.toStringAsFixed(2);
-      _error = null;
-    });
-  }
-
   Future<void> _confirmarCorte() async {
-    final fondoTexto = _fondoMananaController.text.trim().replaceAll(',', '.');
-    final fondo = double.tryParse(fondoTexto);
-
-    if (fondo == null || fondo < 0) {
-      setState(() => _error = 'Ingresa un monto válido para el fondo de mañana (ej. 100.00)');
-      return;
-    }
-
     setState(() {
       _isProcessing = true;
       _error = null;
@@ -76,16 +48,18 @@ class _ModalCorteDiarioState extends ConsumerState<ModalCorteDiario> {
 
     try {
       AppHaptics.medium();
+      // Corte directo con fondo 0.0 Bs: el siguiente turno queda listo al instante
       final turnoCerrado = await ref.read(cajaTurnoActivaProvider.notifier).hacerCorteDiario(
             resumen: widget.resumen,
-            fondoParaManana: fondo,
+            fondoParaManana: 0.0,
             observaciones: _observacionesController.text.trim(),
           );
 
-      // Refrescar métricas financieras
+      // Refrescar métricas financieras reactivamente
       ref.invalidate(resumenCajaTurnoProvider);
       ref.invalidate(movimientosCajaTurnoProvider);
       ref.invalidate(historialTurnosCajaProvider);
+      ref.invalidate(ventasTurnoProvider);
 
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -171,7 +145,7 @@ class _ModalCorteDiarioState extends ConsumerState<ModalCorteDiario> {
                         ),
                       ),
                       Text(
-                        'Cierra los números de hoy y prepara la caja para mañana',
+                        'Guarda las ventas de hoy y deja la caja lista para mañana',
                         style: TextStyle(fontSize: 12, color: textMuted),
                       ),
                     ],
@@ -181,7 +155,7 @@ class _ModalCorteDiarioState extends ConsumerState<ModalCorteDiario> {
             ),
             const SizedBox(height: 18),
 
-            // Tarjeta destacada de Dinero Total
+            // Tarjeta destacada de Dinero Total de Hoy
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -203,7 +177,7 @@ class _ModalCorteDiarioState extends ConsumerState<ModalCorteDiario> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'TOTAL DINERO DISPONIBLE HOY',
+                    'TOTAL DINERO COBRADO HOY',
                     style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                   ),
                   const SizedBox(height: 4),
@@ -287,85 +261,61 @@ class _ModalCorteDiarioState extends ConsumerState<ModalCorteDiario> {
                     colorValor: AppColors.retailGreen,
                     esOscuro: esOscuro,
                   ),
-                  const SizedBox(height: 6),
-                  _FilaResumen(
-                    icono: Icons.storefront_outlined,
-                    label: 'Gastos Tienda (Luz, bolsas, etc.):',
-                    valor: '- Bs. ${r.totalSalidasTienda.toStringAsFixed(2)}',
-                    colorValor: const Color(0xFFE11D48),
-                    esOscuro: esOscuro,
-                  ),
-                  const SizedBox(height: 6),
-                  _FilaResumen(
-                    icono: Icons.person_outline,
-                    label: 'Retiros Personales (Plata para ti):',
-                    valor: '- Bs. ${r.totalSalidasPersonal.toStringAsFixed(2)}',
-                    colorValor: Colors.orange[800],
-                    esOscuro: esOscuro,
+                  if (r.totalSalidasTienda > 0) ...[
+                    const SizedBox(height: 6),
+                    _FilaResumen(
+                      icono: Icons.storefront_outlined,
+                      label: 'Gastos Tienda (Luz, bolsas, etc.):',
+                      valor: '- Bs. ${r.totalSalidasTienda.toStringAsFixed(2)}',
+                      colorValor: const Color(0xFFE11D48),
+                      esOscuro: esOscuro,
+                    ),
+                  ],
+                  if (r.totalSalidasPersonal > 0) ...[
+                    const SizedBox(height: 6),
+                    _FilaResumen(
+                      icono: Icons.person_outline,
+                      label: 'Retiros del Dueño registrados:',
+                      valor: '- Bs. ${r.totalSalidasPersonal.toStringAsFixed(2)}',
+                      colorValor: Colors.orange[800],
+                      esOscuro: esOscuro,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Banner informativo: Continuidad inmediata sin fricción
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: esOscuro ? const Color(0xFF0F2E22) : const Color(0xFFECFDF5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: esOscuro ? const Color(0xFF059669).withValues(alpha: 0.4) : const Color(0xFFA7F3D0),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.flash_on_rounded, size: 20, color: Color(0xFF10B981)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Tu siguiente turno iniciará en Bs. 0.00 automáticamente para que sigas vendiendo sin frenar.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: esOscuro ? const Color(0xFF6EE7B7) : const Color(0xFF047857),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 18),
-
-            // Fondo para la siguiente jornada
-            Text(
-              '¿Cuánto efectivo dejas en la gaveta para mañana?',
-              style: TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.bold,
-                color: textPrimary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Este dinero será el fondo de cambio con el que empezará tu caja mañana.',
-              style: TextStyle(fontSize: 11.5, color: textMuted),
-            ),
-            const SizedBox(height: 10),
-
-            TextField(
-              controller: _fondoMananaController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary),
-              decoration: InputDecoration(
-                prefixText: 'Bs. ',
-                prefixStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary),
-                hintText: '100.00',
-                filled: true,
-                fillColor: esOscuro ? const Color(0xFF0F172A) : Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: cardBorder),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: cardBorder),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF2563EB), width: 2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // Chips de sugerencia rápida
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                _buildChip(50, 'Bs. 50', esOscuro),
-                _buildChip(100, 'Bs. 100', esOscuro),
-                _buildChip(200, 'Bs. 200', esOscuro),
-                _buildChip(r.montoEsperadoEfectivo, 'Dejar Todo (Bs. ${r.montoEsperadoEfectivo.toStringAsFixed(0)})', esOscuro),
-                _buildChip(0, 'Bs. 0', esOscuro),
-              ],
-            ),
             const SizedBox(height: 14),
 
-            // Observaciones opcionales
+            // Observaciones opcionales (por si quiere anotar algo rápido)
             TextField(
               controller: _observacionesController,
               maxLines: 2,
@@ -373,8 +323,6 @@ class _ModalCorteDiarioState extends ConsumerState<ModalCorteDiario> {
               decoration: InputDecoration(
                 labelText: 'Notas del día / Observaciones (opcional)',
                 labelStyle: TextStyle(fontSize: 12, color: textMuted),
-                hintText: 'Ej. Jornada tranquila, se compraron 2 paquetes de hielo...',
-                hintStyle: TextStyle(fontSize: 12, color: textMuted),
                 filled: true,
                 fillColor: esOscuro ? const Color(0xFF0F172A) : Colors.white,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -404,7 +352,7 @@ class _ModalCorteDiarioState extends ConsumerState<ModalCorteDiario> {
 
             const SizedBox(height: 20),
 
-            // Botón Principal Confirmar Corte
+            // Botón Principal de 1 Solo Toque
             SizedBox(
               height: 52,
               child: ElevatedButton.icon(
@@ -423,8 +371,8 @@ class _ModalCorteDiarioState extends ConsumerState<ModalCorteDiario> {
                       )
                     : const Icon(Icons.check_circle_rounded, size: 22),
                 label: Text(
-                  _isProcessing ? 'Guardando corte del día...' : 'Confirmar Corte y Preparar Mañana',
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  _isProcessing ? 'Guardando corte del día...' : '🌙 Guardar Corte del Día e Ir a Descansar',
+                  style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -441,15 +389,6 @@ class _ModalCorteDiarioState extends ConsumerState<ModalCorteDiario> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildChip(double valor, String etiqueta, bool esOscuro) {
-    return ActionChip(
-      label: Text(etiqueta, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
-      backgroundColor: esOscuro ? const Color(0xFF1E293B) : Colors.white,
-      side: BorderSide(color: esOscuro ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
-      onPressed: () => _fijarFondo(valor),
     );
   }
 }

@@ -123,6 +123,15 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
     final subtotal = (_cantidad * _precioActivo * 100).round() / 100.0;
     final bool esValido = _cantidad > 0 && !_superaStockTotal;
 
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final inputBg = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final surfaceMuted = esOscuro ? AppColors.darkSurfaceMuted : AppColors.surfaceMuted;
+
     return Container(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -130,9 +139,9 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
         20,
         MediaQuery.of(context).viewInsets.bottom + 24,
       ),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -146,7 +155,7 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                 height: 5,
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: AppColors.border,
+                  color: cardBorder,
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -177,10 +186,10 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                     children: [
                       Text(
                         widget.producto.nombre,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: textPrimary,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -200,7 +209,7 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, size: 28, color: AppColors.textMuted),
+                  icon: Icon(Icons.close, size: 28, color: textMuted),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -213,9 +222,9 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
               Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: AppColors.background,
+                  color: inputBg,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: cardBorder),
                 ),
                 child: Row(
                   children: [
@@ -239,14 +248,14 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
-                                  color: !_esEmpaque ? Colors.white : AppColors.textPrimary,
+                                  color: !_esEmpaque ? Colors.white : textPrimary,
                                 ),
                               ),
                               Text(
                                 'Bs. ${widget.producto.precioVenta.toStringAsFixed(2)} c/u',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: !_esEmpaque ? Colors.white70 : AppColors.textSecondary,
+                                  color: !_esEmpaque ? Colors.white70 : textSecondary,
                                 ),
                               ),
                             ],
@@ -275,7 +284,7 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
-                                  color: _esEmpaque ? Colors.white : AppColors.textPrimary,
+                                  color: _esEmpaque ? Colors.white : textPrimary,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -285,7 +294,7 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: _esEmpaque ? Colors.white70 : AppColors.textSecondary,
+                                  color: _esEmpaque ? Colors.white70 : textSecondary,
                                 ),
                               ),
                             ],
@@ -302,16 +311,16 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: AppColors.background,
+                color: inputBg,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: cardBorder),
               ),
               child: Row(
                 children: [
                   Icon(
                     _esEmpaque ? Icons.inventory_2_outlined : Icons.shelves,
                     size: 24,
-                    color: _esEmpaque ? AppColors.secondary : AppColors.textSecondary,
+                    color: _esEmpaque ? AppColors.secondary : textSecondary,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -323,7 +332,7 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
-                            color: _stockTotalDisponible <= 0 ? AppColors.danger : AppColors.textPrimary,
+                            color: _stockTotalDisponible <= 0 ? AppColors.danger : textPrimary,
                           ),
                         ),
                         if (_esEmpaque)
@@ -365,14 +374,14 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
-                      color: _cantidad > 1 ? AppColors.surfaceMuted : AppColors.surfaceMuted.withAlpha(50),
+                      color: _cantidad > 1 ? surfaceMuted : surfaceMuted.withAlpha(50),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.border, width: 2),
+                      border: Border.all(color: cardBorder, width: 2),
                     ),
                     child: Icon(
                       Icons.remove,
                       size: 36,
-                      color: _cantidad > 1 ? AppColors.textPrimary : AppColors.textMuted,
+                      color: _cantidad > 1 ? textPrimary : textMuted,
                     ),
                   ),
                 ),
@@ -385,7 +394,7 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                   height: 64,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: AppColors.background,
+                    color: inputBg,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: _superaStockTotal
@@ -401,7 +410,7 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                     style: TextStyle(
                       fontSize: 34,
                       fontWeight: FontWeight.w900,
-                      color: _superaStockTotal ? AppColors.danger : AppColors.textPrimary,
+                      color: _superaStockTotal ? AppColors.danger : textPrimary,
                     ),
                     decoration: const InputDecoration(
                       border: InputBorder.none,
@@ -425,12 +434,12 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                     decoration: BoxDecoration(
                       color: _cantidad < _maxDisponible
                           ? (_esEmpaque ? AppColors.secondary.withAlpha(20) : AppColors.primary.withAlpha(20))
-                          : AppColors.surfaceMuted,
+                          : surfaceMuted,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: _cantidad < _maxDisponible
                             ? (_esEmpaque ? AppColors.secondary : AppColors.primary)
-                            : AppColors.border,
+                            : cardBorder,
                         width: 2,
                       ),
                     ),
@@ -439,7 +448,7 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                       size: 36,
                       color: _cantidad < _maxDisponible
                           ? (_esEmpaque ? AppColors.secondary : AppColors.primary)
-                          : AppColors.textMuted,
+                          : textMuted,
                     ),
                   ),
                 ),
@@ -468,12 +477,12 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                     decoration: BoxDecoration(
                       color: seleccionado
                           ? (_esEmpaque ? AppColors.secondary : AppColors.primary)
-                          : (disponible ? AppColors.surfaceMuted : AppColors.background),
+                          : (disponible ? surfaceMuted : inputBg),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: seleccionado
                             ? (_esEmpaque ? AppColors.secondary : AppColors.primary)
-                            : (disponible ? AppColors.border : AppColors.border.withAlpha(60)),
+                            : (disponible ? cardBorder : cardBorder.withAlpha(60)),
                         width: seleccionado ? 2 : 1,
                       ),
                     ),
@@ -484,7 +493,7 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                         fontWeight: FontWeight.bold,
                         color: seleccionado
                             ? Colors.white
-                            : (disponible ? AppColors.textPrimary : AppColors.textMuted),
+                            : (disponible ? textPrimary : textMuted),
                       ),
                     ),
                   ),
@@ -554,12 +563,12 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'SUBTOTAL:',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textMuted,
+                    color: textMuted,
                   ),
                 ),
                 Text(
@@ -582,7 +591,7 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: esValido
                       ? (_esEmpaque ? AppColors.secondary : AppColors.primary)
-                      : AppColors.surfaceMuted,
+                      : surfaceMuted,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   elevation: esValido ? 4 : 0,
                 ),
@@ -594,7 +603,7 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                     : null,
                 icon: Icon(
                   Icons.add_shopping_cart,
-                  color: esValido ? Colors.white : AppColors.textMuted,
+                  color: esValido ? Colors.white : textMuted,
                   size: 26,
                 ),
                 label: Text(
@@ -606,7 +615,7 @@ class _ModalSeleccionarCantidadState extends State<ModalSeleccionarCantidad> {
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
-                    color: esValido ? Colors.white : AppColors.textMuted,
+                    color: esValido ? Colors.white : textMuted,
                   ),
                 ),
               ),

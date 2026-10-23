@@ -14,7 +14,7 @@ class CierreCajaRepository {
     try {
       final db = await _db.database;
       final res = await db.rawQuery(
-        'SELECT COALESCE(SUM(monto), 0) as total FROM pagos_ventas WHERE tenant_id = ? AND metodo = "EFECTIVO"',
+        "SELECT COALESCE(SUM(monto), 0) as total FROM pagos_ventas WHERE tenant_id = ? AND metodo = 'EFECTIVO'",
         [tenantId],
       );
 

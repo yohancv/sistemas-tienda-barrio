@@ -43,16 +43,19 @@ class _MovimientosInventarioScreenState
     return _cantidadMerma;
   }
 
+  bool get esOscuro => ref.watch(esModoOscuroProvider);
+  Color get bgColor => esOscuro ? AppColors.darkBackground : AppColors.background;
+  Color get surfaceColor => esOscuro ? AppColors.darkSurface : AppColors.surface;
+  Color get cardBorder => esOscuro ? AppColors.darkBorder : AppColors.border;
+  Color get textPrimary => esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+  Color get textSecondary => esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+  Color get textMuted => esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+  Color get surfaceMuted => esOscuro ? AppColors.darkSurfaceMuted : AppColors.surfaceMuted;
+
   @override
   Widget build(BuildContext context) {
     final productosAsync = ref.watch(productosListProvider);
     final operacionState = ref.watch(movimientosNotifierProvider);
-
-    final esOscuro = ref.watch(esModoOscuroProvider);
-    final bgColor = esOscuro ? AppColors.darkBackground : AppColors.background;
-    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
-    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
-    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -115,9 +118,9 @@ class _MovimientosInventarioScreenState
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
+                      color: surfaceColor,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.border),
+                      border: Border.all(color: cardBorder),
                     ),
                     child: Row(
                       children: [
@@ -135,12 +138,12 @@ class _MovimientosInventarioScreenState
                           ),
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             'Registra pérdidas por roturas, productos vencidos o consumo personal. El sistema ajustará el stock e incluirá la pérdida en el Kardex.',
                             style: TextStyle(
                               fontSize: 13,
-                              color: AppColors.textSecondary,
+                              color: textSecondary,
                               height: 1.3,
                             ),
                           ),
@@ -188,10 +191,10 @@ class _MovimientosInventarioScreenState
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: surfaceColor,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: _productoMerma != null ? AppColors.danger.withAlpha(120) : AppColors.border,
+              color: _productoMerma != null ? AppColors.danger.withAlpha(120) : cardBorder,
               width: 1.5,
             ),
           ),
@@ -199,11 +202,11 @@ class _MovimientosInventarioScreenState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (_productoMerma == null)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
                   child: Text(
                     'Ningún producto seleccionado aún.',
-                    style: TextStyle(fontSize: 15, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 15, color: textMuted),
                   ),
                 )
               else
@@ -229,26 +232,26 @@ class _MovimientosInventarioScreenState
                         children: [
                           Text(
                             _productoMerma!.nombre,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
+                              color: textPrimary,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             'Stock actual: ${_productoMerma!.stockLegibleDesglosado}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textSecondary,
+                              color: textSecondary,
                             ),
                           ),
                           Text(
                             'Costo: Bs. ${_productoMerma!.costoMayorista.toStringAsFixed(2)} / unidad',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.textMuted,
+                              color: textMuted,
                             ),
                           ),
                         ],
@@ -310,9 +313,9 @@ class _MovimientosInventarioScreenState
             Container(
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: surfaceColor,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: cardBorder),
               ),
               child: Row(
                 children: [
@@ -337,7 +340,7 @@ class _MovimientosInventarioScreenState
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            color: !_esMermaPorEmpaque ? Colors.white : AppColors.textPrimary,
+                            color: !_esMermaPorEmpaque ? Colors.white : textPrimary,
                           ),
                         ),
                       ),
@@ -364,7 +367,7 @@ class _MovimientosInventarioScreenState
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            color: _esMermaPorEmpaque ? Colors.white : AppColors.textPrimary,
+                            color: _esMermaPorEmpaque ? Colors.white : textPrimary,
                           ),
                         ),
                       ),
@@ -381,10 +384,10 @@ class _MovimientosInventarioScreenState
             _esMermaPorEmpaque
                 ? '2. CANTIDAD DE ${_productoMerma!.nombreEmpaquePlural.toUpperCase()} A DAR DE BAJA:'
                 : '2. CANTIDAD DE UNIDADES A DAR DE BAJA:',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w800,
-              color: AppColors.textMuted,
+              color: textMuted,
               letterSpacing: 0.5,
             ),
           ),
@@ -393,9 +396,9 @@ class _MovimientosInventarioScreenState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: surfaceColor,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.border, width: 1.5),
+              border: Border.all(color: cardBorder, width: 1.5),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -406,7 +409,7 @@ class _MovimientosInventarioScreenState
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       padding: EdgeInsets.zero,
-                      side: const BorderSide(color: AppColors.border, width: 1.5),
+                      side: BorderSide(color: cardBorder, width: 1.5),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -423,10 +426,10 @@ class _MovimientosInventarioScreenState
                     Text(
                       _cantidadMerma.toStringAsFixed(
                           (!_esMermaPorEmpaque && _productoMerma!.esFraccionable) ? 2 : 0),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 30,
                         fontWeight: FontWeight.w900,
-                        color: AppColors.textPrimary,
+                        color: textPrimary,
                       ),
                     ),
                     Text(
@@ -489,15 +492,21 @@ class _MovimientosInventarioScreenState
           // Observación opcional
           TextField(
             controller: _motivoMermaController,
+            style: TextStyle(color: textPrimary),
             decoration: InputDecoration(
               hintText: 'Detalle o nota opcional (ej. se cayó al acomodar la vitrina)',
+              hintStyle: TextStyle(color: textMuted),
               prefixIcon: const Icon(Icons.edit_note, size: 20),
               filled: true,
-              fillColor: AppColors.surface,
+              fillColor: surfaceColor,
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.border),
+                borderSide: BorderSide(color: cardBorder),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: cardBorder),
               ),
             ),
           ),
@@ -516,7 +525,7 @@ class _MovimientosInventarioScreenState
               style: ElevatedButton.styleFrom(
                 backgroundColor: _productoMerma!.stockActual >= _unidadesRealesMerma
                     ? AppColors.danger
-                    : AppColors.surfaceMuted,
+                    : surfaceMuted,
                 elevation: 2,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -552,22 +561,27 @@ class _MovimientosInventarioScreenState
 
   Widget _buildChipMotivo(String label, String valor) {
     final seleccionado = _tipoMerma == valor;
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final chipBg = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final chipBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrim = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
     return ChoiceChip(
       label: Text(
         label,
         style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.bold,
-          color: seleccionado ? Colors.white : AppColors.textPrimary,
+          color: seleccionado ? Colors.white : textPrim,
         ),
       ),
       selected: seleccionado,
       selectedColor: AppColors.danger,
-      backgroundColor: AppColors.surface,
+      backgroundColor: chipBg,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
         side: BorderSide(
-          color: seleccionado ? AppColors.danger : AppColors.border,
+          color: seleccionado ? AppColors.danger : chipBorder,
           width: 1.2,
         ),
       ),
@@ -676,12 +690,19 @@ class _MovimientosInventarioScreenState
               return n.contains(query) || c.contains(query) || b.contains(query);
             }).toList();
 
+            final esModalOscuro = Theme.of(context).brightness == Brightness.dark;
+            final modalSurface = esModalOscuro ? AppColors.darkSurface : AppColors.surface;
+            final modalBg = esModalOscuro ? AppColors.darkBackground : AppColors.background;
+            final modalBorder = esModalOscuro ? AppColors.darkBorder : AppColors.border;
+            final modalText = esModalOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+            final modalMuted = esModalOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+
             return Container(
               height: MediaQuery.of(context).size.height * 0.8,
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              decoration: const BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              decoration: BoxDecoration(
+                color: modalSurface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -689,12 +710,12 @@ class _MovimientosInventarioScreenState
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Selecciona el Producto',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: modalText),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close),
+                        icon: Icon(Icons.close, color: modalMuted),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
@@ -703,15 +724,21 @@ class _MovimientosInventarioScreenState
                   // Buscador rápido
                   TextField(
                     autofocus: true,
+                    style: TextStyle(color: modalText),
                     decoration: InputDecoration(
                       hintText: 'Buscar por nombre, categoría o código...',
-                      prefixIcon: const Icon(Icons.search, size: 20),
+                      hintStyle: TextStyle(color: modalMuted),
+                      prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.primary),
                       filled: true,
-                      fillColor: AppColors.background,
+                      fillColor: modalBg,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
+                        borderSide: BorderSide(color: modalBorder),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: modalBorder),
                       ),
                     ),
                     onChanged: (val) {
@@ -721,15 +748,15 @@ class _MovimientosInventarioScreenState
                   const SizedBox(height: 10),
                   Expanded(
                     child: filtrados.isEmpty
-                        ? const Center(
+                        ? Center(
                             child: Text(
                               'No se encontraron productos',
-                              style: TextStyle(color: AppColors.textMuted),
+                              style: TextStyle(color: modalMuted),
                             ),
                           )
                         : ListView.separated(
                             itemCount: filtrados.length,
-                            separatorBuilder: (_, index) => const Divider(height: 1),
+                            separatorBuilder: (_, index) => Divider(height: 1, color: modalBorder),
                             itemBuilder: (context, index) {
                               final p = filtrados[index];
                               return ListTile(
@@ -743,11 +770,11 @@ class _MovimientosInventarioScreenState
                                 ),
                                 title: Text(
                                   p.nombre,
-                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: modalText),
                                 ),
                                 subtitle: Text(
                                   'Stock: ${p.stockLegibleDesglosado}  •  Costo: Bs. ${p.costoMayorista.toStringAsFixed(2)}',
-                                  style: const TextStyle(fontSize: 12),
+                                  style: TextStyle(fontSize: 12, color: modalMuted),
                                 ),
                                 onTap: () {
                                   setState(() {
@@ -783,12 +810,18 @@ class _MovimientosInventarioScreenState
         return Consumer(
           builder: (context, ref, _) {
             final historialAsync = ref.watch(historialMovimientosProvider);
+            final esModalOscuro = Theme.of(context).brightness == Brightness.dark;
+            final modalSurface = esModalOscuro ? AppColors.darkSurface : AppColors.surface;
+            final modalText = esModalOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+            final modalMuted = esModalOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+            final modalBorder = esModalOscuro ? AppColors.darkBorder : AppColors.border;
+
             return Container(
               height: MediaQuery.of(context).size.height * 0.75,
               padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              decoration: BoxDecoration(
+                color: modalSurface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -796,12 +829,12 @@ class _MovimientosInventarioScreenState
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         '📜 Historial de Auditoría',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: modalText),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close),
+                        icon: Icon(Icons.close, color: modalMuted),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
@@ -810,20 +843,20 @@ class _MovimientosInventarioScreenState
                   Expanded(
                     child: historialAsync.when(
                       loading: () => const Center(child: CircularProgressIndicator()),
-                      error: (e, _) => Center(child: Text('Error: $e')),
+                      error: (e, _) => Center(child: Text('Error: $e', style: TextStyle(color: modalText))),
                       data: (movimientos) {
                         if (movimientos.isEmpty) {
-                          return const Center(
+                          return Center(
                             child: Text(
                               'Aún no hay movimientos registrados.',
-                              style: TextStyle(fontSize: 15, color: AppColors.textMuted),
+                              style: TextStyle(fontSize: 15, color: modalMuted),
                             ),
                           );
                         }
 
                         return ListView.separated(
                           itemCount: movimientos.length,
-                          separatorBuilder: (_, index) => const Divider(height: 1),
+                          separatorBuilder: (_, index) => Divider(height: 1, color: modalBorder),
                           itemBuilder: (context, index) {
                             final m = movimientos[index];
                             final esMerma = m.esMerma;
@@ -841,11 +874,11 @@ class _MovimientosInventarioScreenState
                               ),
                               title: Text(
                                 m.etiquetaTipo,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: modalText),
                               ),
                               subtitle: Text(
                                 '${m.createdAt.day}/${m.createdAt.month} ${m.createdAt.hour}:${m.createdAt.minute.toString().padLeft(2, '0')} • ${m.motivo ?? 'Sin observación'}',
-                                style: const TextStyle(fontSize: 12),
+                                style: TextStyle(fontSize: 12, color: modalMuted),
                               ),
                               trailing: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -862,10 +895,10 @@ class _MovimientosInventarioScreenState
                                   if (m.costoTotal > 0)
                                     Text(
                                       'Bs. ${m.costoTotal.toStringAsFixed(2)}',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
-                                        color: AppColors.textMuted,
+                                        color: modalMuted,
                                       ),
                                     ),
                                 ],

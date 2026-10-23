@@ -27,14 +27,21 @@ class ModalDetalleCompra extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repo = ref.watch(comprasRepositoryProvider);
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBg = esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
 
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.85,
       ),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       child: Column(
@@ -66,13 +73,14 @@ class ModalDetalleCompra extends ConsumerWidget {
                         compra.nombreProveedor ?? 'Compra a Proveedor',
                         style: AppTypography.headlineSmall.copyWith(
                           fontWeight: FontWeight.bold,
+                          color: textPrimary,
                         ),
                       ),
                       Text(
                         _formatearFecha(compra.fechaCompra),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
-                          color: AppColors.textSecondary,
+                          color: textSecondary,
                         ),
                       ),
                     ],
@@ -80,7 +88,7 @@ class ModalDetalleCompra extends ConsumerWidget {
                 ],
               ),
               IconButton(
-                icon: const Icon(Icons.close),
+                icon: Icon(Icons.close, color: textMuted),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
@@ -91,18 +99,18 @@ class ModalDetalleCompra extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.surfaceMuted,
+              color: cardBg,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: cardBorder),
             ),
             child: Column(
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Total de la Compra:',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textPrimary),
                     ),
                     Text(
                       'Bs. ${compra.totalCompra.toStringAsFixed(2)}',
@@ -114,21 +122,21 @@ class ModalDetalleCompra extends ConsumerWidget {
                     ),
                   ],
                 ),
-                const Divider(height: 14),
+                Divider(height: 14, color: cardBorder),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       compra.etiquetaMetodoPago,
-                      style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                      style: TextStyle(fontSize: 13, color: textSecondary),
                     ),
                     if (compra.numeroComprobante != null)
                       Text(
                         'Comprobante: #${compra.numeroComprobante}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: textPrimary,
                         ),
                       ),
                   ],
@@ -165,7 +173,7 @@ class ModalDetalleCompra extends ConsumerWidget {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       'Nota: ${compra.observaciones}',
-                      style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                      style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: textSecondary),
                     ),
                   ),
                 ],
@@ -174,12 +182,12 @@ class ModalDetalleCompra extends ConsumerWidget {
           ),
           const SizedBox(height: 14),
 
-          const Text(
+          Text(
             'Mercadería Recibida:',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: AppColors.textSecondary,
+              color: textSecondary,
             ),
           ),
           const SizedBox(height: 8),
@@ -195,20 +203,20 @@ class ModalDetalleCompra extends ConsumerWidget {
 
                 if (snapshot.hasError) {
                   return Center(
-                    child: Text('Error al cargar detalle: ${snapshot.error}'),
+                    child: Text('Error al cargar detalle: ${snapshot.error}', style: TextStyle(color: textPrimary)),
                   );
                 }
 
                 final items = snapshot.data ?? [];
                 if (items.isEmpty) {
-                  return const Center(
-                    child: Text('No hay ítems registrados en esta compra.'),
+                  return Center(
+                    child: Text('No hay ítems registrados en esta compra.', style: TextStyle(color: textMuted)),
                   );
                 }
 
                 return ListView.separated(
                   itemCount: items.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  separatorBuilder: (context, index) => Divider(height: 1, color: cardBorder),
                   itemBuilder: (context, index) {
                     final item = items[index];
                     return Padding(
@@ -221,9 +229,10 @@ class ModalDetalleCompra extends ConsumerWidget {
                               children: [
                                 Text(
                                   item.nombreProducto,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.bold,
+                                    color: textPrimary,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
@@ -231,9 +240,9 @@ class ModalDetalleCompra extends ConsumerWidget {
                                   item.tieneEmpaqueMayorista
                                       ? '${item.cantidadEmpaques.toStringAsFixed(item.cantidadEmpaques % 1 == 0 ? 0 : 1)} ${item.nombreEmpaquePlural} (${item.cantidad.toInt()} uds)  x  Bs. ${item.costoPorEmpaque.toStringAsFixed(2)}'
                                       : '${item.cantidad.toStringAsFixed(0)} uds  x  Bs. ${item.costoUnitario.toStringAsFixed(2)}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 13,
-                                    color: AppColors.textSecondary,
+                                    color: textSecondary,
                                   ),
                                 ),
                                 if (item.nuevoPrecioVenta != null) ...[
@@ -252,10 +261,10 @@ class ModalDetalleCompra extends ConsumerWidget {
                           ),
                           Text(
                             'Bs. ${item.subtotal.toStringAsFixed(2)}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
-                              color: AppColors.textPrimary,
+                              color: textPrimary,
                             ),
                           ),
                         ],

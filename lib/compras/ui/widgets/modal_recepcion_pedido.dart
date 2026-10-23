@@ -364,11 +364,18 @@ class _ModalRecepcionPedidoState extends ConsumerState<ModalRecepcionPedido> {
         ref.watch(resumenCajaTurnoProvider).valueOrNull?.montoEsperadoEfectivo ?? 0.0;
     final provNombre = widget.pedido.nombreProveedor ?? 'Proveedor';
 
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final bgColor = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.9,
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         children: [
@@ -475,10 +482,10 @@ class _ModalRecepcionPedidoState extends ConsumerState<ModalRecepcionPedido> {
                               margin: const EdgeInsets.only(bottom: 8),
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: AppColors.background,
+                                color: bgColor,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: vinoIncompleto ? AppColors.warning.withAlpha(120) : AppColors.border,
+                                  color: vinoIncompleto ? AppColors.warning.withAlpha(120) : cardBorder,
                                   width: vinoIncompleto ? 1.5 : 1.0,
                                 ),
                               ),
@@ -491,7 +498,7 @@ class _ModalRecepcionPedidoState extends ConsumerState<ModalRecepcionPedido> {
                                       children: [
                                         Text(
                                           item.nombreProducto,
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textPrimary),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                         ),
@@ -508,7 +515,7 @@ class _ModalRecepcionPedidoState extends ConsumerState<ModalRecepcionPedido> {
                                                   tieneEmpaque
                                                       ? '${item.nombreEmpaqueLegible} x${item.unidadesPorEmpaque.toInt()}u • Bs. ${item.costoUnitario.toStringAsFixed(2)}/u'
                                                       : 'Costo: Bs. ${item.costoUnitario.toStringAsFixed(2)}/u',
-                                                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                                  style: TextStyle(fontSize: 11, color: textMuted),
                                                 ),
                                                 const SizedBox(width: 4),
                                                 const Icon(Icons.edit, size: 12, color: AppColors.primary),
@@ -709,12 +716,20 @@ class _ModalRecepcionPedidoState extends ConsumerState<ModalRecepcionPedido> {
                           // Comprobante / Nota de Entrega
                           TextField(
                             controller: _comprobanteController,
+                            style: TextStyle(color: textPrimary),
                             decoration: InputDecoration(
                               labelText: 'Nº Factura / Nota de Entrega (Opcional)',
                               prefixIcon: const Icon(Icons.receipt_outlined, size: 20),
                               filled: true,
-                              fillColor: AppColors.background,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              fillColor: bgColor,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: cardBorder),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: cardBorder),
+                              ),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                             ),
                           ),

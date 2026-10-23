@@ -42,7 +42,7 @@ class CategoriasRepository {
     final db = await _db.database;
     final rows = await db.query(
       'categorias',
-      where: 'tenant_id = ? AND (parent_id IS NULL OR parent_id = "")',
+      where: "tenant_id = ? AND (parent_id IS NULL OR parent_id = '')",
       whereArgs: [tenantId],
       orderBy: 'orden ASC, nombre ASC',
     );

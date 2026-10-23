@@ -123,7 +123,7 @@ class DashboardReportesScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              data: (data) => _buildDashboardContenido(context, data),
+              data: (data) => _buildDashboardContenido(context, ref, data),
             ),
           ],
         ),
@@ -255,8 +255,15 @@ class DashboardReportesScreen extends ConsumerWidget {
   // ==========================================================================
   // 2. CONTENIDO PRINCIPAL DEL DASHBOARD
   // ==========================================================================
-  Widget _buildDashboardContenido(BuildContext context, DashboardReporteCompleto data) {
+  Widget _buildDashboardContenido(BuildContext context, WidgetRef ref, DashboardReporteCompleto data) {
     final f = data.financiero;
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+    final surfaceMuted = esOscuro ? AppColors.darkSurfaceMuted : AppColors.surfaceMuted;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -271,33 +278,33 @@ class DashboardReportesScreen extends ConsumerWidget {
 
         // TARJETA DE FIADOS (Dinero en la calle) SI HUBO FIADOS
         if (f.ventasFiadas > 0) ...[
-          _buildTarjetaFiadosEnLaCalle(f),
+          _buildTarjetaFiadosEnLaCalle(f, esOscuro),
           const SizedBox(height: 14),
         ],
 
         // TARJETA DE ABONOS RECIBIDOS SI HUBO COBROS DE FIADOS
         if (f.totalAbonosCobrados > 0) ...[
-          _buildTarjetaAbonosRecibidos(f),
+          _buildTarjetaAbonosRecibidos(f, esOscuro),
           const SizedBox(height: 14),
         ],
 
         // TARJETA DE GASTOS OPERATIVOS SI SE REGISTRARON EN CAJA
         if (f.totalGastosTienda > 0) ...[
-          _buildTarjetaGastosTienda(f),
+          _buildTarjetaGastosTienda(f, esOscuro),
           const SizedBox(height: 14),
         ],
 
         // MEDIOS DE PAGO (EFECTIVO, QR, FIADO)
-        _buildMediosPagoGrid(f),
+        _buildMediosPagoGrid(f, surfaceColor, cardBorder, textPrimary, textMuted),
         const SizedBox(height: 20),
 
         // TOP 5 PRODUCTOS MÁS VENDIDOS
-        _buildTopProductosSection(data.topProductos),
+        _buildTopProductosSection(data.topProductos, surfaceColor, cardBorder, textPrimary, textSecondary, textMuted, surfaceMuted),
         const SizedBox(height: 20),
 
         // VENTAS POR CATEGORÍA
         if (data.ventasPorCategoria.isNotEmpty) ...[
-          _buildCategoriasSection(data.ventasPorCategoria),
+          _buildCategoriasSection(data.ventasPorCategoria, surfaceColor, cardBorder, textPrimary, textSecondary, surfaceMuted),
           const SizedBox(height: 20),
         ],
 
@@ -562,36 +569,43 @@ class DashboardReportesScreen extends ConsumerWidget {
   // ==========================================================================
   // TARJETA DE GASTOS OPERATIVOS DE TIENDA
   // ==========================================================================
-  Widget _buildTarjetaGastosTienda(ReporteFinancieroModel f) {
+  Widget _buildTarjetaGastosTienda(ReporteFinancieroModel f, bool esOscuro) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF2F2),
+        color: esOscuro ? const Color(0xFF450A0A) : const Color(0xFFFEF2F2),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFFECACA)),
+        border: Border.all(color: esOscuro ? const Color(0xFF7F1D1D) : const Color(0xFFFECACA)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFFEF4444).withAlpha(25),
+              color: const Color(0xFFEF4444).withAlpha(35),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.receipt_long_rounded, color: Color(0xFFDC2626), size: 20),
+            child: const Icon(Icons.receipt_long_rounded, color: Color(0xFFF87171), size: 20),
           ),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Gastos de Tienda / Operativos',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF991B1B)),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: esOscuro ? const Color(0xFFFECACA) : const Color(0xFF991B1B),
+                  ),
                 ),
                 Text(
                   'Salidas de caja por luz, bolsas, ayudante, limpieza u otros.',
-                  style: TextStyle(fontSize: 11, color: Color(0xFFB91C1C)),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: esOscuro ? const Color(0xFFFCA5A5) : const Color(0xFFB91C1C),
+                  ),
                 ),
               ],
             ),
@@ -601,7 +615,7 @@ class DashboardReportesScreen extends ConsumerWidget {
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Color(0xFFDC2626),
+              color: Color(0xFFF87171),
             ),
           ),
         ],
@@ -612,13 +626,13 @@ class DashboardReportesScreen extends ConsumerWidget {
   // ==========================================================================
   // TARJETA DE FIADOS DEL PERÍODO (MERCADERÍA EN LA CALLE)
   // ==========================================================================
-  Widget _buildTarjetaFiadosEnLaCalle(ReporteFinancieroModel f) {
+  Widget _buildTarjetaFiadosEnLaCalle(ReporteFinancieroModel f, bool esOscuro) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB),
+        color: esOscuro ? const Color(0xFF451A03) : const Color(0xFFFFFBEB),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFDE68A)),
+        border: Border.all(color: esOscuro ? const Color(0xFF78350F) : const Color(0xFFFDE68A)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -628,13 +642,13 @@ class DashboardReportesScreen extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF59E0B).withAlpha(30),
+                  color: const Color(0xFFF59E0B).withAlpha(40),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.handshake_rounded, color: Color(0xFFD97706), size: 20),
+                child: const Icon(Icons.handshake_rounded, color: Color(0xFFFBBF24), size: 20),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -643,12 +657,15 @@ class DashboardReportesScreen extends ConsumerWidget {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF92400E),
+                        color: esOscuro ? const Color(0xFFFEF3C7) : const Color(0xFF92400E),
                       ),
                     ),
                     Text(
                       'No se cuentan como ganancia en mano hasta que los clientes abonen.',
-                      style: TextStyle(fontSize: 11, color: Color(0xFFB45309)),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: esOscuro ? const Color(0xFFFDE68A) : const Color(0xFFB45309),
+                      ),
                     ),
                   ],
                 ),
@@ -662,11 +679,11 @@ class DashboardReportesScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Valor Fiado', style: TextStyle(fontSize: 11, color: Color(0xFF78350F))),
+                    Text('Valor Fiado', style: TextStyle(fontSize: 11, color: esOscuro ? const Color(0xFFFDE68A) : const Color(0xFF78350F))),
                     const SizedBox(height: 2),
                     Text(
                       'Bs. ${f.ventasFiadas.toStringAsFixed(2)}',
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF92400E)),
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: esOscuro ? Colors.white : const Color(0xFF92400E)),
                     ),
                   ],
                 ),
@@ -675,11 +692,11 @@ class DashboardReportesScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Costo Invertido', style: TextStyle(fontSize: 11, color: Color(0xFF78350F))),
+                    Text('Costo Invertido', style: TextStyle(fontSize: 11, color: esOscuro ? const Color(0xFFFDE68A) : const Color(0xFF78350F))),
                     const SizedBox(height: 2),
                     Text(
                       'Bs. ${f.costoMercaderiaFiada.toStringAsFixed(2)}',
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF92400E)),
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: esOscuro ? Colors.white : const Color(0xFF92400E)),
                     ),
                   ],
                 ),
@@ -688,11 +705,11 @@ class DashboardReportesScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Ganancia al cobrar', style: TextStyle(fontSize: 11, color: Color(0xFF78350F))),
+                    Text('Ganancia al cobrar', style: TextStyle(fontSize: 11, color: esOscuro ? const Color(0xFFFDE68A) : const Color(0xFF78350F))),
                     const SizedBox(height: 2),
                     Text(
                       'Bs. ${f.gananciaPendienteFiados.toStringAsFixed(2)}',
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: esOscuro ? const Color(0xFF34D399) : const Color(0xFF059669)),
                     ),
                   ],
                 ),
@@ -707,46 +724,46 @@ class DashboardReportesScreen extends ConsumerWidget {
   // ==========================================================================
   // TARJETA DE ABONOS RECIBIDOS (COBRO DE DEUDAS VIEJAS)
   // ==========================================================================
-  Widget _buildTarjetaAbonosRecibidos(ReporteFinancieroModel f) {
+  Widget _buildTarjetaAbonosRecibidos(ReporteFinancieroModel f, bool esOscuro) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFECFDF5),
+        color: esOscuro ? const Color(0xFF064E3B) : const Color(0xFFECFDF5),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFA7F3D0)),
+        border: Border.all(color: esOscuro ? const Color(0xFF065F46) : const Color(0xFFA7F3D0)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF10B981).withAlpha(25),
+              color: const Color(0xFF10B981).withAlpha(35),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.price_check_rounded, color: Color(0xFF059669), size: 20),
+            child: const Icon(Icons.price_check_rounded, color: Color(0xFF34D399), size: 20),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Cobro de Fiados Anteriores (Abonos)',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: esOscuro ? const Color(0xFFD1FAE5) : const Color(0xFF065F46)),
                 ),
                 Text(
                   'Efectivo: Bs. ${f.totalEfectivoAbonos.toStringAsFixed(2)} | QR: Bs. ${f.totalQrAbonos.toStringAsFixed(2)}',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF047857)),
+                  style: TextStyle(fontSize: 11, color: esOscuro ? const Color(0xFFA7F3D0) : const Color(0xFF047857)),
                 ),
               ],
             ),
           ),
           Text(
             '+Bs. ${f.totalAbonosCobrados.toStringAsFixed(2)}',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF047857),
+              color: esOscuro ? const Color(0xFF34D399) : const Color(0xFF047857),
             ),
           ),
         ],
@@ -757,17 +774,23 @@ class DashboardReportesScreen extends ConsumerWidget {
   // ==========================================================================
   // DISTRIBUCIÓN DE MEDIOS DE PAGO
   // ==========================================================================
-  Widget _buildMediosPagoGrid(ReporteFinancieroModel f) {
+  Widget _buildMediosPagoGrid(
+    ReporteFinancieroModel f,
+    Color surfaceColor,
+    Color cardBorder,
+    Color textPrimary,
+    Color textMuted,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
-            Icon(Icons.account_balance_wallet_outlined, size: 20, color: AppColors.primary),
-            SizedBox(width: 8),
+            const Icon(Icons.account_balance_wallet_outlined, size: 20, color: AppColors.primary),
+            const SizedBox(width: 8),
             Text(
               'Dinero Físico, Digital y Fiados',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textPrimary),
             ),
           ],
         ),
@@ -785,6 +808,10 @@ class DashboardReportesScreen extends ConsumerWidget {
                     ? '+Bs.${f.totalEfectivoAbonos.toStringAsFixed(0)} abonos'
                     : null,
                 color: const Color(0xFF10B981),
+                surfaceColor: surfaceColor,
+                cardBorder: cardBorder,
+                textPrimary: textPrimary,
+                textMuted: textMuted,
               ),
             ),
             const SizedBox(width: 10),
@@ -799,6 +826,10 @@ class DashboardReportesScreen extends ConsumerWidget {
                     ? '+Bs.${f.totalQrAbonos.toStringAsFixed(0)} abonos'
                     : null,
                 color: const Color(0xFF06B6D4),
+                surfaceColor: surfaceColor,
+                cardBorder: cardBorder,
+                textPrimary: textPrimary,
+                textMuted: textMuted,
               ),
             ),
             const SizedBox(width: 10),
@@ -813,6 +844,10 @@ class DashboardReportesScreen extends ConsumerWidget {
                     ? '+Bs.${f.gananciaPendienteFiados.toStringAsFixed(0)} gan.'
                     : null,
                 color: const Color(0xFFF59E0B),
+                surfaceColor: surfaceColor,
+                cardBorder: cardBorder,
+                textPrimary: textPrimary,
+                textMuted: textMuted,
               ),
             ),
           ],
@@ -828,13 +863,17 @@ class DashboardReportesScreen extends ConsumerWidget {
     required String subtitulo,
     String? detalleExtra,
     required Color color,
+    required Color surfaceColor,
+    required Color cardBorder,
+    required Color textPrimary,
+    required Color textMuted,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: surfaceColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -853,7 +892,7 @@ class DashboardReportesScreen extends ConsumerWidget {
               Expanded(
                 child: Text(
                   titulo,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textPrimary),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -865,13 +904,13 @@ class DashboardReportesScreen extends ConsumerWidget {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w900,
-              color: monto > 0 ? color : AppColors.textMuted,
+              color: monto > 0 ? color : textMuted,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             subtitulo,
-            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+            style: TextStyle(fontSize: 11, color: textMuted),
           ),
           if (detalleExtra != null) ...[
             const SizedBox(height: 4),
@@ -888,46 +927,54 @@ class DashboardReportesScreen extends ConsumerWidget {
   // ==========================================================================
   // TOP 5 PRODUCTOS MÁS VENDIDOS
   // ==========================================================================
-  Widget _buildTopProductosSection(List<TopProductoReporteModel> productos) {
+  Widget _buildTopProductosSection(
+    List<TopProductoReporteModel> productos,
+    Color surfaceColor,
+    Color cardBorder,
+    Color textPrimary,
+    Color textSecondary,
+    Color textMuted,
+    Color surfaceMuted,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: surfaceColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 children: [
-                  Icon(Icons.local_fire_department_rounded, color: Colors.orange, size: 22),
-                  SizedBox(width: 8),
+                  const Icon(Icons.local_fire_department_rounded, color: Colors.orange, size: 22),
+                  const SizedBox(width: 8),
                   Text(
                     'Top 5 Productos Estrella',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
                   ),
                 ],
               ),
-              Text('Por venta', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+              Text('Por venta', style: TextStyle(fontSize: 12, color: textMuted)),
             ],
           ),
           const SizedBox(height: 12),
 
           if (productos.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
               child: Center(
                 child: Column(
                   children: [
-                    Icon(Icons.inventory_2_outlined, size: 36, color: AppColors.textMuted),
-                    SizedBox(height: 8),
+                    Icon(Icons.inventory_2_outlined, size: 36, color: textMuted),
+                    const SizedBox(height: 8),
                     Text(
                       'No hay ventas en este período para generar el ranking.',
-                      style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                      style: TextStyle(color: textMuted, fontSize: 13),
                     ),
                   ],
                 ),
@@ -938,7 +985,7 @@ class DashboardReportesScreen extends ConsumerWidget {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: productos.length,
-              separatorBuilder: (context, index) => const Divider(height: 12),
+              separatorBuilder: (context, index) => Divider(height: 12, color: cardBorder),
               itemBuilder: (context, index) {
                 final p = productos[index];
                 final medalla = index == 0
@@ -959,7 +1006,7 @@ class DashboardReportesScreen extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: index < 3 ? 18 : 13,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textSecondary,
+                          color: textSecondary,
                         ),
                       ),
                     ),
@@ -970,7 +1017,7 @@ class DashboardReportesScreen extends ConsumerWidget {
                       width: 38,
                       height: 38,
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceMuted,
+                        color: surfaceMuted,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       alignment: Alignment.center,
@@ -985,10 +1032,10 @@ class DashboardReportesScreen extends ConsumerWidget {
                         children: [
                           Text(
                             p.nombre,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
+                              color: textPrimary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -996,7 +1043,7 @@ class DashboardReportesScreen extends ConsumerWidget {
                           const SizedBox(height: 2),
                           Text(
                             '${p.cantidadVendida.toStringAsFixed(p.cantidadVendida % 1 == 0 ? 0 : 2)} unidades vendidas',
-                            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                            style: TextStyle(fontSize: 11, color: textMuted),
                           ),
                         ],
                       ),
@@ -1008,7 +1055,7 @@ class DashboardReportesScreen extends ConsumerWidget {
                       children: [
                         Text(
                           'Bs. ${p.totalVenta.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textPrimary),
                         ),
                         Text(
                           '+Bs. ${p.gananciaAportada.toStringAsFixed(2)} ganancia',
@@ -1032,24 +1079,31 @@ class DashboardReportesScreen extends ConsumerWidget {
   // ==========================================================================
   // VENTAS POR CATEGORÍA
   // ==========================================================================
-  Widget _buildCategoriasSection(List<CategoriaVentaReporteModel> categorias) {
+  Widget _buildCategoriasSection(
+    List<CategoriaVentaReporteModel> categorias,
+    Color surfaceColor,
+    Color cardBorder,
+    Color textPrimary,
+    Color textSecondary,
+    Color surfaceMuted,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: surfaceColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.pie_chart_outline_rounded, color: AppColors.primary, size: 20),
-              SizedBox(width: 8),
+              const Icon(Icons.pie_chart_outline_rounded, color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
               Text(
                 'Rubros más vendidos',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textPrimary),
               ),
             ],
           ),
@@ -1070,13 +1124,13 @@ class DashboardReportesScreen extends ConsumerWidget {
                           const SizedBox(width: 6),
                           Text(
                             cat.categoria,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary),
                           ),
                         ],
                       ),
                       Text(
                         'Bs. ${cat.totalVenta.toStringAsFixed(2)} (${cat.porcentajeDelTotal.toStringAsFixed(1)}%)',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textSecondary),
                       ),
                     ],
                   ),
@@ -1085,7 +1139,7 @@ class DashboardReportesScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
                       value: (cat.porcentajeDelTotal / 100.0).clamp(0.0, 1.0),
-                      backgroundColor: AppColors.surfaceMuted,
+                      backgroundColor: surfaceMuted,
                       color: AppColors.primary,
                       minHeight: 6,
                     ),

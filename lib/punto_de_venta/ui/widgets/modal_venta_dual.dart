@@ -41,6 +41,12 @@ class _ModalVentaDualState extends State<ModalVentaDual> {
 
   @override
   Widget build(BuildContext context) {
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+
     final p = widget.producto;
     final nombreSuelto = p.nombreUnidadSuelta;
     final nombreSueltoPlural = '${nombreSuelto}s';
@@ -50,9 +56,9 @@ class _ModalVentaDualState extends State<ModalVentaDual> {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -65,7 +71,7 @@ class _ModalVentaDualState extends State<ModalVentaDual> {
               height: 5,
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: AppColors.border,
+                color: cardBorder,
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
@@ -87,10 +93,10 @@ class _ModalVentaDualState extends State<ModalVentaDual> {
               Expanded(
                 child: Text(
                   p.nombre,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
+                    color: textPrimary,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -101,12 +107,12 @@ class _ModalVentaDualState extends State<ModalVentaDual> {
 
           const SizedBox(height: 14),
 
-          const Text(
+          Text(
             '¿Qué lleva el cliente?',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: AppColors.textSecondary,
+              color: textSecondary,
             ),
           ),
 
@@ -140,17 +146,17 @@ class _ModalVentaDualState extends State<ModalVentaDual> {
                       children: [
                         Text(
                           'Entero ($udsEnEmpaque $nombreSueltoPlural)',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
+                            color: textPrimary,
                           ),
                         ),
                         Text(
                           'Precio: Bs. ${p.precioVenta.toStringAsFixed(2)}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
-                            color: AppColors.textSecondary,
+                            color: textSecondary,
                           ),
                         ),
                       ],
@@ -177,7 +183,7 @@ class _ModalVentaDualState extends State<ModalVentaDual> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppColors.secondary, width: 2),
-              color: AppColors.secondary.withAlpha(10),
+              color: esOscuro ? AppColors.secondary.withAlpha(25) : AppColors.secondary.withAlpha(10),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,10 +194,10 @@ class _ModalVentaDualState extends State<ModalVentaDual> {
                     const SizedBox(width: 10),
                     Text(
                       '$nombreSueltoPlural suelto(s)',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                        color: textPrimary,
                       ),
                     ),
                   ],
@@ -199,9 +205,9 @@ class _ModalVentaDualState extends State<ModalVentaDual> {
                 const SizedBox(height: 4),
                 Text(
                   'Bs. ${p.precioVentaSuelta.toStringAsFixed(2)} cada $nombreSuelto',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
-                    color: AppColors.textSecondary,
+                    color: textSecondary,
                   ),
                 ),
 
@@ -218,8 +224,8 @@ class _ModalVentaDualState extends State<ModalVentaDual> {
                       child: OutlinedButton(
                         style: OutlinedButton.styleFrom(
                           padding: EdgeInsets.zero,
-                          side: const BorderSide(
-                            color: AppColors.borderStrong,
+                          side: BorderSide(
+                            color: cardBorder,
                             width: 2,
                           ),
                           shape: RoundedRectangleBorder(
@@ -229,7 +235,7 @@ class _ModalVentaDualState extends State<ModalVentaDual> {
                         onPressed: _cantidadSuelta > 1
                             ? () => setState(() => _cantidadSuelta--)
                             : null,
-                        child: const Icon(Icons.remove, size: 30, color: AppColors.textPrimary),
+                        child: Icon(Icons.remove, size: 30, color: textPrimary),
                       ),
                     ),
 
@@ -240,10 +246,10 @@ class _ModalVentaDualState extends State<ModalVentaDual> {
                       child: Text(
                         _cantidadSuelta.toInt().toString(),
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.w900,
-                          color: AppColors.textPrimary,
+                          color: textPrimary,
                         ),
                       ),
                     ),

@@ -121,21 +121,23 @@ class _FormularioProductoScreenState
     }
 
     _stockActualController = TextEditingController(
-      text: stockSueltoInicial.truncateToDouble() == stockSueltoInicial
-          ? stockSueltoInicial.toInt().toString()
-          : stockSueltoInicial.toStringAsFixed(2),
+      text: p != null
+          ? (stockSueltoInicial.truncateToDouble() == stockSueltoInicial
+              ? stockSueltoInicial.toInt().toString()
+              : stockSueltoInicial.toStringAsFixed(2))
+          : '',
     );
     _stockMinimoController = TextEditingController(
       text: p != null
           ? (p.stockMinimo.truncateToDouble() == p.stockMinimo
               ? p.stockMinimo.toInt().toString()
               : p.stockMinimo.toStringAsFixed(2))
-          : '5',
+          : '',
     );
 
     // Paquete / Caja
     _unidadesPorEmpaqueController = TextEditingController(
-      text: p != null && p.unidadesPorEmpaque > 0 ? p.unidadesPorEmpaque.toInt().toString() : '24',
+      text: p != null && p.unidadesPorEmpaque > 0 ? p.unidadesPorEmpaque.toInt().toString() : '',
     );
     _costoPorEmpaqueController = TextEditingController(
       text: p != null && p.costoPorEmpaque > 0 ? p.costoPorEmpaque.toStringAsFixed(2) : '',
@@ -146,17 +148,17 @@ class _FormularioProductoScreenState
           : '',
     );
     _stockEmpaquesController = TextEditingController(
-      text: stockEmpaquesInicial.toInt().toString(),
+      text: p != null && stockEmpaquesInicial > 0 ? stockEmpaquesInicial.toInt().toString() : '',
     );
     _tipoEmpaque = p != null && p.tipoEmpaque != 'UNIDAD' ? p.tipoEmpaque : 'CAJA';
     _vendePorCajaEntera = p != null && p.precioEmpaqueMayorista != null && p.precioEmpaqueMayorista! > 0;
 
     // Suelto 3 Niveles (Cigarros)
     _nombreUnidadSueltaController = TextEditingController(
-      text: p?.nombreUnidadSuelta ?? 'cigarro',
+      text: p?.nombreUnidadSuelta ?? '',
     );
     _unidadesEnEmpaqueVentaController = TextEditingController(
-      text: p != null && p.unidadesEnEmpaqueVenta > 0 ? p.unidadesEnEmpaqueVenta.toInt().toString() : '20',
+      text: p != null && p.unidadesEnEmpaqueVenta > 0 ? p.unidadesEnEmpaqueVenta.toInt().toString() : '',
     );
     _precioVentaSueltaController = TextEditingController(
       text: p != null && p.precioVentaSuelta > 0 ? p.precioVentaSuelta.toStringAsFixed(2) : '',
@@ -190,7 +192,6 @@ class _FormularioProductoScreenState
     } else {
       _unidadAlertaPaquete = 'EMPAQUE';
       _unidadAlertaCigarro = 'CAJETILLA';
-      _stockMinimoController.text = '2'; // Sugerencia inicial amigable (2 cajas)
     }
 
     _nombreFocusNode = FocusNode();
@@ -487,6 +488,7 @@ class _FormularioProductoScreenState
     final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
     final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
     final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
 
     return PopScope(
       canPop: false,
@@ -528,7 +530,7 @@ class _FormularioProductoScreenState
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -542,10 +544,9 @@ class _FormularioProductoScreenState
                         TextFormField(
                           controller: _nombreController,
                           focusNode: _nombreFocusNode,
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary),
                           decoration: const InputDecoration(
                             labelText: 'Nombre del Producto *',
-                            hintText: 'Ej. Coca Machucada Menta, Paceña 710cc, Pollo...',
                             prefixIcon: Icon(Icons.label_outline, color: AppColors.primary),
                             border: OutlineInputBorder(),
                           ),
@@ -557,11 +558,11 @@ class _FormularioProductoScreenState
                         TextFormField(
                           controller: _descripcionController,
                           maxLines: 2,
-                          decoration: const InputDecoration(
+                          style: TextStyle(fontSize: 15, color: textPrimary),
+                          decoration: InputDecoration(
                             labelText: 'Descripción o Ubicación (Opcional)',
-                            hintText: 'Ej. Heladera del fondo, anaquel 2, vitrina...',
-                            prefixIcon: Icon(Icons.description_outlined, color: AppColors.textSecondary),
-                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.description_outlined, color: textSecondary),
+                            border: const OutlineInputBorder(),
                           ),
                         ),
                       ],
@@ -697,7 +698,7 @@ class _FormularioProductoScreenState
                                   const SizedBox(height: 12),
                                   Text(
                                     'Subcategoría / Tamaño / Marca (Opcional):',
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textSecondary),
                                   ),
                                   const SizedBox(height: 6),
                                   if (catSeleccionadaObj != null && catSeleccionadaObj.subcategorias.isNotEmpty) ...[
@@ -728,7 +729,7 @@ class _FormularioProductoScreenState
                                                 checkmarkColor: AppColors.secondary,
                                                 labelStyle: TextStyle(
                                                   fontWeight: sel ? FontWeight.bold : FontWeight.normal,
-                                                  color: sel ? AppColors.secondary : AppColors.textPrimary,
+                                                  color: sel ? AppColors.secondary : textPrimary,
                                                 ),
                                                 onSelected: (val) {
                                                   setState(() => _subcategoriaController.text = val ? sub.nombre : '');
@@ -743,8 +744,9 @@ class _FormularioProductoScreenState
                                   const SizedBox(height: 6),
                                   TextFormField(
                                     controller: _subcategoriaController,
+                                    style: TextStyle(fontSize: 15, color: textPrimary),
                                     decoration: InputDecoration(
-                                      hintText: 'O escribe una subcategoría (ej. Huari, Menta, 2 Litros)',
+                                      labelText: 'Subcategoría personalizada',
                                       prefixIcon: const Icon(Icons.subdirectory_arrow_right, size: 20),
                                       isDense: true,
                                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -841,11 +843,18 @@ class _FormularioProductoScreenState
           ),
         ),
 
-        // Botón Guardar Flotante
-        bottomSheet: Container(
+        // Botón Guardar Anclado Limpio
+        bottomNavigationBar: Container(
           decoration: BoxDecoration(
             color: surfaceColor,
             border: Border(top: BorderSide(color: cardBorder, width: 1.0)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(esOscuro ? 30 : 6),
+                offset: const Offset(0, -2),
+                blurRadius: 4,
+              ),
+            ],
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: SafeArea(
@@ -886,6 +895,12 @@ class _FormularioProductoScreenState
     required Color colorActivo,
   }) {
     final bool activo = _modoVenta == modo;
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final inactivoBg = esOscuro ? AppColors.darkSurface : AppColors.surfaceMuted;
+    final inactivoBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final textMuted = esOscuro ? AppColors.darkTextSecondary : AppColors.textMuted;
 
     return InkWell(
       onTap: () {
@@ -895,14 +910,8 @@ class _FormularioProductoScreenState
             if (!_esEdicion) {
               if (modo == ModoVentaUi.paqueteCaja) {
                 _unidadAlertaPaquete = 'EMPAQUE';
-                _stockMinimoController.text = '2';
               } else if (modo == ModoVentaUi.sueltoCigarro) {
                 _unidadAlertaCigarro = 'CAJETILLA';
-                _stockMinimoController.text = '2';
-              } else if (modo == ModoVentaUi.granelBalanza) {
-                _stockMinimoController.text = '1.0';
-              } else if (modo == ModoVentaUi.unidadSimple) {
-                _stockMinimoController.text = '3';
               }
             }
           });
@@ -914,11 +923,11 @@ class _FormularioProductoScreenState
         width: width,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: activo ? colorActivo.withAlpha(20) : AppColors.surfaceMuted,
+          color: activo ? colorActivo.withAlpha(esOscuro ? 35 : 20) : inactivoBg,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: activo ? colorActivo : AppColors.border,
-            width: activo ? 2.2 : 1.0,
+            color: activo ? colorActivo : inactivoBorder,
+            width: activo ? 2.0 : 1.0,
           ),
         ),
         child: Column(
@@ -931,7 +940,7 @@ class _FormularioProductoScreenState
                 if (activo)
                   Icon(Icons.check_circle, size: 18, color: colorActivo)
                 else
-                  Icon(Icons.radio_button_unchecked, size: 18, color: AppColors.textMuted),
+                  Icon(Icons.radio_button_unchecked, size: 18, color: textMuted),
               ],
             ),
             const SizedBox(height: 8),
@@ -940,13 +949,13 @@ class _FormularioProductoScreenState
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: activo ? colorActivo : AppColors.textPrimary,
+                color: activo ? colorActivo : textPrimary,
               ),
             ),
             const SizedBox(height: 2),
             Text(
               subtitulo,
-              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 11, color: textSecondary),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -974,6 +983,8 @@ class _FormularioProductoScreenState
 
   // 1. MODO: UNIDAD SIMPLE
   Widget _buildFormUnidadSimple() {
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
     final costo = _parse(_costoMayoristaController);
     final precio = _parse(_precioVentaController);
     final ganancia = precio - costo;
@@ -982,9 +993,9 @@ class _FormularioProductoScreenState
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: esOscuro ? AppColors.darkSurface : AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withAlpha(60)),
+        border: Border.all(color: AppColors.primary.withAlpha(esOscuro ? 100 : 60)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -995,10 +1006,9 @@ class _FormularioProductoScreenState
                 child: TextFormField(
                   controller: _costoMayoristaController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary),
                   decoration: const InputDecoration(
                     labelText: 'Costo de Compra (Bs.) *',
-                    hintText: 'Ej. 4.00',
                     prefixText: 'Bs. ',
                     border: OutlineInputBorder(),
                   ),
@@ -1014,7 +1024,6 @@ class _FormularioProductoScreenState
                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.success),
                   decoration: const InputDecoration(
                     labelText: 'Precio de Venta (Bs.) *',
-                    hintText: 'Ej. 5.00',
                     prefixText: 'Bs. ',
                     border: OutlineInputBorder(),
                   ),
@@ -1037,10 +1046,9 @@ class _FormularioProductoScreenState
                 child: TextFormField(
                   controller: _stockActualController,
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
                   decoration: const InputDecoration(
                     labelText: 'Stock actual *',
-                    hintText: 'Ej. 10',
                     suffixText: 'uds',
                     isDense: true,
                     contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
@@ -1054,10 +1062,9 @@ class _FormularioProductoScreenState
                 child: TextFormField(
                   controller: _stockMinimoController,
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
                   decoration: const InputDecoration(
                     labelText: 'Avisar si queda < *',
-                    hintText: 'Ej. 3',
                     suffixText: 'uds',
                     isDense: true,
                     contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
@@ -1073,7 +1080,7 @@ class _FormularioProductoScreenState
             const SizedBox(height: 6),
             Text(
               '💡 Te alertará cuando te queden ${_parse(_stockMinimoController).toInt()} unidades o bolsitas en tienda.',
-              style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: AppColors.primary),
+              style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: esOscuro ? AppColors.darkAccent : AppColors.primary),
             ),
           ],
         ],
@@ -1083,6 +1090,9 @@ class _FormularioProductoScreenState
 
   // 2. MODO: PAQUETE / CAJA
   Widget _buildFormPaqueteCaja() {
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
     final unidades = _parse(_unidadesPorEmpaqueController);
     final costoPaquete = _parse(_costoPorEmpaqueController);
     final costoUnitarioAuto = unidades > 0 ? (costoPaquete / unidades) : 0.0;
@@ -1096,9 +1106,9 @@ class _FormularioProductoScreenState
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: esOscuro ? AppColors.darkSurface : AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.secondary.withAlpha(80)),
+        border: Border.all(color: AppColors.secondary.withAlpha(esOscuro ? 110 : 80)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1126,9 +1136,9 @@ class _FormularioProductoScreenState
                 child: TextFormField(
                   controller: _unidadesPorEmpaqueController,
                   keyboardType: TextInputType.number,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
                   decoration: const InputDecoration(
                     labelText: 'Uds por Paquete/Caja *',
-                    hintText: 'Ej. 24',
                     border: OutlineInputBorder(),
                   ),
                   onChanged: (_) => setState(() {}),
@@ -1145,10 +1155,9 @@ class _FormularioProductoScreenState
                 child: TextFormField(
                   controller: _costoPorEmpaqueController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: textPrimary),
                   decoration: const InputDecoration(
                     labelText: 'Costo del Paquete *',
-                    hintText: 'Ej. 120.00',
                     prefixText: 'Bs. ',
                     border: OutlineInputBorder(),
                   ),
@@ -1162,14 +1171,14 @@ class _FormularioProductoScreenState
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppColors.secondary.withAlpha(15),
+                    color: AppColors.secondary.withAlpha(esOscuro ? 25 : 15),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.secondary.withAlpha(60)),
+                    border: Border.all(color: AppColors.secondary.withAlpha(esOscuro ? 90 : 60)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Te sale por unidad:', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                      Text('Te sale por unidad:', style: TextStyle(fontSize: 11, color: textSecondary)),
                       const SizedBox(height: 2),
                       Text(
                         'Bs. ${costoUnitarioAuto.toStringAsFixed(2)}',
@@ -1187,24 +1196,24 @@ class _FormularioProductoScreenState
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.background,
+              color: esOscuro ? AppColors.darkBackground : AppColors.background,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: esOscuro ? AppColors.darkBorder : AppColors.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.point_of_sale, size: 20, color: AppColors.primary),
-                    SizedBox(width: 8),
+                    const Icon(Icons.point_of_sale, size: 20, color: AppColors.primary),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         '¿Cómo se venderá este producto en mostrador?',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: textPrimary,
                         ),
                       ),
                     ),
@@ -1227,11 +1236,11 @@ class _FormularioProductoScreenState
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                           decoration: BoxDecoration(
                             color: !_vendePorCajaEntera
-                                ? AppColors.primary.withAlpha(20)
-                                : AppColors.surface,
+                                ? AppColors.primary.withAlpha(esOscuro ? 40 : 20)
+                                : (esOscuro ? AppColors.darkSurface : AppColors.surface),
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                              color: !_vendePorCajaEntera ? AppColors.primary : AppColors.border,
+                              color: !_vendePorCajaEntera ? AppColors.primary : (esOscuro ? AppColors.darkBorder : AppColors.border),
                               width: !_vendePorCajaEntera ? 2 : 1,
                             ),
                           ),
@@ -1247,25 +1256,23 @@ class _FormularioProductoScreenState
                                     size: 18,
                                     color: !_vendePorCajaEntera
                                         ? AppColors.primary
-                                        : AppColors.textMuted,
+                                        : textSecondary,
                                   ),
                                   const SizedBox(width: 6),
-                                  const Expanded(
+                                  Expanded(
                                     child: Text(
                                       '🍬 Solo por Unidad',
-                                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textPrimary),
                                     ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Ej. Chicles, golosinas, fósforos. Se compra en caja pero solo se vende suelto.',
+                                'Se compra en paquete y solo se vende por unidad suelta.',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: !_vendePorCajaEntera
-                                      ? AppColors.textPrimary
-                                      : AppColors.textMuted,
+                                  color: textSecondary,
                                 ),
                               ),
                             ],
@@ -1287,11 +1294,11 @@ class _FormularioProductoScreenState
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                           decoration: BoxDecoration(
                             color: _vendePorCajaEntera
-                                ? AppColors.secondary.withAlpha(20)
-                                : AppColors.surface,
+                                ? AppColors.secondary.withAlpha(esOscuro ? 40 : 20)
+                                : (esOscuro ? AppColors.darkSurface : AppColors.surface),
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                              color: _vendePorCajaEntera ? AppColors.secondary : AppColors.border,
+                              color: _vendePorCajaEntera ? AppColors.secondary : (esOscuro ? AppColors.darkBorder : AppColors.border),
                               width: _vendePorCajaEntera ? 2 : 1,
                             ),
                           ),
@@ -1307,25 +1314,23 @@ class _FormularioProductoScreenState
                                     size: 18,
                                     color: _vendePorCajaEntera
                                         ? AppColors.secondary
-                                        : AppColors.textMuted,
+                                        : textSecondary,
                                   ),
                                   const SizedBox(width: 6),
-                                  const Expanded(
+                                  Expanded(
                                     child: Text(
                                       '📦 Unidad y Caja',
-                                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textPrimary),
                                     ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Ej. Cervezas o sodas. Se puede vender por botella o la caja completa.',
+                                'Permite cobrar tanto por unidad suelta como el paquete entero.',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: _vendePorCajaEntera
-                                      ? AppColors.textPrimary
-                                      : AppColors.textMuted,
+                                  color: textSecondary,
                                 ),
                               ),
                             ],
@@ -1348,7 +1353,6 @@ class _FormularioProductoScreenState
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.success),
               decoration: const InputDecoration(
                 labelText: 'Precio de Venta por Unidad *',
-                hintText: 'Ej. 0.50 o 1.00',
                 prefixText: 'Bs. ',
                 border: OutlineInputBorder(),
               ),
@@ -1359,9 +1363,9 @@ class _FormularioProductoScreenState
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: AppColors.primary.withAlpha(15),
+                color: AppColors.primary.withAlpha(esOscuro ? 25 : 15),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.primary.withAlpha(50)),
+                border: Border.all(color: AppColors.primary.withAlpha(esOscuro ? 80 : 50)),
               ),
               child: Row(
                 children: [
@@ -1392,7 +1396,6 @@ class _FormularioProductoScreenState
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.success),
                         decoration: const InputDecoration(
                           labelText: 'Precio Unidad *',
-                          hintText: 'Ej. 7.00',
                           prefixText: 'Bs. ',
                           isDense: true,
                           contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
@@ -1415,7 +1418,6 @@ class _FormularioProductoScreenState
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.secondary),
                         decoration: InputDecoration(
                           labelText: 'Precio ${_tipoEmpaque.toLowerCase() == 'caja' ? 'Caja' : 'Paquete'}',
-                          hintText: 'Ej. 160.00',
                           prefixText: 'Bs. ',
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
@@ -1465,21 +1467,21 @@ class _FormularioProductoScreenState
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.surfaceMuted,
+              color: esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: esOscuro ? AppColors.darkBorder : AppColors.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.inventory_2_outlined, size: 20, color: AppColors.secondary),
-                    SizedBox(width: 8),
+                    const Icon(Icons.inventory_2_outlined, size: 20, color: AppColors.secondary),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         '¿Cuánto stock tienes hoy en tu tienda?',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textPrimary),
                       ),
                     ),
                   ],
@@ -1491,10 +1493,9 @@ class _FormularioProductoScreenState
                       child: TextFormField(
                         controller: _stockEmpaquesController,
                         keyboardType: TextInputType.number,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
                         decoration: InputDecoration(
                           labelText: _tipoEmpaque.toLowerCase() == 'caja' ? 'Cant. Cajas' : 'Cant. Paquetes',
-                          hintText: 'Ej. 9',
                           suffixText: _tipoEmpaque.toLowerCase() == 'caja' ? 'caj' : 'paq',
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
@@ -1508,10 +1509,9 @@ class _FormularioProductoScreenState
                       child: TextFormField(
                         controller: _stockActualController,
                         keyboardType: TextInputType.number,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
                         decoration: const InputDecoration(
                           labelText: '+ Uds. Sueltas',
-                          hintText: 'Ej. 11',
                           suffixText: 'uds',
                           isDense: true,
                           contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
@@ -1527,9 +1527,9 @@ class _FormularioProductoScreenState
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: AppColors.secondary.withAlpha(20),
+                    color: AppColors.secondary.withAlpha(esOscuro ? 30 : 20),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.secondary.withAlpha(60)),
+                    border: Border.all(color: AppColors.secondary.withAlpha(esOscuro ? 90 : 60)),
                   ),
                   child: Row(
                     children: [
@@ -1553,19 +1553,19 @@ class _FormularioProductoScreenState
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.surfaceMuted,
+              color: esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: esOscuro ? AppColors.darkBorder : AppColors.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.notifications_active_outlined, size: 18, color: AppColors.secondary),
-                    SizedBox(width: 6),
+                    const Icon(Icons.notifications_active_outlined, size: 18, color: AppColors.secondary),
+                    const SizedBox(width: 6),
                     Expanded(
-                      child: Text('Avisarme cuando me quede poco stock en:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      child: Text('Avisarme cuando me quede poco stock en:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textPrimary)),
                     ),
                   ],
                 ),
@@ -1579,7 +1579,7 @@ class _FormularioProductoScreenState
                       selected: _unidadAlertaPaquete == 'EMPAQUE',
                       selectedColor: AppColors.secondary,
                       labelStyle: TextStyle(
-                        color: _unidadAlertaPaquete == 'EMPAQUE' ? Colors.white : AppColors.textPrimary,
+                        color: _unidadAlertaPaquete == 'EMPAQUE' ? Colors.white : textPrimary,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -1591,7 +1591,7 @@ class _FormularioProductoScreenState
                             final cajas = actual / uds;
                             _stockMinimoController.text = (cajas.truncateToDouble() == cajas ? cajas.toInt().toString() : cajas.toStringAsFixed(1));
                           } else {
-                            _stockMinimoController.text = '2';
+                            _stockMinimoController.clear();
                           }
                           setState(() => _unidadAlertaPaquete = 'EMPAQUE');
                         }
@@ -1602,7 +1602,7 @@ class _FormularioProductoScreenState
                       selected: _unidadAlertaPaquete == 'UNIDAD',
                       selectedColor: AppColors.secondary,
                       labelStyle: TextStyle(
-                        color: _unidadAlertaPaquete == 'UNIDAD' ? Colors.white : AppColors.textPrimary,
+                        color: _unidadAlertaPaquete == 'UNIDAD' ? Colors.white : textPrimary,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -1611,10 +1611,10 @@ class _FormularioProductoScreenState
                           final uds = _parse(_unidadesPorEmpaqueController);
                           final actual = _parse(_stockMinimoController);
                           if (uds > 0 && actual > 0) {
-                            final unidades = (actual * uds).round();
-                            _stockMinimoController.text = unidades.toString();
+                            final unidadesTotal = (actual * uds).round();
+                            _stockMinimoController.text = unidadesTotal.toString();
                           } else {
-                            _stockMinimoController.text = '12';
+                            _stockMinimoController.clear();
                           }
                           setState(() => _unidadAlertaPaquete = 'UNIDAD');
                         }
@@ -1626,10 +1626,9 @@ class _FormularioProductoScreenState
                 TextFormField(
                   controller: _stockMinimoController,
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
                   decoration: InputDecoration(
                     labelText: 'Avisar cuando queden menos de *',
-                    hintText: _unidadAlertaPaquete == 'EMPAQUE' ? 'Ej. 2' : 'Ej. 10',
                     suffixText: _unidadAlertaPaquete == 'EMPAQUE'
                         ? (_tipoEmpaque.toLowerCase() == 'caja' ? 'caj' : 'paq')
                         : 'uds',
@@ -1657,6 +1656,9 @@ class _FormularioProductoScreenState
 
   // 3. MODO: SUELTO 3 NIVELES (Cigarros / Blísters)
   Widget _buildFormSueltoCigarro() {
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
     final cajetillasPorRueda = _parse(_unidadesPorEmpaqueController);
     final costoRueda = _parse(_costoPorEmpaqueController);
     final costoCajetillaAuto = cajetillasPorRueda > 0 ? (costoRueda / cajetillasPorRueda) : _parse(_costoMayoristaController);
@@ -1674,9 +1676,9 @@ class _FormularioProductoScreenState
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: esOscuro ? AppColors.darkSurface : AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.warning.withAlpha(80)),
+        border: Border.all(color: AppColors.warning.withAlpha(esOscuro ? 110 : 80)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1689,9 +1691,9 @@ class _FormularioProductoScreenState
                 child: TextFormField(
                   controller: _unidadesPorEmpaqueController,
                   keyboardType: TextInputType.number,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
                   decoration: const InputDecoration(
                     labelText: 'Cajetillas por Rueda *',
-                    hintText: 'Ej. 10',
                     border: OutlineInputBorder(),
                   ),
                   onChanged: (_) => setState(() {}),
@@ -1702,9 +1704,9 @@ class _FormularioProductoScreenState
                 child: TextFormField(
                   controller: _costoPorEmpaqueController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
                   decoration: const InputDecoration(
                     labelText: 'Costo de Rueda (Bs.) *',
-                    hintText: 'Ej. 150.00',
                     prefixText: 'Bs. ',
                     border: OutlineInputBorder(),
                   ),
@@ -1723,15 +1725,15 @@ class _FormularioProductoScreenState
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceMuted,
+                    color: esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: esOscuro ? AppColors.darkBorder : AppColors.border),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Costo de cajetilla:', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                      Text('Bs. ${costoCajetillaAuto.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('Costo de cajetilla:', style: TextStyle(fontSize: 11, color: textSecondary)),
+                      Text('Bs. ${costoCajetillaAuto.toStringAsFixed(2)}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary)),
                     ],
                   ),
                 ),
@@ -1741,10 +1743,9 @@ class _FormularioProductoScreenState
                 child: TextFormField(
                   controller: _precioVentaController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: textPrimary),
                   decoration: const InputDecoration(
                     labelText: 'Venta de Cajetilla *',
-                    hintText: 'Ej. 20.00',
                     prefixText: 'Bs. ',
                     border: OutlineInputBorder(),
                   ),
@@ -1764,9 +1765,9 @@ class _FormularioProductoScreenState
                 child: TextFormField(
                   controller: _unidadesEnEmpaqueVentaController,
                   keyboardType: TextInputType.number,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
                   decoration: const InputDecoration(
                     labelText: 'Cigarros por cajetilla *',
-                    hintText: 'Ej. 20',
                     border: OutlineInputBorder(),
                   ),
                   onChanged: (_) => setState(() {}),
@@ -1781,7 +1782,6 @@ class _FormularioProductoScreenState
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.success),
                   decoration: const InputDecoration(
                     labelText: 'Venta por Cigarro *',
-                    hintText: 'Ej. 1.50',
                     prefixText: 'Bs. ',
                     border: OutlineInputBorder(),
                   ),
@@ -1797,16 +1797,16 @@ class _FormularioProductoScreenState
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppColors.warning.withAlpha(20),
+              color: AppColors.warning.withAlpha(esOscuro ? 30 : 20),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.warning.withAlpha(60)),
+              border: Border.all(color: AppColors.warning.withAlpha(esOscuro ? 90 : 60)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   '💵 Venta cajetilla: Ganas Bs. ${gananciaCajetilla.toStringAsFixed(2)}',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textPrimary),
                 ),
                 const SizedBox(height: 3),
                 Text(
@@ -1822,9 +1822,9 @@ class _FormularioProductoScreenState
           TextFormField(
             controller: _stockActualController,
             keyboardType: TextInputType.number,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
             decoration: const InputDecoration(
               labelText: 'Cajetillas disponibles hoy en mostrador *',
-              hintText: 'Ej. 5',
               suffixText: 'cajetillas',
               border: OutlineInputBorder(),
             ),
@@ -1836,19 +1836,19 @@ class _FormularioProductoScreenState
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.surfaceMuted,
+              color: esOscuro ? AppColors.darkBackground : AppColors.surfaceMuted,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: esOscuro ? AppColors.darkBorder : AppColors.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.notifications_active_outlined, size: 18, color: AppColors.warning),
-                    SizedBox(width: 6),
+                    const Icon(Icons.notifications_active_outlined, size: 18, color: AppColors.warning),
+                    const SizedBox(width: 6),
                     Expanded(
-                      child: Text('Avisarme cuando me quede poco stock en:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      child: Text('Avisarme cuando me quede poco stock en:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textPrimary)),
                     ),
                   ],
                 ),
@@ -1862,7 +1862,7 @@ class _FormularioProductoScreenState
                       selected: _unidadAlertaCigarro == 'CAJETILLA',
                       selectedColor: AppColors.warning,
                       labelStyle: TextStyle(
-                        color: _unidadAlertaCigarro == 'CAJETILLA' ? Colors.white : AppColors.textPrimary,
+                        color: _unidadAlertaCigarro == 'CAJETILLA' ? Colors.white : textPrimary,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -1874,7 +1874,7 @@ class _FormularioProductoScreenState
                             final cajetillas = (actual * cajPorRueda).round();
                             _stockMinimoController.text = cajetillas.toString();
                           } else {
-                            _stockMinimoController.text = '3';
+                            _stockMinimoController.clear();
                           }
                           setState(() => _unidadAlertaCigarro = 'CAJETILLA');
                         }
@@ -1885,7 +1885,7 @@ class _FormularioProductoScreenState
                       selected: _unidadAlertaCigarro == 'RUEDA',
                       selectedColor: AppColors.warning,
                       labelStyle: TextStyle(
-                        color: _unidadAlertaCigarro == 'RUEDA' ? Colors.white : AppColors.textPrimary,
+                        color: _unidadAlertaCigarro == 'RUEDA' ? Colors.white : textPrimary,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -1897,7 +1897,7 @@ class _FormularioProductoScreenState
                             final ruedas = actual / cajPorRueda;
                             _stockMinimoController.text = (ruedas.truncateToDouble() == ruedas ? ruedas.toInt().toString() : ruedas.toStringAsFixed(1));
                           } else {
-                            _stockMinimoController.text = '1';
+                            _stockMinimoController.clear();
                           }
                           setState(() => _unidadAlertaCigarro = 'RUEDA');
                         }
@@ -1909,14 +1909,13 @@ class _FormularioProductoScreenState
                 TextFormField(
                   controller: _stockMinimoController,
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  decoration: InputDecoration(
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
+                  decoration: const InputDecoration(
                     labelText: 'Avisar cuando queden menos de *',
-                    hintText: _unidadAlertaCigarro == 'CAJETILLA' ? 'Ej. 3' : 'Ej. 1',
-                    suffixText: _unidadAlertaCigarro == 'CAJETILLA' ? 'caj.' : 'ruedas',
+                    suffixText: 'caj.',
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                    border: const OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                    border: OutlineInputBorder(),
                   ),
                   onChanged: (_) => setState(() {}),
                   validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
@@ -1938,6 +1937,8 @@ class _FormularioProductoScreenState
 
   // 4. MODO: GRANEL / BALANZA (Coca por libra, pollo, queso por kilo)
   Widget _buildFormGranelBalanza() {
+    final esOscuro = ref.watch(esModoOscuroProvider);
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
     final costo = _parse(_costoMayoristaController);
     final precio = _parse(_precioVentaController);
     final ganancia = precio - costo;
@@ -1948,9 +1949,9 @@ class _FormularioProductoScreenState
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: esOscuro ? AppColors.darkSurface : AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.teal.shade700.withAlpha(80)),
+        border: Border.all(color: esOscuro ? Colors.teal.shade400.withAlpha(60) : Colors.teal.shade700.withAlpha(80)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1958,14 +1959,14 @@ class _FormularioProductoScreenState
           // Selector de Unidad de Medida (Kg vs Lb)
           Row(
             children: [
-              const Text('Unidad de pesaje:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text('Unidad de pesaje:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textPrimary)),
               const Spacer(),
               ChoiceChip(
                 label: const Text('Libra (Lb) - Coca'),
                 selected: _unidadMedidaPeso == 'lb',
                 selectedColor: Colors.teal.shade700,
                 labelStyle: TextStyle(
-                  color: _unidadMedidaPeso == 'lb' ? Colors.white : AppColors.textPrimary,
+                  color: _unidadMedidaPeso == 'lb' ? Colors.white : textPrimary,
                   fontWeight: FontWeight.bold,
                 ),
                 onSelected: (val) {
@@ -1978,7 +1979,7 @@ class _FormularioProductoScreenState
                 selected: _unidadMedidaPeso == 'kg',
                 selectedColor: Colors.teal.shade700,
                 labelStyle: TextStyle(
-                  color: _unidadMedidaPeso == 'kg' ? Colors.white : AppColors.textPrimary,
+                  color: _unidadMedidaPeso == 'kg' ? Colors.white : textPrimary,
                   fontWeight: FontWeight.bold,
                 ),
                 onSelected: (val) {
@@ -1995,10 +1996,9 @@ class _FormularioProductoScreenState
                 child: TextFormField(
                   controller: _costoMayoristaController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary),
                   decoration: InputDecoration(
                     labelText: 'Costo por $unidadTexto *',
-                    hintText: _unidadMedidaPeso == 'lb' ? 'Ej. 100.00' : 'Ej. 18.00',
                     prefixText: 'Bs. ',
                     border: const OutlineInputBorder(),
                   ),
@@ -2012,11 +2012,10 @@ class _FormularioProductoScreenState
                   controller: _precioVentaController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.success),
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Precio en Balanza *',
-                    hintText: _unidadMedidaPeso == 'lb' ? 'Ej. 120.00' : 'Ej. 24.00',
                     prefixText: 'Bs. ',
-                    border: const OutlineInputBorder(),
+                    border: OutlineInputBorder(),
                   ),
                   onChanged: (_) => setState(() {}),
                   validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
@@ -2036,17 +2035,18 @@ class _FormularioProductoScreenState
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.teal.shade50,
+              color: esOscuro ? Colors.teal.shade900.withAlpha(50) : Colors.teal.shade50,
               borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: esOscuro ? Colors.teal.shade700.withAlpha(50) : Colors.teal.shade100),
             ),
             child: Row(
               children: [
-                Icon(Icons.touch_app, size: 16, color: Colors.teal.shade800),
+                Icon(Icons.touch_app, size: 16, color: esOscuro ? Colors.teal.shade300 : Colors.teal.shade800),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     'En el Punto de Venta podrás cobrar con atajos rápidos de dinero: Bs. 2, 5, 10, 20 o por peso.',
-                    style: TextStyle(fontSize: 12, color: Colors.teal.shade900),
+                    style: TextStyle(fontSize: 12, color: esOscuro ? Colors.teal.shade200 : Colors.teal.shade900),
                   ),
                 ),
               ],
@@ -2061,10 +2061,9 @@ class _FormularioProductoScreenState
                 child: TextFormField(
                   controller: _stockActualController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
                   decoration: InputDecoration(
                     labelText: 'Existencias hoy *',
-                    hintText: 'Ej. 10.5',
                     suffixText: _unidadMedidaPeso,
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
@@ -2078,10 +2077,9 @@ class _FormularioProductoScreenState
                 child: TextFormField(
                   controller: _stockMinimoController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary),
                   decoration: InputDecoration(
                     labelText: 'Avisar si queda < *',
-                    hintText: _unidadMedidaPeso == 'lb' ? 'Ej. 1.5' : 'Ej. 2.0',
                     suffixText: _unidadMedidaPeso == 'lb' ? 'lb' : 'kg',
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
@@ -2097,7 +2095,7 @@ class _FormularioProductoScreenState
             const SizedBox(height: 6),
             Text(
               '💡 Te alertará cuando en balanza te quede menos de ${_parse(_stockMinimoController).toStringAsFixed(1)} ${_unidadMedidaPeso == 'lb' ? 'libras' : 'kilos'}.',
-              style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.teal.shade700),
+              style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: esOscuro ? Colors.teal.shade300 : Colors.teal.shade700),
             ),
           ],
         ],

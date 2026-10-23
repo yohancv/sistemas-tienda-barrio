@@ -603,6 +603,11 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
                 // 3 Puntos: Editar y Kardex
                 PopupMenuButton<String>(
                   icon: Icon(Icons.more_vert, color: textMuted),
+                  color: cardBg,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    side: BorderSide(color: cardBorder),
+                  ),
                   onSelected: (val) {
                     if (val == 'editar') {
                       Navigator.push(
@@ -622,23 +627,23 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
                     }
                   },
                   itemBuilder: (_) => [
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'editar',
                       child: Row(
                         children: [
-                          Icon(Icons.edit_outlined, size: 20, color: AppColors.retailBlue),
-                          SizedBox(width: 8),
-                          Text('Editar Producto'),
+                          const Icon(Icons.edit_outlined, size: 20, color: AppColors.retailBlue),
+                          const SizedBox(width: 8),
+                          Text('Editar Producto', style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'kardex',
                       child: Row(
                         children: [
-                          Icon(Icons.history, size: 20, color: AppColors.secondary),
-                          SizedBox(width: 8),
-                          Text('Ver Kardex'),
+                          const Icon(Icons.history, size: 20, color: AppColors.secondary),
+                          const SizedBox(width: 8),
+                          Text('Ver Kardex', style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ),
@@ -963,9 +968,9 @@ class _VentasProductosScreenState extends ConsumerState<VentasProductosScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
               ),
-              icon: Icon(Icons.payment, size: 22, color: esOscuro ? AppColors.darkSuccessDark : Colors.white),
+              icon: Icon(Icons.receipt_long_rounded, size: 22, color: esOscuro ? AppColors.darkSuccessDark : Colors.white),
               label: Text(
-                'COBRAR',
+                'VER TICKET',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,

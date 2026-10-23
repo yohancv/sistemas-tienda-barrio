@@ -142,6 +142,12 @@ class _ModalMovimientoManualState extends ConsumerState<ModalMovimientoManual> {
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
     final esSalida = _tipo == 'SALIDA';
     final esQr = _origen == 'BANCO_QR';
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final inputBg = esOscuro ? AppColors.darkBackground : AppColors.background;
 
     return Padding(
       padding: EdgeInsets.only(bottom: keyboardHeight),
@@ -150,9 +156,9 @@ class _ModalMovimientoManualState extends ConsumerState<ModalMovimientoManual> {
           maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          color: surfaceColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: SingleChildScrollView(
           child: Column(
@@ -165,17 +171,17 @@ class _ModalMovimientoManualState extends ConsumerState<ModalMovimientoManual> {
                   width: 48,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: cardBorder,
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),
               const SizedBox(height: 14),
 
-              const Text(
+              Text(
                 'Registrar Movimiento / Retiro',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary),
               ),
               const SizedBox(height: 14),
 
@@ -183,9 +189,9 @@ class _ModalMovimientoManualState extends ConsumerState<ModalMovimientoManual> {
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: AppColors.background,
+                  color: inputBg,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: cardBorder),
                 ),
                 child: Row(
                   children: [
@@ -208,7 +214,7 @@ class _ModalMovimientoManualState extends ConsumerState<ModalMovimientoManual> {
                             children: [
                               Icon(
                                 Icons.payments_outlined,
-                                color: !esQr ? Colors.white : AppColors.textMuted,
+                                color: !esQr ? Colors.white : textMuted,
                                 size: 18,
                               ),
                               const SizedBox(width: 8),
@@ -217,7 +223,7 @@ class _ModalMovimientoManualState extends ConsumerState<ModalMovimientoManual> {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: !esQr ? Colors.white : AppColors.textMuted,
+                                  color: !esQr ? Colors.white : textMuted,
                                 ),
                               ),
                             ],
@@ -239,7 +245,7 @@ class _ModalMovimientoManualState extends ConsumerState<ModalMovimientoManual> {
                             children: [
                               Icon(
                                 Icons.atm,
-                                color: esQr ? Colors.white : AppColors.textMuted,
+                                color: esQr ? Colors.white : textMuted,
                                 size: 20,
                               ),
                               const SizedBox(width: 6),
@@ -248,7 +254,7 @@ class _ModalMovimientoManualState extends ConsumerState<ModalMovimientoManual> {
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
-                                  color: esQr ? Colors.white : AppColors.textMuted,
+                                  color: esQr ? Colors.white : textMuted,
                                 ),
                               ),
                             ],
@@ -269,18 +275,18 @@ class _ModalMovimientoManualState extends ConsumerState<ModalMovimientoManual> {
                       style: OutlinedButton.styleFrom(
                         backgroundColor: esSalida ? AppColors.danger.withAlpha(20) : Colors.transparent,
                         side: BorderSide(
-                          color: esSalida ? AppColors.danger : AppColors.border,
+                          color: esSalida ? AppColors.danger : cardBorder,
                           width: esSalida ? 2 : 1,
                         ),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                       ),
                       onPressed: () => setState(() => _tipo = 'SALIDA'),
-                      icon: Icon(Icons.arrow_upward, color: esSalida ? AppColors.danger : AppColors.textMuted, size: 18),
+                      icon: Icon(Icons.arrow_upward, color: esSalida ? AppColors.danger : textMuted, size: 18),
                       label: Text(
                         'Salida / Retiro',
                         style: TextStyle(
-                          color: esSalida ? AppColors.danger : AppColors.textMuted,
+                          color: esSalida ? AppColors.danger : textMuted,
                           fontWeight: esSalida ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
@@ -292,18 +298,18 @@ class _ModalMovimientoManualState extends ConsumerState<ModalMovimientoManual> {
                       style: OutlinedButton.styleFrom(
                         backgroundColor: !esSalida ? AppColors.success.withAlpha(20) : Colors.transparent,
                         side: BorderSide(
-                          color: !esSalida ? AppColors.success : AppColors.border,
+                          color: !esSalida ? AppColors.success : cardBorder,
                           width: !esSalida ? 2 : 1,
                         ),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                       ),
                       onPressed: () => setState(() => _tipo = 'ENTRADA'),
-                      icon: Icon(Icons.arrow_downward, color: !esSalida ? AppColors.success : AppColors.textMuted, size: 18),
+                      icon: Icon(Icons.arrow_downward, color: !esSalida ? AppColors.success : textMuted, size: 18),
                       label: Text(
                         'Ingreso / Aporte',
                         style: TextStyle(
-                          color: !esSalida ? AppColors.success : AppColors.textMuted,
+                          color: !esSalida ? AppColors.success : textMuted,
                           fontWeight: !esSalida ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
@@ -318,7 +324,7 @@ class _ModalMovimientoManualState extends ConsumerState<ModalMovimientoManual> {
                 esSalida
                     ? (esQr ? 'Monto retirado del Banco/QR (Bs.)' : 'Monto a sacar del cajón (Bs.)')
                     : 'Monto a ingresar (Bs.)',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary),
               ),
               const SizedBox(height: 6),
               TextField(
@@ -328,22 +334,22 @@ class _ModalMovimientoManualState extends ConsumerState<ModalMovimientoManual> {
                 style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.bold,
-                  color: esSalida ? (esQr ? Colors.blue[800] : AppColors.danger) : AppColors.success,
+                  color: esSalida ? (esQr ? Colors.blue[400] : AppColors.danger) : AppColors.success,
                 ),
                 decoration: InputDecoration(
                   prefixText: 'Bs. ',
                   prefixStyle: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: esSalida ? (esQr ? Colors.blue[800] : AppColors.danger) : AppColors.success,
+                    color: esSalida ? (esQr ? Colors.blue[400] : AppColors.danger) : AppColors.success,
                   ),
                   hintText: '0.00',
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   filled: true,
-                  fillColor: AppColors.background,
+                  fillColor: inputBg,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.border),
+                    borderSide: BorderSide(color: cardBorder),
                   ),
                 ),
                 inputFormatters: [
@@ -363,11 +369,11 @@ class _ModalMovimientoManualState extends ConsumerState<ModalMovimientoManual> {
                           style: OutlinedButton.styleFrom(
                             padding: EdgeInsets.zero,
                             minimumSize: const Size(0, 32),
-                            side: const BorderSide(color: AppColors.border),
+                            side: BorderSide(color: cardBorder),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           onPressed: () => _sumarMonto(val),
-                          child: Text('+${val.toInt()}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          child: Text('+${val.toInt()}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textPrimary)),
                         ),
                       ),
                     ),
@@ -504,22 +510,25 @@ class _ModalMovimientoManualState extends ConsumerState<ModalMovimientoManual> {
               ],
 
               // 5. MOTIVO / DETALLE OPCIONAL
-              const Text(
+              Text(
                 'Detalle / Nota rápida (opcional)',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textPrimary),
               ),
               const SizedBox(height: 6),
               TextField(
                 controller: _motivoController,
-                style: const TextStyle(fontSize: 14),
+                style: TextStyle(fontSize: 14, color: textPrimary),
                 decoration: InputDecoration(
-                  hintText: 'Ej. Bolsas plásticas, Coca-Cola distribuidor, pan...',
                   filled: true,
-                  fillColor: AppColors.background,
+                  fillColor: inputBg,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppColors.border),
+                    borderSide: BorderSide(color: cardBorder),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: cardBorder),
                   ),
                 ),
               ),
@@ -586,6 +595,12 @@ class _ChipCategoria extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final unselectedBg = esOscuro ? AppColors.darkSurfaceMuted : AppColors.background;
+    final borderColor = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -593,10 +608,10 @@ class _ChipCategoria extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withAlpha(20) : AppColors.background,
+          color: isSelected ? AppColors.primary.withAlpha(20) : unselectedBg,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
+            color: isSelected ? AppColors.primary : borderColor,
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -614,14 +629,14 @@ class _ChipCategoria extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                    color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                    color: isSelected ? AppColors.primary : textPrimary,
                   ),
                 ),
                 Text(
                   subtitulo,
                   style: TextStyle(
                     fontSize: 10,
-                    color: isSelected ? AppColors.primary.withAlpha(200) : AppColors.textMuted,
+                    color: isSelected ? AppColors.primary.withAlpha(200) : textMuted,
                   ),
                 ),
               ],

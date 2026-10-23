@@ -3,6 +3,7 @@ import '../../../core/config/supabase_client.dart';
 import '../../data/models/caja_turno_model.dart';
 import '../../data/models/movimiento_caja_model.dart';
 import '../../data/models/resumen_caja_model.dart';
+import '../../data/models/venta_turno_model.dart';
 import '../../data/repositories/caja_repository.dart';
 
 /// Denominaciones oficiales de billetes y monedas en Bolivia
@@ -151,7 +152,7 @@ class CajaTurnoActivaNotifier extends AsyncNotifier<CajaTurnoModel?> {
   /// e inicia de inmediato el nuevo turno para que la tienda continúe operando.
   Future<CajaTurnoModel> hacerCorteDiario({
     required ResumenCajaModel resumen,
-    required double fondoParaManana,
+    double fondoParaManana = 0.0,
     String? observaciones,
   }) async {
     final turnoActual = state.value;
@@ -166,7 +167,7 @@ class CajaTurnoActivaNotifier extends AsyncNotifier<CajaTurnoModel?> {
       observaciones: observaciones,
     );
 
-    // Iniciar automáticamente el siguiente turno con el cambio dejado en gaveta
+    // Iniciar automáticamente el siguiente turno con fondo 0.0 Bs para continuar operando de inmediato
     final nuevoTurno = await repo.abrirTurno(
       tenantId: SupabaseConfig.defaultTenantId,
       montoInicial: fondoParaManana,
@@ -232,6 +233,15 @@ final ultimoTurnoCerradoProvider = FutureProvider<CajaTurnoModel?>((ref) async {
 final historialTurnosCajaProvider = FutureProvider<List<CajaTurnoModel>>((ref) async {
   final repo = ref.read(cajaRepositoryProvider);
   return await repo.obtenerHistorialTurnos(SupabaseConfig.defaultTenantId);
+});
+
+/// Proveedor de las ventas y cobros registrados durante el turno activo
+final ventasTurnoProvider = FutureProvider<List<VentaTurnoModel>>((ref) async {
+  final turno = ref.watch(cajaTurnoActivaProvider).value;
+  if (turno == null) return [];
+
+  final repo = ref.read(cajaRepositoryProvider);
+  return await repo.obtenerVentasTurno(turno.id, SupabaseConfig.defaultTenantId);
 });
 
 

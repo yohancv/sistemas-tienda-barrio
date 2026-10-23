@@ -98,13 +98,21 @@ class _ModalAperturaCajaState extends ConsumerState<ModalAperturaCaja> {
     final ultimoTurnoAsync = ref.watch(ultimoTurnoCerradoProvider);
     final montoIngresado = double.tryParse(_montoController.text.replaceAll(',', '.'));
 
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = esOscuro ? AppColors.darkSurface : AppColors.surface;
+    final inputBg = esOscuro ? AppColors.darkBackground : AppColors.background;
+    final cardBorder = esOscuro ? AppColors.darkBorder : AppColors.border;
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMuted = esOscuro ? AppColors.darkTextMuted : AppColors.textMuted;
+    final textSecondary = esOscuro ? AppColors.darkTextSecondary : AppColors.textSecondary;
+
     return Padding(
       padding: EdgeInsets.only(bottom: keyboardHeight),
       child: Container(
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          color: surfaceColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: SingleChildScrollView(
           child: Column(
@@ -117,7 +125,7 @@ class _ModalAperturaCajaState extends ConsumerState<ModalAperturaCaja> {
                   width: 48,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: cardBorder,
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -140,20 +148,20 @@ class _ModalAperturaCajaState extends ConsumerState<ModalAperturaCaja> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Apertura de Turno de Caja',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textPrimary),
                         ),
-                        const Text(
+                        Text(
                           'Ingresa el efectivo inicial para dar cambio',
-                          style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                          style: TextStyle(fontSize: 13, color: textMuted),
                         ),
                       ],
                     ),
                   ),
                 ],
               ),
-              const Divider(height: 24),
+              Divider(height: 24, color: cardBorder),
 
               // TARJETA INTELIGENTE DEL TURNO ANTERIOR
               ultimoTurnoAsync.maybeWhen(
@@ -171,9 +179,9 @@ class _ModalAperturaCajaState extends ConsumerState<ModalAperturaCaja> {
                     margin: const EdgeInsets.only(bottom: 16),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.blue[50],
+                      color: esOscuro ? AppColors.darkBackground : Colors.blue[50],
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.blue[200]!),
+                      border: Border.all(color: esOscuro ? cardBorder : Colors.blue[200]!),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -188,7 +196,7 @@ class _ModalAperturaCajaState extends ConsumerState<ModalAperturaCaja> {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w900,
-                                  color: Colors.blue[900],
+                                  color: esOscuro ? textPrimary : Colors.blue[900],
                                 ),
                               ),
                             ),
@@ -202,8 +210,8 @@ class _ModalAperturaCajaState extends ConsumerState<ModalAperturaCaja> {
                             Expanded(
                               child: OutlinedButton(
                                 style: OutlinedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  side: BorderSide(color: Colors.blue[300]!),
+                                  backgroundColor: esOscuro ? surfaceColor : Colors.white,
+                                  side: BorderSide(color: esOscuro ? cardBorder : Colors.blue[300]!),
                                   padding: const EdgeInsets.symmetric(vertical: 8),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 ),
@@ -216,7 +224,7 @@ class _ModalAperturaCajaState extends ConsumerState<ModalAperturaCaja> {
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.blue[900],
+                                    color: esOscuro ? textPrimary : Colors.blue[900],
                                   ),
                                 ),
                               ),
@@ -225,8 +233,8 @@ class _ModalAperturaCajaState extends ConsumerState<ModalAperturaCaja> {
                             Expanded(
                               child: OutlinedButton(
                                 style: OutlinedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  side: BorderSide(color: Colors.blue[300]!),
+                                  backgroundColor: esOscuro ? surfaceColor : Colors.white,
+                                  side: BorderSide(color: esOscuro ? cardBorder : Colors.blue[300]!),
                                   padding: const EdgeInsets.symmetric(vertical: 8),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 ),
@@ -255,7 +263,7 @@ class _ModalAperturaCajaState extends ConsumerState<ModalAperturaCaja> {
                               '💡 Si dejas Bs. ${montoIngresado.toStringAsFixed(2)}, te estás llevando Bs. ${diferencia.toStringAsFixed(2)} a tu casa/bolsillo.',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.blueGrey[800],
+                                color: esOscuro ? textSecondary : Colors.blueGrey[800],
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -273,7 +281,7 @@ class _ModalAperturaCajaState extends ConsumerState<ModalAperturaCaja> {
                               '➕ Estás agregando Bs. ${(-diferencia).toStringAsFixed(2)} extra de tu bolsillo para cambio.',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.blue[800],
+                                color: esOscuro ? Colors.lightBlueAccent : Colors.blue[800],
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -287,9 +295,9 @@ class _ModalAperturaCajaState extends ConsumerState<ModalAperturaCaja> {
               ),
 
               // Campo de Monto Inicial Grande
-              const Text(
+              Text(
                 'Fondo Inicial en Efectivo (Bs.)',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: textPrimary),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -304,22 +312,22 @@ class _ModalAperturaCajaState extends ConsumerState<ModalAperturaCaja> {
                 ),
                 decoration: InputDecoration(
                   prefixText: 'Bs. ',
-                  prefixStyle: const TextStyle(
+                  prefixStyle: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
+                    color: textPrimary,
                   ),
                   hintText: '0.00',
                   errorText: _error,
                   filled: true,
-                  fillColor: AppColors.background,
+                  fillColor: inputBg,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: const BorderSide(color: AppColors.primary, width: 2),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: AppColors.border, width: 1.5),
+                    borderSide: BorderSide(color: cardBorder, width: 1.5),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -401,18 +409,23 @@ class _ChipMonto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final cardBorder = esOscuro ? AppColors.darkBorder : Colors.grey[400]!;
+    final neutralBg = esOscuro ? AppColors.darkBackground : Colors.grey[200];
+    final textPrimary = esOscuro ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
     return ActionChip(
       onPressed: onTap,
-      backgroundColor: esNeutral ? Colors.grey[200] : AppColors.primary.withAlpha(20),
+      backgroundColor: esNeutral ? neutralBg : AppColors.primary.withAlpha(20),
       side: BorderSide(
-        color: esNeutral ? Colors.grey[400]! : AppColors.primary.withAlpha(80),
+        color: esNeutral ? cardBorder : AppColors.primary.withAlpha(80),
       ),
       label: Text(
         label,
         style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.bold,
-          color: esNeutral ? AppColors.textPrimary : AppColors.primary,
+          color: esNeutral ? textPrimary : AppColors.primary,
         ),
       ),
     );

@@ -11,20 +11,29 @@ class ReportesRepository {
   Future<DashboardReporteCompleto> obtenerReporteCompleto(PeriodoFiltroReporte periodo) async {
     final now = DateTime.now();
     DateTime fechaInicio;
-    final DateTime fechaFin = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
+    DateTime fechaFin;
 
     switch (periodo) {
       case PeriodoFiltroReporte.hoy:
-        fechaInicio = DateTime(now.year, now.month, now.day, 0, 0, 0);
+        // Jornada comercial nocturna: de 05:00 AM a 04:59:59 AM del ciclo actual
+        if (now.hour < 5) {
+          final ayer = now.subtract(const Duration(days: 1));
+          fechaInicio = DateTime(ayer.year, ayer.month, ayer.day, 5, 0, 0);
+        } else {
+          fechaInicio = DateTime(now.year, now.month, now.day, 5, 0, 0);
+        }
+        fechaFin = fechaInicio.add(const Duration(hours: 23, minutes: 59, seconds: 59, milliseconds: 999));
         break;
       case PeriodoFiltroReporte.estaSemana:
         // Últimos 7 días incluyendo hoy
         final haceSieteDias = now.subtract(const Duration(days: 6));
         fechaInicio = DateTime(haceSieteDias.year, haceSieteDias.month, haceSieteDias.day, 0, 0, 0);
+        fechaFin = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
         break;
       case PeriodoFiltroReporte.esteMes:
         // Desde el día 1 del mes en curso
         fechaInicio = DateTime(now.year, now.month, 1, 0, 0, 0);
+        fechaFin = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
         break;
     }
 
@@ -78,32 +87,31 @@ class ReportesRepository {
       GROUP BY pv.metodo
     ''', [inicioIso, finIso]);
 
-    if (resPagos.isNotEmpty) {
-      for (final fila in resPagos) {
-        final m = fila['metodo'] as String? ?? '';
-        final val = (fila['total'] as num?)?.toDouble() ?? 0.0;
-        if (m == 'EFECTIVO') ventasEfectivo += val;
-        if (m == 'QR') ventasQr += val;
-        if (m == 'FIADO') ventasFiado += val;
-      }
-    } else {
-      // Fallback a ventas.metodo_pago
-      final resMetodosVenta = await db.rawQuery('''
-        SELECT 
-          metodo_pago,
-          COALESCE(SUM(total_venta), 0) as total
-        FROM ventas
-        WHERE fecha_venta >= ? AND fecha_venta <= ?
-        GROUP BY metodo_pago
-      ''', [inicioIso, finIso]);
+    for (final fila in resPagos) {
+      final m = (fila['metodo'] as String? ?? '').toUpperCase().trim();
+      final val = (fila['total'] as num?)?.toDouble() ?? 0.0;
+      if (m == 'EFECTIVO') ventasEfectivo += val;
+      if (m == 'QR' || m == 'TRANSFERENCIA' || m == 'BANCO') ventasQr += val;
+      if (m == 'FIADO' || m == 'CREDITO_FIADO') ventasFiado += val;
+    }
 
-      for (final fila in resMetodosVenta) {
-        final m = fila['metodo_pago'] as String? ?? '';
-        final val = (fila['total'] as num?)?.toDouble() ?? 0.0;
-        if (m == 'EFECTIVO') ventasEfectivo += val;
-        if (m == 'QR') ventasQr += val;
-        if (m == 'CREDITO_FIADO' || m == 'FIADO') ventasFiado += val;
-      }
+    // Fallback para ventas que no tengan filas en pagos_ventas
+    final resMetodosSinPagos = await db.rawQuery('''
+      SELECT 
+        metodo_pago,
+        COALESCE(SUM(total_venta), 0) as total
+      FROM ventas
+      WHERE fecha_venta >= ? AND fecha_venta <= ?
+        AND id NOT IN (SELECT DISTINCT venta_id FROM pagos_ventas WHERE venta_id IS NOT NULL)
+      GROUP BY metodo_pago
+    ''', [inicioIso, finIso]);
+
+    for (final fila in resMetodosSinPagos) {
+      final m = (fila['metodo_pago'] as String? ?? '').toUpperCase().trim();
+      final val = (fila['total'] as num?)?.toDouble() ?? 0.0;
+      if (m == 'EFECTIVO') ventasEfectivo += val;
+      if (m == 'QR' || m == 'TRANSFERENCIA' || m == 'BANCO') ventasQr += val;
+      if (m == 'CREDITO_FIADO' || m == 'FIADO') ventasFiado += val;
     }
 
     // 4. Consulta de Abonos a Deuda (Fiados cobrados durante este período)
